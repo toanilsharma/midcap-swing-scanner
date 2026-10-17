@@ -1830,3 +1830,79 @@ th .term-lookup {
   animation: termHighlightFlash 2.5s ease-out;
 }
 
+/* Today's Action Plan Card */
+.todays-plan-card {
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.14) 0%, rgba(56, 189, 248, 0.08) 100%), #0c101c;
+  border: 1px solid rgba(79, 70, 229, 0.45);
+  border-left: 4px solid #38bdf8;
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5), 0 0 24px rgba(79, 70, 229, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.todays-plan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.todays-plan-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.todays-plan-icon {
+  font-size: 18px;
+}
+
+.todays-plan-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+.todays-plan-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.todays-plan-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.todays-plan-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+  color: #f1f5f9;
+  line-height: 1.5;
+}
+
+.todays-plan-bullet-icon {
+  color: #38bdf8;
+  font-size: 15px;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
+.todays-plan-bullet-text {
+  flex: 1;
+}
+
+

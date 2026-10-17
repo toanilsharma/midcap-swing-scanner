@@ -430,13 +430,127 @@ async function fetchLivePrice(symbol) {
 // DATA RENDERING
 // =====================================================================
 
+// =====================================================================
+// TODAY'S ACTION PLAN GENERATOR
+// =====================================================================
+let _cachedScanData = null;
+let _cachedOpenPositions = [];
+
+function renderTodaysPlan(scanData, openPositions) {
+  const planContainer = document.getElementById("todaysPlanCard");
+  const bulletsList = document.getElementById("todaysPlanBullets");
+  const planMetaTime = document.getElementById("planMetaTime");
+  const planStatusPill = document.getElementById("planStatusPill");
+
+  if (!planContainer || !bulletsList) return;
+
+  if (scanData) _cachedScanData = scanData;
+  if (openPositions) _cachedOpenPositions = openPositions;
+
+  const currentScan = scanData || _cachedScanData;
+  const currentPositions = openPositions || _cachedOpenPositions || [];
+
+  if (planMetaTime && currentScan && currentScan.updated_at) {
+    planMetaTime.textContent = `Scan Date: ${formatDateTime(currentScan.updated_at)}`;
+  }
+
+  const bullets = [];
+  const isMarketOk = Boolean(currentScan && currentScan.market_ok);
+
+  // 1. Market state bullet
+  if (!isMarketOk) {
+    bullets.push("Market defensive: no new entries today - cash is a position.");
+  } else {
+    bullets.push("Market uptrend confirmed: entries allowed for high-conviction Grade A/A+ setups.");
+  }
+
+  // 2. Count of A+/A grades
+  const watchlist = (currentScan && currentScan.watchlist) || [];
+  const topGradeItems = watchlist.filter(item => {
+    const g = String(item.grade ?? item.Grade ?? "").toUpperCase();
+    return g === "A+" || g === "A";
+  });
+
+  if (topGradeItems.length > 0) {
+    const syms = topGradeItems.map(i => i.Symbol || "").filter(Boolean);
+    bullets.push(`${topGradeItems.length} A-grade setup${topGradeItems.length > 1 ? "s" : ""}: ${syms.join(", ")} - review their charts before entry.`);
+  }
+
+  // 3. Open positions near stop or target
+  let positionActions = 0;
+  let nearStopCount = 0;
+  if (Array.isArray(currentPositions) && currentPositions.length > 0) {
+    currentPositions.forEach(pos => {
+      const sym = pos.symbol || pos.Symbol || "Position";
+      const entry = parseFloat(pos.entry_price || pos.Entry || 0);
+      const stop = pos.stop ? parseFloat(pos.stop) : null;
+      const target = pos.target ? parseFloat(pos.target) : null;
+      const curPrice = parseFloat(pos._live_price || pos.last_price || pos.Close || entry);
+
+      let nearStop = pos._is_near_stop;
+      if (nearStop === undefined && stop && curPrice > 0) {
+        const pctToStop = ((curPrice - stop) / curPrice) * 100;
+        nearStop = (pctToStop <= 2.0);
+      }
+      if (nearStop) {
+        bullets.push(`Defend or exit ${sym} - price near stop.`);
+        positionActions++;
+        nearStopCount++;
+      }
+
+      let nearTarget = pos._is_near_target;
+      if (nearTarget === undefined && target && curPrice > 0) {
+        const pctToTarget = ((target - curPrice) / curPrice) * 100;
+        nearTarget = (pctToTarget <= 2.0);
+      }
+      if (nearTarget) {
+        bullets.push(`Consider booking part of ${sym} near target.`);
+        positionActions++;
+      }
+    });
+  }
+
+  // 4. Fallback if nothing applies
+  if (topGradeItems.length === 0 && positionActions === 0) {
+    bullets.push("No action needed. Review again after tomorrow's 4:15 PM scan.");
+  }
+
+  // Status pill update
+  if (planStatusPill) {
+    if (!isMarketOk) {
+      planStatusPill.className = "badge badge-danger";
+      planStatusPill.textContent = "Defensive Cash";
+    } else if (nearStopCount > 0) {
+      planStatusPill.className = "badge badge-warning";
+      planStatusPill.textContent = "Defense Required";
+    } else if (topGradeItems.length > 0) {
+      planStatusPill.className = "badge badge-success";
+      planStatusPill.textContent = `${topGradeItems.length} Setup${topGradeItems.length > 1 ? "s" : ""} Ready`;
+    } else {
+      planStatusPill.className = "badge badge-neutral";
+      planStatusPill.textContent = "Standing By";
+    }
+  }
+
+  // Render bullets list
+  bulletsList.innerHTML = bullets.map(b => `
+    <li class="todays-plan-item">
+      <span class="todays-plan-bullet-icon">•</span>
+      <span class="todays-plan-bullet-text">${escapeHtml(b)}</span>
+    </li>
+  `).join("");
+}
+
 // 1. Render Tab: Near Buy (Watchlist & Active Signals)
-function renderNearBuy(scanData) {
+function renderNearBuy(scanData, openPositions) {
   const marketBadge = document.getElementById("marketBadge");
   const regimeBanner = document.getElementById("regimeBanner");
   const regimeText = document.getElementById("regimeText");
   const scannedMeta = document.getElementById("scannedMeta");
   const lastUpdated = document.getElementById("lastUpdatedText");
+
+  // Render Today's Plan box
+  renderTodaysPlan(scanData, openPositions);
 
   if (!scanData) {
     document.getElementById("watchlistBody").innerHTML = `
@@ -1462,6 +1576,11 @@ async function renderOpenPositions(positions) {
       if (pctToTarget <= 2.0 && pctToTarget >= -1.0) isNearTarget = true;
     }
 
+    // Attach computed live values for Today's Plan generator
+    pos._live_price = currentPrice;
+    pos._is_near_stop = isNearStop;
+    pos._is_near_target = isNearTarget;
+
     let rowClass = "";
     if (isNearStop) rowClass = "row-danger";
     else if (isNearTarget) rowClass = "row-green";
@@ -1489,6 +1608,12 @@ async function renderOpenPositions(positions) {
   totalPnlCard.textContent = formatINR(totalUnrealized, true);
   totalPnlCard.className = `stat-value ${totalUnrealized > 0 ? "positive" : totalUnrealized < 0 ? "negative" : "neutral"}`;
   tableBody.innerHTML = rows.join("");
+
+  // Update Today's Plan with live open positions metrics
+  _cachedOpenPositions = positions;
+  if (_cachedScanData) {
+    renderTodaysPlan(_cachedScanData, _cachedOpenPositions);
+  }
 }
 
 // 3. Render Tab: Trade History & Equity Curve
@@ -1734,7 +1859,7 @@ async function loadAllData() {
       fetchJson(TRADES_URL).catch(e => { console.warn("Trades fetch error:", e); return []; }),
     ]);
 
-    renderNearBuy(scanData);
+    renderNearBuy(scanData, openPositions);
     await renderOpenPositions(openPositions);
     renderHistory(trades);
     renderStats(trades);
