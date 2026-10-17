@@ -3,13 +3,19 @@ Daily NIFTY Midcap 100 Swing-Trading Scanner with Telegram Alerts.
 Implements momentum trend-following and pullback setups with discipline rules.
 """
 
+import datetime
 import io
+import json
+import logging
 import math
 import os
 import re
 import sys
 import time
 from typing import Optional, Dict, Any, List
+
+# Suppress yfinance warning logs (e.g. 'No data found / may be delisted')
+logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 
 # Ensure utf-8 encoding on Windows console for emoji/unicode support
 if hasattr(sys.stdout, "reconfigure"):
@@ -47,9 +53,227 @@ MIN_AVG_TURNOVER = 200000000  # 20 Crores daily average turnover
 ENABLE_PULLBACK = True
 ENABLE_SQUEEZE = True
 SYMBOLS_FILE = "symbols.txt"
+TRADES_FILE = "trades.json"
+OPEN_POSITIONS_FILE = "open_positions.json"
+TG_OFFSET_FILE = "tg_offset.txt"
+
+# Sector mapping for NIFTY Midcap 100 and key liquid Indian equities
+# Uses only verified, live Yahoo Finance sector index symbols to avoid 404 warnings:
+# ^CNXIT, ^NSEBANK, ^CNXAUTO, ^CNXPHARMA, ^CNXFMCG, ^CNXMETAL, ^CNXREALTY, ^CNXMEDIA, ^CNXPSUBANK, ^CNXINFRA
+# Financials / NBFCs are mapped to ^NSEBANK.
+# Unreliable / missing Yahoo indices (Energy, Commodities, Consumption, Services) are mapped directly to ^NSEI.
+SECTOR_MAP: Dict[str, str] = {
+    # NIFTY IT (^CNXIT)
+    "COFORGE.NS": "^CNXIT",
+    "MPHASIS.NS": "^CNXIT",
+    "OFSS.NS": "^CNXIT",
+    "PERSISTENT.NS": "^CNXIT",
+    "LTIM.NS": "^CNXIT",
+    "LTTS.NS": "^CNXIT",
+    "TCS.NS": "^CNXIT",
+    "INFY.NS": "^CNXIT",
+    "WIPRO.NS": "^CNXIT",
+    "HCLTECH.NS": "^CNXIT",
+    "TECHM.NS": "^CNXIT",
+
+    # NIFTY Bank (^NSEBANK)
+    "AUBANK.NS": "^NSEBANK",
+    "FEDERALBNK.NS": "^NSEBANK",
+    "IDFCFIRSTB.NS": "^NSEBANK",
+    "INDUSINDBK.NS": "^NSEBANK",
+    "YESBANK.NS": "^NSEBANK",
+    "BANDHANBNK.NS": "^NSEBANK",
+    "RBLBANK.NS": "^NSEBANK",
+    "HDFCBANK.NS": "^NSEBANK",
+    "ICICIBANK.NS": "^NSEBANK",
+    "KOTAKBANK.NS": "^NSEBANK",
+    "AXISBANK.NS": "^NSEBANK",
+
+    # Financial Services / NBFC / Insurance (using ^NSEBANK as reliable proxy)
+    "360ONE.NS": "^NSEBANK",
+    "ABCAPITAL.NS": "^NSEBANK",
+    "GROWW.NS": "^NSEBANK",
+    "ICICIAMC.NS": "^NSEBANK",
+    "ICICIGI.NS": "^NSEBANK",
+    "IREDA.NS": "^NSEBANK",
+    "LICHSGFIN.NS": "^NSEBANK",
+    "LICI.NS": "^NSEBANK",
+    "LTF.NS": "^NSEBANK",
+    "M&MFIN.NS": "^NSEBANK",
+    "MCX.NS": "^NSEBANK",
+    "MFSL.NS": "^NSEBANK",
+    "MOTILALOFS.NS": "^NSEBANK",
+    "PAYTM.NS": "^NSEBANK",
+    "POLICYBZR.NS": "^NSEBANK",
+    "RECLTD.NS": "^NSEBANK",
+    "SBICARD.NS": "^NSEBANK",
+    "PFC.NS": "^NSEBANK",
+    "CHOLAFIN.NS": "^NSEBANK",
+    "SHRIRAMFIN.NS": "^NSEBANK",
+    "BAJFINANCE.NS": "^NSEBANK",
+    "BAJAJFINSV.NS": "^NSEBANK",
+
+    # NIFTY PSU Bank (^CNXPSUBANK)
+    "BANKINDIA.NS": "^CNXPSUBANK",
+    "INDIANB.NS": "^CNXPSUBANK",
+    "MAHABANK.NS": "^CNXPSUBANK",
+    "SBIN.NS": "^CNXPSUBANK",
+    "CANBK.NS": "^CNXPSUBANK",
+    "PNB.NS": "^CNXPSUBANK",
+    "UNIONBANK.NS": "^CNXPSUBANK",
+
+    # NIFTY Auto (^CNXAUTO)
+    "ASHOKLEY.NS": "^CNXAUTO",
+    "BHARATFORG.NS": "^CNXAUTO",
+    "EXIDEIND.NS": "^CNXAUTO",
+    "HEROMOTOCO.NS": "^CNXAUTO",
+    "MRF.NS": "^CNXAUTO",
+    "TIINDIA.NS": "^CNXAUTO",
+    "TATAMOTORS.NS": "^CNXAUTO",
+    "MARUTI.NS": "^CNXAUTO",
+    "M&M.NS": "^CNXAUTO",
+    "EICHERMOT.NS": "^CNXAUTO",
+    "BAJAJ-AUTO.NS": "^CNXAUTO",
+    "BALKRISIND.NS": "^CNXAUTO",
+    "BOSCHLTD.NS": "^CNXAUTO",
+    "TVSMOTOR.NS": "^CNXAUTO",
+
+    # NIFTY Pharma (^CNXPHARMA)
+    "AUROPHARMA.NS": "^CNXPHARMA",
+    "BIOCON.NS": "^CNXPHARMA",
+    "FORTIS.NS": "^CNXPHARMA",
+    "GLENMARK.NS": "^CNXPHARMA",
+    "LAURUSLABS.NS": "^CNXPHARMA",
+    "LUPIN.NS": "^CNXPHARMA",
+    "MANKIND.NS": "^CNXPHARMA",
+    "SUNPHARMA.NS": "^CNXPHARMA",
+    "DRREDDY.NS": "^CNXPHARMA",
+    "CIPLA.NS": "^CNXPHARMA",
+    "DIVISLAB.NS": "^CNXPHARMA",
+    "ALKEM.NS": "^CNXPHARMA",
+    "TORNTPHARM.NS": "^CNXPHARMA",
+    "ZYDUSLIFE.NS": "^CNXPHARMA",
+    "APOLLOHOSP.NS": "^CNXPHARMA",
+
+    # NIFTY FMCG (^CNXFMCG)
+    "COLPAL.NS": "^CNXFMCG",
+    "DABUR.NS": "^CNXFMCG",
+    "GODFRYPHLP.NS": "^CNXFMCG",
+    "MARICO.NS": "^CNXFMCG",
+    "PATANJALI.NS": "^CNXFMCG",
+    "ITC.NS": "^CNXFMCG",
+    "HINDUNILVR.NS": "^CNXFMCG",
+    "NESTLEIND.NS": "^CNXFMCG",
+    "BRITANNIA.NS": "^CNXFMCG",
+    "TATACONSUM.NS": "^CNXFMCG",
+    "PGHH.NS": "^CNXFMCG",
+    "EMAMILTD.NS": "^CNXFMCG",
+
+    # NIFTY Metal (^CNXMETAL)
+    "APLAPOLLO.NS": "^CNXMETAL",
+    "HINDCOPPER.NS": "^CNXMETAL",
+    "NATIONALUM.NS": "^CNXMETAL",
+    "NMDC.NS": "^CNXMETAL",
+    "SAIL.NS": "^CNXMETAL",
+    "TATASTEEL.NS": "^CNXMETAL",
+    "JSWSTEEL.NS": "^CNXMETAL",
+    "HINDALCO.NS": "^CNXMETAL",
+    "JINDALSTEL.NS": "^CNXMETAL",
+    "VEDL.NS": "^CNXMETAL",
+
+    # NIFTY Realty (^CNXREALTY)
+    "GODREJPROP.NS": "^CNXREALTY",
+    "LODHA.NS": "^CNXREALTY",
+    "OBEROIRLTY.NS": "^CNXREALTY",
+    "PHOENIXLTD.NS": "^CNXREALTY",
+    "PRESTIGE.NS": "^CNXREALTY",
+    "DLF.NS": "^CNXREALTY",
+    "BRIGADE.NS": "^CNXREALTY",
+
+    # NIFTY Infra / Capital Goods (^CNXINFRA)
+    "APARINDS.NS": "^CNXINFRA",
+    "ASTRAL.NS": "^CNXINFRA",
+    "BDL.NS": "^CNXINFRA",
+    "BHEL.NS": "^CNXINFRA",
+    "COCHINSHIP.NS": "^CNXINFRA",
+    "GMRAIRPORT.NS": "^CNXINFRA",
+    "GVT&D.NS": "^CNXINFRA",
+    "INDUSTOWER.NS": "^CNXINFRA",
+    "KEI.NS": "^CNXINFRA",
+    "RVNL.NS": "^CNXINFRA",
+    "LT.NS": "^CNXINFRA",
+    "HAL.NS": "^CNXINFRA",
+    "BEL.NS": "^CNXINFRA",
+    "ULTRACEMCO.NS": "^CNXINFRA",
+    "GRASIM.NS": "^CNXINFRA",
+
+    # NIFTY Media (^CNXMEDIA)
+    "SUNTV.NS": "^CNXMEDIA",
+    "ZEEL.NS": "^CNXMEDIA",
+    "PVRINOX.NS": "^CNXMEDIA",
+
+    # Energy (mapped to ^NSEI due to unreliable Yahoo sector index)
+    "ATGL.NS": "^NSEI",
+    "HINDPETRO.NS": "^NSEI",
+    "JSWENERGY.NS": "^NSEI",
+    "NHPC.NS": "^NSEI",
+    "NLCINDIA.NS": "^NSEI",
+    "OIL.NS": "^NSEI",
+    "PREMIERENE.NS": "^NSEI",
+    "SUZLON.NS": "^NSEI",
+    "WAAREEENER.NS": "^NSEI",
+    "RELIANCE.NS": "^NSEI",
+    "NTPC.NS": "^NSEI",
+    "POWERGRID.NS": "^NSEI",
+    "ONGC.NS": "^NSEI",
+    "BPCL.NS": "^NSEI",
+    "IOC.NS": "^NSEI",
+    "TATAPOWER.NS": "^NSEI",
+    "ADANIGREEN.NS": "^NSEI",
+    "ADANIPOWER.NS": "^NSEI",
+
+    # Commodities (mapped to ^NSEI due to unreliable Yahoo sector index)
+    "PIIND.NS": "^NSEI",
+    "SRF.NS": "^NSEI",
+    "UPL.NS": "^NSEI",
+    "DEEPAKNTR.NS": "^NSEI",
+    "TATACHEM.NS": "^NSEI",
+
+    # Consumption (mapped to ^NSEI due to unreliable Yahoo sector index)
+    "BLUESTARCO.NS": "^NSEI",
+    "DIXON.NS": "^NSEI",
+    "HAVELLS.NS": "^NSEI",
+    "INDHOTEL.NS": "^NSEI",
+    "JUBLFOOD.NS": "^NSEI",
+    "KALYANKJIL.NS": "^NSEI",
+    "LENSKART.NS": "^NSEI",
+    "LGEINDIA.NS": "^NSEI",
+    "MEESHO.NS": "^NSEI",
+    "NYKAA.NS": "^NSEI",
+    "PAGEIND.NS": "^NSEI",
+    "RADICO.NS": "^NSEI",
+    "SUPREMEIND.NS": "^NSEI",
+    "SWIGGY.NS": "^NSEI",
+    "UNITDSPR.NS": "^NSEI",
+    "VMM.NS": "^NSEI",
+    "VOLTAS.NS": "^NSEI",
+    "TITAN.NS": "^NSEI",
+    "TRENT.NS": "^NSEI",
+    "ASIANPAINT.NS": "^NSEI",
+
+    # Service Sector (mapped to ^NSEI due to unreliable Yahoo sector index)
+    "CONCOR.NS": "^NSEI",
+    "IRCTC.NS": "^NSEI",
+    "NAUKRI.NS": "^NSEI",
+    "TATACOMM.NS": "^NSEI",
+    "BHARTIARTL.NS": "^NSEI",
+    "INTERGLOBE.NS": "^NSEI",
+}
 
 # Cache for the index historical dataframe
 _INDEX_CACHE: Optional[pd.DataFrame] = None
+# Cache for sector historical dataframes
+_SECTOR_CACHE: Dict[str, pd.DataFrame] = {}
 
 
 # =====================================================================
@@ -403,6 +627,52 @@ def index_return_50() -> Optional[float]:
     return float((last_close / close_50) - 1.0)
 
 
+def get_sector_df(sector_symbol: str) -> Optional[pd.DataFrame]:
+    """
+    Retrieve and cache historical dataframe for a given sector index.
+    Ensures each sector is downloaded only once per run.
+    """
+    global _SECTOR_CACHE
+    if sector_symbol == INDEX_SYMBOL:
+        return get_cached_index_df()
+
+    if sector_symbol not in _SECTOR_CACHE:
+        df = get_history(sector_symbol)
+        if df is not None and not df.empty:
+            _SECTOR_CACHE[sector_symbol] = add_indicators(df)
+        else:
+            _SECTOR_CACHE[sector_symbol] = None
+    return _SECTOR_CACHE.get(sector_symbol)
+
+
+def sector_ok(symbol: str) -> bool:
+    """
+    Sector strength filter:
+    Looks up stock's sector symbol from SECTOR_MAP (defaults to ^NSEI).
+    Returns True if sector's last Close > SMA50 AND > SMA200 AND SMA50 > SMA200.
+    Returns True if sector data is unavailable or fails (fail-open).
+    """
+    try:
+        clean_sym = symbol.strip().upper()
+        if not clean_sym.endswith(".NS"):
+            clean_sym = f"{clean_sym}.NS"
+
+        sector_sym = SECTOR_MAP.get(clean_sym, SECTOR_MAP.get(symbol, INDEX_SYMBOL))
+        sec_df = get_sector_df(sector_sym)
+        if sec_df is None or len(sec_df) < 200:
+            return True  # Fail-open so a download glitch never blocks trades
+
+        last_row = sec_df.iloc[-1]
+        is_ok = (
+            (last_row["Close"] > last_row["SMA50"])
+            and (last_row["Close"] > last_row["SMA200"])
+            and (last_row["SMA50"] > last_row["SMA200"])
+        )
+        return bool(is_ok)
+    except Exception:
+        return True  # Strictly fail-open on any unexpected error
+
+
 # =====================================================================
 # 7) SINGLE SYMBOL SCANNER & POSITION SIZER
 # =====================================================================
@@ -433,7 +703,11 @@ def scan_symbol(symbol: str) -> Optional[Dict[str, Any]]:
         if stock_ret_50 <= idx_ret:
             return None
 
-    # 3) Setup trigger check
+    # 3) Sector strength filter: stock's sector index must be in an uptrend
+    if not sector_ok(symbol):
+        return None
+
+    # 4) Setup trigger check
     last_row = df.iloc[-1]
     if last_row["SIGNAL"]:
         signal_type = "BREAKOUT"
@@ -442,7 +716,7 @@ def scan_symbol(symbol: str) -> Optional[Dict[str, Any]]:
     else:
         return None
 
-    # 4) Entry and Stop Loss
+    # 5) Entry and Stop Loss
     entry = float(last_row["Close"])
     atr = float(last_row["ATR14"])
     if pd.isna(entry) or pd.isna(atr) or atr <= 0 or entry <= 0:
@@ -454,7 +728,7 @@ def scan_symbol(symbol: str) -> Optional[Dict[str, Any]]:
     if stop >= entry:
         return None
 
-    # 5) Sizing and target
+    # 6) Sizing and target
     risk_per_unit = entry - stop
     target = entry + (TARGET_R_MULTIPLE * risk_per_unit)
     qty = math.floor((CAPITAL * RISK_PCT) / risk_per_unit)
@@ -462,10 +736,12 @@ def scan_symbol(symbol: str) -> Optional[Dict[str, Any]]:
         return None
 
     risk_amount = qty * risk_per_unit
+    sector_sym = SECTOR_MAP.get(symbol, INDEX_SYMBOL)
 
     return {
         "Signal Date": pd.to_datetime(last_row["Date"]).strftime("%Y-%m-%d"),
         "Symbol": symbol,
+        "Sector": sector_sym,
         "Type": signal_type,
         "Close": round(entry, 2),
         "Entry": round(entry, 2),
@@ -498,6 +774,7 @@ def format_signal(sig: Dict[str, Any]) -> str:
     lines = [
         f"🟢 MIDCAP SWING SIGNAL ({sig['Type']})",
         f"Symbol: {sig['Symbol']}",
+        f"Sector: {sig.get('Sector', 'N/A')}",
         f"Signal Date: {sig['Signal Date']}",
         f"Close: ₹{sig['Close']:.2f}",
         f"Entry: ₹{sig['Entry']:.2f}",
@@ -562,12 +839,16 @@ def diagnose(symbol: str) -> Optional[Dict[str, Any]]:
         return None
 
     sym_name = symbol[:-3] if symbol.endswith(".NS") else symbol
+    sec_sym = SECTOR_MAP.get(symbol, INDEX_SYMBOL)
+    sec_bullish = "YES" if sector_ok(symbol) else "no"
     trend_str = "YES" if bool(last_row["TREND_OK"]) else "no"
     coiling_str = "YES" if bool(last_row["SETUP_OK"]) else "no"
     dist_pct = round(((high20_val - close_val) / close_val) * 100, 2)
 
     return {
         "Symbol": sym_name,
+        "Sector": sec_sym,
+        "SectorBullish": sec_bullish,
         "Trend": trend_str,
         "Coiling": coiling_str,
         "DistToBreakout%": dist_pct,
@@ -597,8 +878,9 @@ def build_watchlist_text() -> str:
 
     lines = ["📋 MIDCAP WATCHLIST (near breakout)"]
     for item in watchlist_candidates:
+        sec_info = f"{item['Sector']} (Bullish: {item['SectorBullish']})"
         line = (
-            f"{item['Symbol']} | {item['DistToBreakout%']}% away | "
+            f"{item['Symbol']} | {sec_info} | {item['DistToBreakout%']}% away | "
             f"Close {item['Close']} | Coiling: {item['Coiling']}"
         )
         lines.append(line)
@@ -607,10 +889,451 @@ def build_watchlist_text() -> str:
 
 
 # =====================================================================
-# 10) SCRIPT ENTRY POINT
+# 10) TRADING JOURNAL & TELEGRAM BOT COMMANDS
+# =====================================================================
+def load_json_file(file_path: str) -> List[Dict[str, Any]]:
+    """
+    Safely load a list of dictionaries from a JSON file.
+    Creates an empty JSON file with [] if missing.
+    """
+    if not os.path.exists(file_path):
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write("[]\n")
+        except Exception as exc:
+            print(f"Error creating default {file_path}: {exc}")
+        return []
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            if not content:
+                return []
+            data = json.loads(content)
+            if isinstance(data, list):
+                return data
+            return []
+    except Exception as exc:
+        print(f"Error loading {file_path}: {exc}")
+        return []
+
+
+def save_json_file(file_path: str, data: List[Dict[str, Any]]) -> None:
+    """Safely save a list of dictionaries to a JSON file."""
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception as exc:
+        print(f"Error saving {file_path}: {exc}")
+
+
+def load_trades() -> List[Dict[str, Any]]:
+    """Load all closed trades from trades.json."""
+    return load_json_file(TRADES_FILE)
+
+
+def save_trades(data: List[Dict[str, Any]]) -> None:
+    """Save closed trades to trades.json."""
+    save_json_file(TRADES_FILE, data)
+
+
+def load_open_positions() -> List[Dict[str, Any]]:
+    """Load all open positions from open_positions.json."""
+    return load_json_file(OPEN_POSITIONS_FILE)
+
+
+def save_open_positions(data: List[Dict[str, Any]]) -> None:
+    """Save open positions to open_positions.json."""
+    save_json_file(OPEN_POSITIONS_FILE, data)
+
+
+def get_updates(offset: Optional[int] = None) -> List[Dict[str, Any]]:
+    """
+    Call Telegram getUpdates API with the bot token and an optional offset.
+    Returns the list of update objects.
+    """
+    if not TELEGRAM_BOT_TOKEN:
+        return []
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
+    params: Dict[str, Any] = {"timeout": 10}
+    if offset is not None:
+        params["offset"] = offset
+
+    try:
+        resp = requests.get(url, params=params, timeout=15)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("ok"):
+                return data.get("result", [])
+    except Exception as exc:
+        print(f"Error calling Telegram getUpdates: {exc}")
+    return []
+
+
+def handle_command(text: str, chat_id: Any) -> Optional[str]:
+    """
+    Parse and process journal commands received from Telegram.
+    Security: Only responds to messages originating from the configured TELEGRAM_CHAT_ID.
+    Case-insensitive, supports bot username mentions (e.g. /buy@my_bot).
+    """
+    if not TELEGRAM_CHAT_ID or str(chat_id).strip() != str(TELEGRAM_CHAT_ID).strip():
+        print(f"Ignored unauthorized message from chat_id: {chat_id}")
+        return None
+
+    cleaned_text = text.strip()
+    if not cleaned_text.startswith("/"):
+        return None
+
+    parts = cleaned_text.split()
+    if not parts:
+        return None
+
+    # Strip bot username suffix if present e.g. /buy@bot -> /buy
+    cmd = parts[0].lower().split("@")[0]
+    args = parts[1:]
+
+    try:
+        if cmd == "/help":
+            return (
+                "🤖 SWING TRADING JOURNAL COMMANDS:\n\n"
+                "• /buy SYMBOL ENTRY QTY [STOP] [TARGET]\n"
+                "  Example: /buy DIXON 12500 8 11800 13900\n\n"
+                "• /sell SYMBOL EXIT [NOTE]\n"
+                "  Example: /sell DIXON 13800 hit target 2R\n\n"
+                "• /open\n"
+                "  List current open positions\n\n"
+                "• /trades\n"
+                "  List last 10 closed trades\n\n"
+                "• /stats\n"
+                "  Calculate win rate, profit factor, max drawdown & PnL\n\n"
+                "• /help\n"
+                "  Show this command menu"
+            )
+
+        elif cmd == "/buy":
+            # Usage: /buy SYMBOL ENTRY_PRICE QTY [STOP] [TARGET]
+            if len(args) < 3:
+                return "⚠️ Usage: /buy SYMBOL ENTRY_PRICE QTY [STOP] [TARGET]\nExample: /buy PERSISTENT 5200 10 4950 5700"
+
+            raw_sym = args[0].strip().upper()
+            sym = raw_sym if raw_sym.endswith(".NS") else f"{raw_sym}.NS"
+
+            try:
+                entry_price = float(args[1])
+                qty = int(float(args[2]))
+            except ValueError:
+                return "⚠️ Invalid format: Entry price and quantity must be valid numbers."
+
+            if entry_price <= 0 or qty <= 0:
+                return "⚠️ Entry price and quantity must be positive numbers."
+
+            stop = None
+            target = None
+            if len(args) >= 4:
+                try:
+                    stop = float(args[3])
+                except ValueError:
+                    return "⚠️ Invalid format: Stop loss must be a number."
+            if len(args) >= 5:
+                try:
+                    target = float(args[4])
+                except ValueError:
+                    return "⚠️ Invalid format: Target price must be a number."
+
+            open_positions = load_open_positions()
+            today_str = datetime.date.today().isoformat()
+
+            new_pos = {
+                "symbol": sym,
+                "entry_date": today_str,
+                "entry_price": round(entry_price, 2),
+                "qty": qty,
+                "stop": round(stop, 2) if stop is not None else None,
+                "target": round(target, 2) if target is not None else None,
+            }
+            open_positions.append(new_pos)
+            save_open_positions(open_positions)
+
+            stop_str = f"₹{stop:,.2f}" if stop is not None else "None"
+            target_str = f"₹{target:,.2f}" if target is not None else "None"
+
+            return (
+                f"✅ POSITION OPENED:\n"
+                f"Symbol: {sym}\n"
+                f"Entry: ₹{entry_price:,.2f} | Qty: {qty}\n"
+                f"Stop: {stop_str} | Target: {target_str}\n"
+                f"Date: {today_str}"
+            )
+
+        elif cmd == "/sell":
+            # Usage: /sell SYMBOL EXIT_PRICE [NOTE]
+            if len(args) < 2:
+                return "⚠️ Usage: /sell SYMBOL EXIT_PRICE [NOTE]\nExample: /sell PERSISTENT 5600 Exited at 2R target"
+
+            raw_sym = args[0].strip().upper()
+            search_sym = raw_sym[:-3] if raw_sym.endswith(".NS") else raw_sym
+
+            try:
+                exit_price = float(args[1])
+            except ValueError:
+                return "⚠️ Invalid format: Exit price must be a valid number."
+
+            note = " ".join(args[2:]).strip() if len(args) > 2 else ""
+
+            open_positions = load_open_positions()
+            matched_idx = -1
+            matched_pos = None
+
+            for i, pos in enumerate(open_positions):
+                pos_sym = pos["symbol"].upper()
+                pos_clean = pos_sym[:-3] if pos_sym.endswith(".NS") else pos_sym
+                if pos_clean == search_sym:
+                    matched_idx = i
+                    matched_pos = pos
+                    break
+
+            if matched_pos is None:
+                return f"❌ No open position found for {raw_sym}. Use /open to view active positions."
+
+            # Remove from open positions
+            open_positions.pop(matched_idx)
+            save_open_positions(open_positions)
+
+            entry_price = float(matched_pos["entry_price"])
+            qty = int(matched_pos["qty"])
+            entry_date = matched_pos.get("entry_date", datetime.date.today().isoformat())
+            stop_val = matched_pos.get("stop")
+            target_val = matched_pos.get("target")
+
+            pnl = (exit_price - entry_price) * qty
+            pnl_pct = ((exit_price - entry_price) / entry_price) * 100.0 if entry_price > 0 else 0.0
+
+            r_mult = None
+            if stop_val is not None:
+                risk_per_unit = entry_price - float(stop_val)
+                if abs(risk_per_unit) > 1e-4:
+                    r_mult = (exit_price - entry_price) / risk_per_unit
+
+            today_str = datetime.date.today().isoformat()
+            closed_trade = {
+                "symbol": matched_pos["symbol"],
+                "entry_date": entry_date,
+                "entry_price": round(entry_price, 2),
+                "qty": qty,
+                "stop": round(float(stop_val), 2) if stop_val is not None else None,
+                "target": round(float(target_val), 2) if target_val is not None else None,
+                "exit_date": today_str,
+                "exit_price": round(exit_price, 2),
+                "pnl": round(pnl, 2),
+                "pnl_pct": round(pnl_pct, 2),
+                "r_multiple": round(r_mult, 2) if r_mult is not None else None,
+                "note": note,
+            }
+
+            trades = load_trades()
+            trades.append(closed_trade)
+            save_trades(trades)
+
+            sign = "+" if pnl >= 0 else ""
+            r_str = f"{r_mult:+.2f}R" if r_mult is not None else "N/A"
+            note_str = f"\nNote: {note}" if note else ""
+
+            return (
+                f"🎯 POSITION CLOSED:\n"
+                f"Symbol: {closed_trade['symbol']}\n"
+                f"Entry: ₹{entry_price:,.2f} ({entry_date}) -> Exit: ₹{exit_price:,.2f} ({today_str})\n"
+                f"Qty: {qty}\n"
+                f"PnL: {sign}₹{pnl:,.2f} ({sign}{pnl_pct:.2f}%)\n"
+                f"R-Multiple: {r_str}"
+                f"{note_str}"
+            )
+
+        elif cmd == "/open":
+            positions = load_open_positions()
+            if not positions:
+                return "📋 No open positions currently."
+
+            lines = [f"📋 OPEN POSITIONS ({len(positions)}):"]
+            for i, p in enumerate(positions, start=1):
+                sym_clean = p["symbol"]
+                e_price = p["entry_price"]
+                q = p["qty"]
+                e_date = p.get("entry_date", "N/A")
+                s_str = f"₹{p['stop']:,.2f}" if p.get("stop") is not None else "None"
+                t_str = f"₹{p['target']:,.2f}" if p.get("target") is not None else "None"
+                lines.append(f"{i}) {sym_clean} (Qty: {q})")
+                lines.append(f"   Entry: ₹{e_price:,.2f} on {e_date}")
+                lines.append(f"   Stop: {s_str} | Target: {t_str}")
+
+            return "\n".join(lines)
+
+        elif cmd == "/trades":
+            trades = load_trades()
+            if not trades:
+                return "📜 No closed trades recorded yet."
+
+            recent = trades[-10:]
+            recent.reverse()  # most recent first
+
+            lines = [f"📜 RECENT CLOSED TRADES (Last {len(recent)}):"]
+            for t in recent:
+                pnl = t["pnl"]
+                sign = "+" if pnl >= 0 else ""
+                r_str = f"{t['r_multiple']:+.2f}R" if t.get("r_multiple") is not None else "N/A"
+                lines.append(
+                    f"• {t['symbol']}: {sign}₹{pnl:,.2f} ({sign}{t['pnl_pct']:.1f}%) | R: {r_str}\n"
+                    f"  Entry: ₹{t['entry_price']:,.2f} ({t['entry_date']}) -> Exit: ₹{t['exit_price']:,.2f} ({t['exit_date']})"
+                )
+                if t.get("note"):
+                    lines.append(f"  Note: {t['note']}")
+
+            return "\n".join(lines)
+
+        elif cmd == "/stats":
+            trades = load_trades()
+            if not trades:
+                return "📊 No closed trades available to calculate statistics."
+
+            total_trades = len(trades)
+            wins = [t for t in trades if t["pnl"] > 0]
+            losses = [t for t in trades if t["pnl"] <= 0]
+
+            win_rate = (len(wins) / total_trades) * 100.0
+            avg_win = (sum(t["pnl"] for t in wins) / len(wins)) if wins else 0.0
+            avg_loss = (sum(t["pnl"] for t in losses) / len(losses)) if losses else 0.0
+            sum_wins = sum(t["pnl"] for t in wins)
+            sum_losses = sum(t["pnl"] for t in losses)
+
+            if sum_losses != 0:
+                profit_factor = sum_wins / abs(sum_losses)
+                pf_str = f"{profit_factor:.2f}"
+            elif sum_wins > 0:
+                pf_str = "∞ (All Wins)"
+            else:
+                pf_str = "0.00"
+
+            win_prob = len(wins) / total_trades
+            loss_prob = 1.0 - win_prob
+            expectancy = (win_prob * avg_win) - (loss_prob * abs(avg_loss))
+            total_pnl = sum(t["pnl"] for t in trades)
+
+            best_trade = max((t["pnl"] for t in trades), default=0.0)
+            worst_trade = min((t["pnl"] for t in trades), default=0.0)
+
+            # Max drawdown on cumulative PnL
+            cum = 0.0
+            peak = 0.0
+            max_dd = 0.0
+            for t in trades:
+                cum += t["pnl"]
+                if cum > peak:
+                    peak = cum
+                dd = peak - cum
+                if dd > max_dd:
+                    max_dd = dd
+
+            pnl_sign = "+" if total_pnl >= 0 else ""
+            exp_sign = "+" if expectancy >= 0 else ""
+            best_sign = "+" if best_trade >= 0 else ""
+            worst_sign = "+" if worst_trade >= 0 else ""
+
+            return (
+                "📊 SWING JOURNAL PERFORMANCE:\n\n"
+                f"• Total Trades: {total_trades} (Wins: {len(wins)}, Losses: {len(losses)})\n"
+                f"• Win Rate: {win_rate:.1f}%\n"
+                f"• Total PnL: {pnl_sign}₹{total_pnl:,.2f}\n"
+                f"• Profit Factor: {pf_str}\n"
+                f"• Expectancy / Trade: {exp_sign}₹{expectancy:,.2f}\n"
+                f"• Average Win: +₹{avg_win:,.2f}\n"
+                f"• Average Loss: -₹{abs(avg_loss):,.2f}\n"
+                f"• Max Drawdown: ₹{max_dd:,.2f}\n"
+                f"• Best Trade: {best_sign}₹{best_trade:,.2f}\n"
+                f"• Worst Trade: {worst_sign}₹{worst_trade:,.2f}"
+            )
+
+        else:
+            return f"❓ Unknown command: {cmd}\nType /help to see all available commands."
+
+    except Exception as exc:
+        print(f"Error handling command '{text}': {exc}")
+        return f"⚠️ Error processing command: {exc}"
+
+
+def poll_once() -> None:
+    """
+    Check for new Telegram updates, execute any commands, and update offset.
+    """
+    last_offset = None
+    if os.path.exists(TG_OFFSET_FILE):
+        try:
+            with open(TG_OFFSET_FILE, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content:
+                    last_offset = int(content)
+        except Exception:
+            last_offset = None
+
+    updates = get_updates(offset=last_offset)
+    if not updates:
+        return
+
+    for update in updates:
+        update_id = update.get("update_id")
+        if update_id is not None:
+            last_offset = update_id + 1
+
+        message = update.get("message") or update.get("channel_post")
+        if not message:
+            continue
+
+        text = message.get("text")
+        chat = message.get("chat") or {}
+        chat_id = chat.get("id")
+
+        if text and chat_id:
+            reply = handle_command(text, chat_id)
+            if reply:
+                send_telegram(reply)
+
+    if last_offset is not None:
+        try:
+            with open(TG_OFFSET_FILE, "w", encoding="utf-8") as f:
+                f.write(str(last_offset))
+        except Exception as exc:
+            print(f"Error saving {TG_OFFSET_FILE}: {exc}")
+
+
+def poll_loop() -> None:
+    """
+    Poll Telegram for journal commands.
+    If ONESHOT=1 is set, runs poll_once() once and exits immediately (suitable for 5-min cron workflows).
+    Otherwise, polls continuously every 5 seconds.
+    """
+    if os.getenv("ONESHOT", "0").strip() == "1":
+        print("Running Telegram listener in ONESHOT mode (processing pending updates once)...")
+        poll_once()
+        print("ONESHOT update processing completed.")
+        return
+
+    print("Telegram journal bot listener started. Polling every 5 seconds... (Press Ctrl+C to stop)")
+    while True:
+        try:
+            poll_once()
+        except KeyboardInterrupt:
+            print("Telegram listener stopped by user.")
+            break
+        except Exception as exc:
+            print(f"Polling loop exception: {exc}")
+        time.sleep(5)
+
+
+# =====================================================================
+# 11) SCRIPT ENTRY POINT
 # =====================================================================
 if __name__ == "__main__":
-    run_scanner()
-    if SEND_WATCHLIST:
-        wl_text = build_watchlist_text()
-        send_telegram(wl_text)
+    if "--poll" in sys.argv:
+        poll_loop()  # long-running, for the listener workflow
+    else:
+        run_scanner()  # daily scan, exits when done
+        if SEND_WATCHLIST:
+            wl_text = build_watchlist_text()
+            send_telegram(wl_text)
