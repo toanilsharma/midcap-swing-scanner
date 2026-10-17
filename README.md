@@ -1,0 +1,90 @@
+# NIFTY Midcap 100 Swing Trading Scanner
+
+An automated daily swing-trading scanner for the NIFTY Midcap 100 index with real-time Telegram alerts. It identifies high-probability momentum setups combining Mark Minervini's Trend Template, Volatility Contraction Patterns (VCP), Bollinger/Keltner squeezes, and RSI mean-reversion pullbacks, paired with strict risk management and position sizing.
+
+---
+
+## Features
+
+- **Minervini Trend Template**: Filters for stocks in Stage 2 uptrends using alignment across 50, 150, and 200-day Simple Moving Averages (SMAs), 50-day moving average slopes, and 52-week High/Low proximity.
+- **VCP & Squeeze Setup**: Detects volume dry-ups (`VOL5 < 0.8 * VOL50`) and price volatility contractions (`RANGE5 < 0.8 * RANGE50`), as well as Bollinger Bands coiling inside Keltner Channels (`SQUEEZE_ON`).
+- **Breakout & Pullback Triggers**:
+  - **Breakout**: Fresh cross above the 20-day high (excluding today) accompanied by volume spikes (>1.5x 50-day average) and strong candle closes in the upper 40% of the daily range.
+  - **Pullback**: 2-period RSI oversold reversal (`RSI2 < 10` crossing up from previous day) with positive price confirmation.
+- **Market Direction Filter**: Implements William O'Neil's M-rule on the benchmark index (`^NSEI`). Scanner entries are blocked unless the index is in a confirmed uptrend (Close > SMA50 > SMA200).
+- **Liquidity & Relative Strength**:
+  - Requires a minimum 50-day average daily turnover of ₹20 Crores to ensure seamless execution.
+  - Requires stock 50-day percentage performance to outperform the benchmark index.
+- **ATR Stop Loss & 1% Risk Sizing**:
+  - Stop loss anchored dynamically to 1.5x ATR(14) with a hard floor capped at 7% maximum risk.
+  - Profit target calculated at 2R (2:1 reward-to-risk ratio).
+  - Exact share quantities calculated from a fixed 1% account equity risk (`CAPITAL * RISK_PCT / risk_per_unit`).
+- **Watchlist Generator**: Identifies uptrending stocks coiling within 5% of their 20-day breakout level, sorted by distance.
+
+---
+
+## Local Setup
+
+### 1. Prerequisites
+- Python 3.10+ installed on your system.
+
+### 2. Install Dependencies
+Clone or navigate to the workspace directory and install the required Python packages:
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Environment Configuration
+Copy the sample environment file to `.env`:
+```bash
+cp .env.example .env
+```
+Open `.env` and fill in your Telegram credentials:
+```env
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHAT_ID=your_chat_id_here
+```
+*(Never commit `.env` to version control; it is ignored in `.gitignore`.)*
+
+### 4. Custom Symbols (Optional)
+By default, if `symbols.txt` is empty or absent, the scanner automatically downloads the constituent list of the NIFTY Midcap 100 directly from NSE/NiftyIndices.
+
+If you wish to scan a custom basket of symbols instead, list them in `symbols.txt` (one per line, with or without `.NS`):
+```text
+PERSISTENT
+DIXON
+COFORGE
+```
+
+---
+
+## How to Run
+
+Run the scanner locally after market close (recommended between 15:45 and 16:30 IST):
+```bash
+python main.py
+```
+
+The script will:
+1. Verify the benchmark index market regime.
+2. Scan all candidate symbols and compute indicators.
+3. Transmit all detected breakout and pullback setups to your Telegram chat with entry, stop loss, target, position quantity, and risk discipline rules.
+4. Deliver a watchlist summary of stocks nearing breakouts.
+
+---
+
+## Automation (GitHub Actions)
+
+This repository includes an automated workflow configured in `.github/workflows/daily_scan.yml`:
+- **Schedule**: Runs automatically Monday through Friday at **16:15 IST** (10:45 UTC).
+- **Manual Trigger**: Can be dispatched manually anytime from the GitHub Actions tab.
+- **Secrets Setup**: Add your credentials as GitHub Repository Secrets under **Settings > Secrets and variables > Actions**:
+  - `TELEGRAM_BOT_TOKEN`
+  - `TELEGRAM_CHAT_ID`
+
+---
+
+## Risk Disclaimer
+
+> [!WARNING]
+> This software is developed purely for **educational and research purposes**. It does not constitute financial, investment, or trading advice. Swing trading and stock market participation carry substantial risk of capital loss. Always perform your own due diligence, review company earnings dates, and consult a certified financial advisor before executing trades with real money.

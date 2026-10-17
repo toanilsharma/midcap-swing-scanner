@@ -1,0 +1,4 @@
+# Optional: one NSE symbol per line, example:
+# PERSISTENT
+# DIXON
+# If this file stays empty, the program auto-downloads NIFTY Midcap 100.
