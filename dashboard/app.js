@@ -3,7 +3,7 @@
 // Replace PASSWORD_HASH with the SHA-256 of your own password before deploying.
 // Placeholder SHA-256 hash below must be replaced with your chosen password hash before deploying.
 // =====================================================================
-const PASSWORD_HASH = "fb86fb757d1241d512865070e05ccb5d17dfaa11a4b2ca04b89bacad17530ad4";
+const PASSWORD_HASH = "ad15418e84fe6e94ec8dd2c22e7f952fc90457256ffbc0f59dcffdef0509366d";
 
 // =====================================================================
 // GITHUB RAW ENDPOINTS
