@@ -849,10 +849,58 @@ def diagnose(symbol: str) -> Optional[Dict[str, Any]]:
 
     sym_name = symbol[:-3] if symbol.endswith(".NS") else symbol
     sec_sym = SECTOR_MAP.get(symbol, INDEX_SYMBOL)
-    sec_bullish = "YES" if sector_ok(symbol) else "no"
-    trend_str = "YES" if bool(last_row["TREND_OK"]) else "no"
-    coiling_str = "YES" if bool(last_row["SETUP_OK"]) else "no"
+    sec_ok = sector_ok(symbol)
+    sec_bullish = "YES" if sec_ok else "no"
+    trend_ok = bool(last_row["TREND_OK"])
+    trend_str = "YES" if trend_ok else "no"
+    setup_ok = bool(last_row["SETUP_OK"])
+    coiling_str = "YES" if setup_ok else "no"
     dist_pct = round(((high20_val - close_val) / close_val) * 100, 2)
+
+    # Composite Setup Score (0-100) & Grade
+    #   +25 if TREND_OK
+    #   +20 if DistToBreakout% < 2 (scale: 20 * max(0, 1 - dist/5))
+    #   +15 if SETUP_OK (coiling today)
+    #   +15 if sector_ok(symbol) is True
+    #   +10 if VOL_DRYUP
+    #   +10 if 40 <= RSI14 <= 65
+    #   + 5 if market_ok() else cap the total at 50
+    # Clamp to 0-100.
+    trend_pts = 25 if trend_ok else 0
+
+    dist = max(0.0, float(dist_pct))
+    dist_pts = min(20.0, max(0.0, 20.0 * max(0.0, 1.0 - (dist / 5.0))))
+
+    setup_pts = 15 if setup_ok else 0
+    sector_pts = 15 if sec_ok else 0
+
+    vol_dryup = bool(last_row.get("VOL_DRYUP", False))
+    vol_pts = 10 if vol_dryup else 0
+
+    rsi_val = last_row.get("RSI14")
+    rsi_in_range = False
+    if rsi_val is not None and not pd.isna(rsi_val):
+        rsi_in_range = (40.0 <= float(rsi_val) <= 65.0)
+    rsi_pts = 10 if rsi_in_range else 0
+
+    mkt_ok = bool(market_ok())
+    raw_score = trend_pts + dist_pts + setup_pts + sector_pts + vol_pts + rsi_pts
+    if mkt_ok:
+        raw_score += 5
+    else:
+        raw_score = min(raw_score, 50.0)
+
+    score = int(round(max(0.0, min(100.0, raw_score))))
+
+    # Grade: A+ if score>=80 and sector bullish and market ok; A if score>=70 and sector bullish; B if score>=60; else C.
+    if score >= 80 and sec_ok and mkt_ok:
+        grade = "A+"
+    elif score >= 70 and sec_ok:
+        grade = "A"
+    elif score >= 60:
+        grade = "B"
+    else:
+        grade = "C"
 
     return {
         "Symbol": sym_name,
@@ -862,6 +910,10 @@ def diagnose(symbol: str) -> Optional[Dict[str, Any]]:
         "Coiling": coiling_str,
         "DistToBreakout%": dist_pct,
         "Close": round(close_val, 2),
+        "score": score,
+        "grade": grade,
+        "Score": score,
+        "Grade": grade,
     }
 
 
@@ -869,7 +921,7 @@ def get_watchlist_candidates() -> List[Dict[str, Any]]:
     """
     Scan symbols to build a watchlist of stocks in an uptrend near breakout.
     Returns list of diagnose() dicts with Trend YES and DistToBreakout% <= 5.0,
-    sorted by DistToBreakout% ascending.
+    sorted by score descending.
     """
     symbols = get_symbols()
     watchlist_candidates: List[Dict[str, Any]] = []
@@ -881,8 +933,8 @@ def get_watchlist_candidates() -> List[Dict[str, Any]]:
             watchlist_candidates.append(diag)
         time.sleep(0.2)
 
-    # Sort ascending by distance to breakout
-    watchlist_candidates.sort(key=lambda x: x["DistToBreakout%"])
+    # Sort descending by score, secondary ascending by distance to breakout
+    watchlist_candidates.sort(key=lambda x: (-x.get("score", 0), x.get("DistToBreakout%", 999.0)))
     return watchlist_candidates
 
 
@@ -899,9 +951,11 @@ def build_watchlist_text(candidates: Optional[List[Dict[str, Any]]] = None) -> s
     lines = ["📋 MIDCAP WATCHLIST (near breakout)"]
     for item in candidates:
         sec_info = f"{item['Sector']} (Bullish: {item['SectorBullish']})"
+        score_val = item.get("score", item.get("Score", "-"))
+        grade_val = item.get("grade", item.get("Grade", "-"))
         line = (
-            f"{item['Symbol']} | {sec_info} | {item['DistToBreakout%']}% away | "
-            f"Close {item['Close']} | Coiling: {item['Coiling']}"
+            f"{item['Symbol']} [Grade {grade_val} | Score {score_val}] | {sec_info} | "
+            f"{item['DistToBreakout%']}% away | Close {item['Close']} | Coiling: {item['Coiling']}"
         )
         lines.append(line)
 

@@ -10,7 +10,9 @@
       "Trend": "YES",
       "Coiling": "no",
       "DistToBreakout%": 0.42,
-      "Close": 345.0
+      "Close": 345.0,
+      "score": 43,
+      "grade": "C"
     },
     {
       "Symbol": "LAURUSLABS",
@@ -19,7 +21,9 @@
       "Trend": "YES",
       "Coiling": "no",
       "DistToBreakout%": 0.44,
-      "Close": 2060.1
+      "Close": 2060.1,
+      "score": 43,
+      "grade": "C"
     },
     {
       "Symbol": "COFORGE",
@@ -28,7 +32,9 @@
       "Trend": "YES",
       "Coiling": "no",
       "DistToBreakout%": 0.93,
-      "Close": 1951.9
+      "Close": 1951.9,
+      "score": 41,
+      "grade": "C"
     },
     {
       "Symbol": "MOTILALOFS",
@@ -37,7 +43,9 @@
       "Trend": "YES",
       "Coiling": "no",
       "DistToBreakout%": 3.09,
-      "Close": 1057.6
+      "Close": 1057.6,
+      "score": 33,
+      "grade": "C"
     },
     {
       "Symbol": "AUROPHARMA",
@@ -46,7 +54,9 @@
       "Trend": "YES",
       "Coiling": "no",
       "DistToBreakout%": 4.39,
-      "Close": 1666.9
+      "Close": 1666.9,
+      "score": 27,
+      "grade": "C"
     }
   ],
   "scanned_count": 100

@@ -101,7 +101,7 @@ function renderNearBuy(scanData) {
 
   if (!scanData) {
     document.getElementById("watchlistBody").innerHTML = `
-      <tr><td colspan="6" class="empty-state">No scan results found on GitHub repository.</td></tr>
+      <tr><td colspan="8" class="empty-state">No scan results found on GitHub repository.</td></tr>
     `;
     return;
   }
@@ -150,12 +150,24 @@ function renderNearBuy(scanData) {
 
   if (watchlist.length === 0) {
     watchlistBody.innerHTML = `
-      <tr><td colspan="6" class="empty-state">📋 Watchlist empty: no midcaps currently in uptrend within 5% of breakout.</td></tr>
+      <tr><td colspan="8" class="empty-state">📋 Watchlist empty: no midcaps currently in uptrend within 5% of breakout.</td></tr>
     `;
     return;
   }
 
-  watchlistBody.innerHTML = watchlist.map(item => {
+  // Sort watchlist by score descending (secondary: DistToBreakout% ascending)
+  const sortedWatchlist = [...watchlist].sort((a, b) => {
+    const scoreA = Number(a.score ?? a.Score ?? 0);
+    const scoreB = Number(b.score ?? b.Score ?? 0);
+    if (scoreB !== scoreA) {
+      return scoreB - scoreA;
+    }
+    const distA = parseFloat(a["DistToBreakout%"]) || 0;
+    const distB = parseFloat(b["DistToBreakout%"]) || 0;
+    return distA - distB;
+  });
+
+  watchlistBody.innerHTML = sortedWatchlist.map(item => {
     const dist = parseFloat(item["DistToBreakout%"]) || 0;
     let rowClass = "";
     if (dist <= 2.0) rowClass = "row-green";
@@ -170,9 +182,27 @@ function renderNearBuy(scanData) {
       ? `<span class="badge badge-success">Coiling</span>`
       : `<span class="badge badge-neutral">no</span>`;
 
+    const score = Number(item.score ?? item.Score ?? 0);
+    let scoreBadgeClass = "badge-danger";
+    if (score >= 80) {
+      scoreBadgeClass = "badge-success";
+    } else if (score >= 60) {
+      scoreBadgeClass = "badge-warning";
+    }
+    const scoreBadge = `<span class="badge ${scoreBadgeClass}">${score}</span>`;
+
+    const grade = item.grade ?? item.Grade ?? "C";
+    let gradeBadgeClass = "badge-neutral";
+    if (grade === "A+" || grade === "A") gradeBadgeClass = "badge-success";
+    else if (grade === "B") gradeBadgeClass = "badge-warning";
+    else if (grade === "C") gradeBadgeClass = "badge-danger";
+    const gradeBadge = `<span class="badge ${gradeBadgeClass}">${grade}</span>`;
+
     return `
       <tr class="${rowClass}">
         <td><strong>${item.Symbol}</strong></td>
+        <td>${scoreBadge}</td>
+        <td>${gradeBadge}</td>
         <td>${formatINR(item.Close)}</td>
         <td><strong>${dist.toFixed(2)}%</strong> away</td>
         <td>${coilingBadge}</td>
