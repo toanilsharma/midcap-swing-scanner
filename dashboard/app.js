@@ -101,7 +101,7 @@ function renderNearBuy(scanData) {
 
   if (!scanData) {
     document.getElementById("watchlistBody").innerHTML = `
-      <tr><td colspan="8" class="empty-state">No scan results found on GitHub repository.</td></tr>
+      <tr><td colspan="9" class="empty-state">No scan results found on GitHub repository.</td></tr>
     `;
     return;
   }
@@ -150,7 +150,7 @@ function renderNearBuy(scanData) {
 
   if (watchlist.length === 0) {
     watchlistBody.innerHTML = `
-      <tr><td colspan="8" class="empty-state">📋 Watchlist empty: no midcaps currently in uptrend within 5% of breakout.</td></tr>
+      <tr><td colspan="9" class="empty-state">📋 Watchlist empty: no midcaps currently in uptrend within 5% of breakout.</td></tr>
     `;
     return;
   }
@@ -213,6 +213,11 @@ function renderNearBuy(scanData) {
         <td>${coilingBadge}</td>
         <td><span class="badge badge-neutral">${item.Sector || "^NSEI"}</span></td>
         <td>${bullishBadge}</td>
+        <td>
+          <button class="btn btn-xs btn-outline-primary size-trade-btn" data-symbol="${item.Symbol}" title="Size this trade with Position Sizer">
+            Size this trade
+          </button>
+        </td>
       </tr>
     `;
   }).join("");
@@ -224,6 +229,18 @@ function renderNearBuy(scanData) {
       const item = sortedWatchlist.find(w => w.Symbol === sym);
       if (item) {
         toggleWatchlistDetail(row, item, scanData);
+      }
+    });
+  });
+
+  // Attach click listeners for "Size this trade" buttons on rows
+  watchlistBody.querySelectorAll(".size-trade-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const sym = btn.getAttribute("data-symbol");
+      const item = sortedWatchlist.find(w => w.Symbol === sym);
+      if (item) {
+        openPositionSizerFor(item);
       }
     });
   });
@@ -612,7 +629,7 @@ async function toggleWatchlistDetail(row, item, scanData) {
 
   const detailHtml = `
     <tr class="detail-row" id="detail-${symbol}">
-      <td colspan="8">
+      <td colspan="9">
         <div class="stock-detail-panel">
           <div class="detail-header">
             <div class="detail-title-group">
@@ -620,6 +637,9 @@ async function toggleWatchlistDetail(row, item, scanData) {
               <span class="badge badge-neutral">${item.Sector || "^NSEI"}</span>
               <span class="badge badge-success">₹${item.Close || 0}</span>
               <span class="badge badge-warning">${parseFloat(item["DistToBreakout%"] || 0).toFixed(2)}% to Breakout</span>
+              <button class="btn btn-sm btn-primary size-trade-btn" data-symbol="${symbol}">
+                🎯 Size this trade
+              </button>
               <span class="detail-hint">(Click row to collapse)</span>
             </div>
             <div id="earnings-warn-${symbol}"></div>
@@ -708,6 +728,18 @@ async function toggleWatchlistDetail(row, item, scanData) {
   `;
 
   row.insertAdjacentHTML("afterend", detailHtml);
+
+  // Attach listener to "Size this trade" button inside the detail panel
+  const detailEl = document.getElementById(`detail-${symbol}`);
+  if (detailEl) {
+    const detailSizeBtn = detailEl.querySelector(".size-trade-btn");
+    if (detailSizeBtn) {
+      detailSizeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openPositionSizerFor(item);
+      });
+    }
+  }
 
   // Default breakout level from item
   const distPct = parseFloat(item["DistToBreakout%"]) || 0;
@@ -809,6 +841,226 @@ window.addEventListener("resize", () => {
     }
   });
 });
+
+// =====================================================================
+// POSITION SIZER & RISK CALCULATOR
+// =====================================================================
+
+// Open and pre-fill Position Sizer from a Watchlist row
+function openPositionSizerFor(item) {
+  if (!item) return;
+
+  // 1. Switch tab to Open Positions
+  const openTabBtn = document.querySelector('.tab-btn[data-tab="tabOpen"]');
+  if (openTabBtn) {
+    openTabBtn.click();
+  }
+
+  // 2. Pre-fill Entry and Stop
+  const symbol = item.Symbol || "";
+  const close = parseFloat(item.Close) || 0;
+  const dist = parseFloat(item["DistToBreakout%"]) || 0;
+
+  // Entry: breakout price if dist > 0, else current close
+  const entryPrice = close > 0 ? (dist > 0 ? Number((close * (1 + dist / 100)).toFixed(2)) : Number(close.toFixed(2))) : 0;
+
+  // Stop Loss: 1.5 * ATR14 floor at max 7% loss (or default 5% stop if ATR not available)
+  let stopPrice = 0;
+  if (entryPrice > 0) {
+    if (item.ATR14 && !isNaN(item.ATR14)) {
+      const atrStop = entryPrice - 1.5 * parseFloat(item.ATR14);
+      const floorStop = entryPrice * 0.93; // 7% max stop loss rule
+      stopPrice = Number(Math.max(floorStop, atrStop).toFixed(2));
+    } else {
+      stopPrice = Number((entryPrice * 0.95).toFixed(2));
+    }
+  }
+
+  const symInput = document.getElementById("sizerSymbol");
+  const entryInput = document.getElementById("sizerEntry");
+  const stopInput = document.getElementById("sizerStop");
+
+  if (symInput) symInput.value = symbol;
+  if (entryInput) entryInput.value = entryPrice > 0 ? entryPrice : "";
+  if (stopInput) stopInput.value = stopPrice > 0 ? stopPrice : "";
+
+  // Auto-calculate outputs
+  updatePositionSizer();
+
+  // 3. Highlight and smooth scroll into view
+  const card = document.getElementById("positionSizerCard");
+  if (card) {
+    card.scrollIntoView({ behavior: "smooth", block: "start" });
+    card.classList.add("highlight-flash");
+    setTimeout(() => card.classList.remove("highlight-flash"), 1500);
+  }
+}
+
+// Auto-compute Position Sizer metrics & /buy command
+function updatePositionSizer() {
+  const symbolInput = document.getElementById("sizerSymbol");
+  const capitalInput = document.getElementById("sizerCapital");
+  const riskPctInput = document.getElementById("sizerRiskPct");
+  const entryInput = document.getElementById("sizerEntry");
+  const stopInput = document.getElementById("sizerStop");
+
+  if (!capitalInput) return; // not mounted
+
+  const symbol = (symbolInput?.value || "").trim().toUpperCase();
+  const capital = parseFloat(capitalInput.value) || 0;
+  const riskPct = parseFloat(riskPctInput.value) || 0;
+  const entry = parseFloat(entryInput?.value) || 0;
+  const stop = parseFloat(stopInput?.value) || 0;
+
+  const riskPerUnitEl = document.getElementById("sizerRiskPerUnit");
+  const qtyEl = document.getElementById("sizerQty");
+  const maxLossEl = document.getElementById("sizerMaxLoss");
+  const targetEl = document.getElementById("sizerTarget");
+  const exposureEl = document.getElementById("sizerExposure");
+  const cmdPreviewEl = document.getElementById("sizerCmdPreview");
+  const errorEl = document.getElementById("sizerError");
+
+  if (entry <= 0 || stop <= 0) {
+    if (riskPerUnitEl) riskPerUnitEl.textContent = "₹0.00";
+    if (qtyEl) qtyEl.textContent = "0 units";
+    if (maxLossEl) maxLossEl.textContent = "₹0.00";
+    if (targetEl) targetEl.textContent = "₹0.00";
+    if (exposureEl) exposureEl.textContent = "₹0.00";
+    if (cmdPreviewEl) cmdPreviewEl.textContent = `/buy ${symbol || "SYMBOL"} ${entry || 0} 0 ${stop || 0} 0`;
+    if (errorEl) errorEl.style.display = "none";
+    return;
+  }
+
+  if (stop >= entry) {
+    if (riskPerUnitEl) riskPerUnitEl.textContent = "Invalid";
+    if (qtyEl) qtyEl.textContent = "0 units";
+    if (maxLossEl) maxLossEl.textContent = "₹0.00";
+    if (targetEl) targetEl.textContent = "₹0.00";
+    if (exposureEl) exposureEl.textContent = "₹0.00";
+    if (errorEl) {
+      errorEl.textContent = "⚠️ Stop Loss must be lower than Entry Price for a swing trade.";
+      errorEl.style.display = "block";
+    }
+    if (cmdPreviewEl) cmdPreviewEl.textContent = `/buy ${symbol || "SYMBOL"} ${entry} 0 ${stop} 0`;
+    return;
+  }
+
+  if (errorEl) errorEl.style.display = "none";
+
+  const riskPerUnit = entry - stop;
+  const maxRiskBudget = capital * (riskPct / 100);
+  const suggestedQty = Math.floor(maxRiskBudget / riskPerUnit);
+  const maxLoss = suggestedQty * riskPerUnit;
+  const target = entry + (2 * riskPerUnit);
+  const totalExposure = suggestedQty * entry;
+
+  if (riskPerUnitEl) riskPerUnitEl.textContent = formatINR(riskPerUnit);
+  if (qtyEl) qtyEl.textContent = `${suggestedQty} unit${suggestedQty === 1 ? "" : "s"}`;
+  if (maxLossEl) maxLossEl.textContent = formatINR(maxLoss);
+  if (targetEl) targetEl.textContent = formatINR(target);
+  if (exposureEl) exposureEl.textContent = formatINR(totalExposure);
+
+  const cleanEntry = Number(entry.toFixed(2));
+  const cleanStop = Number(stop.toFixed(2));
+  const cleanTarget = Number(target.toFixed(2));
+
+  const cmdString = `/buy ${symbol || "SYMBOL"} ${cleanEntry} ${suggestedQty} ${cleanStop} ${cleanTarget}`;
+  if (cmdPreviewEl) cmdPreviewEl.textContent = cmdString;
+}
+
+// Copy /buy command string to clipboard and show toast
+async function copyBuyCommand() {
+  const cmdPreviewEl = document.getElementById("sizerCmdPreview");
+  const cmd = cmdPreviewEl ? cmdPreviewEl.textContent.trim() : "";
+  if (!cmd) return;
+
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(cmd);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = cmd;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    showToast("Copied!");
+  } catch (err) {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = cmd;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      showToast("Copied!");
+    } catch (e2) {
+      showToast("Copied!");
+    }
+  }
+}
+
+// Toast notification helper
+function showToast(message) {
+  let toastContainer = document.getElementById("toastContainer");
+  if (!toastContainer) {
+    toastContainer = document.createElement("div");
+    toastContainer.id = "toastContainer";
+    toastContainer.className = "toast-container";
+    document.body.appendChild(toastContainer);
+  }
+
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.innerHTML = `<span style="font-size: 16px;">📋</span> <span>${message}</span>`;
+  toastContainer.appendChild(toast);
+
+  setTimeout(() => toast.classList.add("show"), 10);
+
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 300);
+  }, 2500);
+}
+
+// Initialize Position Sizer listeners & initial state
+function initPositionSizer() {
+  const capitalInput = document.getElementById("sizerCapital");
+  const riskPctInput = document.getElementById("sizerRiskPct");
+  const entryInput = document.getElementById("sizerEntry");
+  const stopInput = document.getElementById("sizerStop");
+  const symbolInput = document.getElementById("sizerSymbol");
+  const resetBtn = document.getElementById("sizerResetBtn");
+  const copyBtn = document.getElementById("copyBuyCmdBtn");
+
+  if (!capitalInput) return;
+
+  const inputs = [capitalInput, riskPctInput, entryInput, stopInput, symbolInput];
+  inputs.forEach(inp => {
+    if (inp) {
+      inp.addEventListener("input", updatePositionSizer);
+      inp.addEventListener("change", updatePositionSizer);
+    }
+  });
+
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      capitalInput.value = "100000";
+      riskPctInput.value = "1";
+      if (entryInput) entryInput.value = "";
+      if (stopInput) stopInput.value = "";
+      if (symbolInput) symbolInput.value = "";
+      updatePositionSizer();
+    });
+  }
+
+  if (copyBtn) {
+    copyBtn.addEventListener("click", copyBuyCommand);
+  }
+
+  updatePositionSizer();
+}
 
 // 2. Render Tab: Open Positions
 async function renderOpenPositions(positions) {
@@ -1205,6 +1457,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initial load if on app page
   if (document.getElementById("watchlistTable")) {
+    initPositionSizer();
     loadAllData();
 
     // Auto-refresh every 5 minutes (300,000 ms)

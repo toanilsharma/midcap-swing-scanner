@@ -14,6 +14,7 @@
       "VolDryup": "no",
       "RsiInRange": "YES",
       "RSI14": 58.4,
+      "ATR14": 8.2,
       "score": 43,
       "grade": "C"
     },
@@ -28,6 +29,7 @@
       "VolDryup": "no",
       "RsiInRange": "YES",
       "RSI14": 52.1,
+      "ATR14": 42.5,
       "score": 43,
       "grade": "C"
     },
@@ -42,6 +44,7 @@
       "VolDryup": "no",
       "RsiInRange": "YES",
       "RSI14": 61.3,
+      "ATR14": 48.0,
       "score": 41,
       "grade": "C"
     },
@@ -56,6 +59,7 @@
       "VolDryup": "no",
       "RsiInRange": "YES",
       "RSI14": 49.8,
+      "ATR14": 28.5,
       "score": 33,
       "grade": "C"
     },
@@ -70,6 +74,7 @@
       "VolDryup": "no",
       "RsiInRange": "no",
       "RSI14": 38.2,
+      "ATR14": 36.0,
       "score": 27,
       "grade": "C"
     }

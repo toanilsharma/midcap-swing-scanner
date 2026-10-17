@@ -913,6 +913,7 @@ def diagnose(symbol: str) -> Optional[Dict[str, Any]]:
         "VolDryup": "YES" if vol_dryup else "no",
         "RsiInRange": "YES" if rsi_in_range else "no",
         "RSI14": round(float(rsi_val), 1) if (rsi_val is not None and not pd.isna(rsi_val)) else None,
+        "ATR14": round(float(last_row["ATR14"]), 2) if ("ATR14" in last_row and not pd.isna(last_row["ATR14"])) else None,
         "score": score,
         "grade": grade,
         "Score": score,

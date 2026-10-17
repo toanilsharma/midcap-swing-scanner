@@ -95,11 +95,12 @@
               <th>Coiling</th>
               <th>Sector</th>
               <th>Sector Bullish</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody id="watchlistBody">
             <tr>
-              <td colspan="8" class="empty-state">Loading scan results from GitHub...</td>
+              <td colspan="9" class="empty-state">Loading scan results from GitHub...</td>
             </tr>
           </tbody>
         </table>
@@ -108,6 +109,77 @@
 
     <!-- TAB 2: OPEN POSITIONS -->
     <section id="tabOpen" class="tab-content">
+      <!-- Position Sizer Card -->
+      <div id="positionSizerCard" class="sizer-card">
+        <div class="sizer-header">
+          <div>
+            <h2 class="sizer-title"><span>📐</span> Position Sizer & Risk Calculator</h2>
+            <p class="sizer-subtitle">Auto-compute position quantity, risk budget, and 2R profit targets</p>
+          </div>
+          <button id="sizerResetBtn" class="btn btn-secondary btn-sm" title="Reset to defaults">Reset</button>
+        </div>
+
+        <div class="sizer-form-grid">
+          <div class="sizer-input-group">
+            <label for="sizerSymbol">Symbol</label>
+            <input type="text" id="sizerSymbol" placeholder="e.g. NYKAA" autocomplete="off" />
+          </div>
+          <div class="sizer-input-group">
+            <label for="sizerCapital">Capital (₹)</label>
+            <input type="number" id="sizerCapital" value="100000" min="1000" step="1000" />
+          </div>
+          <div class="sizer-input-group">
+            <label for="sizerRiskPct">Risk (%)</label>
+            <input type="number" id="sizerRiskPct" value="1" min="0.1" max="10" step="0.1" />
+          </div>
+          <div class="sizer-input-group">
+            <label for="sizerEntry">Entry Price (₹)</label>
+            <input type="number" id="sizerEntry" placeholder="0.00" min="0" step="any" />
+          </div>
+          <div class="sizer-input-group">
+            <label for="sizerStop">Stop Loss (₹)</label>
+            <input type="number" id="sizerStop" placeholder="0.00" min="0" step="any" />
+          </div>
+        </div>
+
+        <div id="sizerError" class="sizer-error" style="display: none;"></div>
+
+        <div class="sizer-results-strip">
+          <div class="sizer-stat-card">
+            <div class="sizer-stat-label">Risk Per Unit</div>
+            <div id="sizerRiskPerUnit" class="sizer-stat-value">₹0.00</div>
+          </div>
+          <div class="sizer-stat-card">
+            <div class="sizer-stat-label">Suggested Qty (Floor)</div>
+            <div id="sizerQty" class="sizer-stat-value highlight">0 units</div>
+          </div>
+          <div class="sizer-stat-card">
+            <div class="sizer-stat-label">Max Loss (Rupees)</div>
+            <div id="sizerMaxLoss" class="sizer-stat-value loss">₹0.00</div>
+          </div>
+          <div class="sizer-stat-card">
+            <div class="sizer-stat-label">Target (2R)</div>
+            <div id="sizerTarget" class="sizer-stat-value profit">₹0.00</div>
+          </div>
+          <div class="sizer-stat-card">
+            <div class="sizer-stat-label">Total Exposure</div>
+            <div id="sizerExposure" class="sizer-stat-value">₹0.00</div>
+          </div>
+        </div>
+
+        <div class="sizer-command-bar">
+          <div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px; font-weight: 600; text-transform: uppercase;">
+              Telegram Buy Command
+            </div>
+            <div id="sizerCmdPreview" class="sizer-command-preview">/buy SYMBOL 0 0 0 0</div>
+          </div>
+          <button id="copyBuyCmdBtn" class="btn btn-primary" title="Copy to clipboard">
+            📋 Copy /buy command
+          </button>
+        </div>
+      </div>
+
       <div class="summary-strip">
         <div class="stat-card">
           <div class="stat-label">Total Unrealized PnL</div>
@@ -231,6 +303,9 @@
       </div>
     </section>
   </main>
+
+  <!-- Global Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
 
   <script src="app.js"></script>
 </body>
