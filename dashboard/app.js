@@ -1311,23 +1311,20 @@ function openPositionSizerFor(item) {
     openTabBtn.click();
   }
 
-  // 2. Pre-fill Entry and Stop
+  // 2. Pre-fill Entry with the stock's close and Stop with close minus 1.5 times ATR (or signal stop when available)
   const symbol = item.Symbol || "";
-  const close = parseFloat(item.Close) || 0;
-  const dist = parseFloat(item["DistToBreakout%"]) || 0;
+  const close = parseFloat(item.Close) || (item.Entry ? parseFloat(item.Entry) : 0);
+  const entryPrice = close > 0 ? Number(close.toFixed(2)) : 0;
 
-  // Entry: breakout price if dist > 0, else current close
-  const entryPrice = close > 0 ? (dist > 0 ? Number((close * (1 + dist / 100)).toFixed(2)) : Number(close.toFixed(2))) : 0;
-
-  // Stop Loss: 1.5 * ATR14 floor at max 7% loss (or default 5% stop if ATR not available)
   let stopPrice = 0;
-  if (entryPrice > 0) {
-    if (item.ATR14 && !isNaN(item.ATR14)) {
-      const atrStop = entryPrice - 1.5 * parseFloat(item.ATR14);
-      const floorStop = entryPrice * 0.93; // 7% max stop loss rule
-      stopPrice = Number(Math.max(floorStop, atrStop).toFixed(2));
+  if (item.Stop && !isNaN(item.Stop)) {
+    stopPrice = Number(parseFloat(item.Stop).toFixed(2));
+  } else if (close > 0) {
+    const atrVal = parseFloat(item.ATR14 || item.ATR || 0);
+    if (atrVal > 0) {
+      stopPrice = Number((close - 1.5 * atrVal).toFixed(2));
     } else {
-      stopPrice = Number((entryPrice * 0.95).toFixed(2));
+      stopPrice = Number((close * 0.95).toFixed(2));
     }
   }
 
@@ -1440,7 +1437,7 @@ async function copyBuyCommand() {
       document.execCommand("copy");
       document.body.removeChild(ta);
     }
-    showToast("Copied!");
+    showToast("Copied - paste in Telegram");
   } catch (err) {
     try {
       const ta = document.createElement("textarea");
@@ -1449,9 +1446,9 @@ async function copyBuyCommand() {
       ta.select();
       document.execCommand("copy");
       document.body.removeChild(ta);
-      showToast("Copied!");
+      showToast("Copied - paste in Telegram");
     } catch (e2) {
-      showToast("Copied!");
+      showToast("Copied - paste in Telegram");
     }
   }
 }
