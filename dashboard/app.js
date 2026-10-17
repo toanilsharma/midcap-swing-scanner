@@ -1408,6 +1408,82 @@ async function loadAllData() {
 }
 
 // =====================================================================
+// HELP CENTER & HANDBOOK HELPERS
+// =====================================================================
+function initHelpCenter() {
+  // 1. Floating circular '?' button
+  const floatingHelpBtn = document.getElementById("floatingHelpBtn");
+  const helpTabBtn = document.getElementById("helpTabBtn");
+  if (floatingHelpBtn && helpTabBtn) {
+    floatingHelpBtn.addEventListener("click", () => {
+      helpTabBtn.click();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
+  // 2. Glossary live search
+  const searchInput = document.getElementById("glossarySearchInput");
+  const glossaryGrid = document.getElementById("glossaryGrid");
+  if (searchInput && glossaryGrid) {
+    const cards = glossaryGrid.querySelectorAll(".glossary-card");
+    searchInput.addEventListener("input", (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      cards.forEach(card => {
+        const text = card.textContent.toLowerCase();
+        if (!q || text.includes(q)) {
+          card.style.display = "flex";
+        } else {
+          card.style.display = "none";
+        }
+      });
+    });
+  }
+
+  // 3. FAQ Accordion toggle
+  const faqItems = document.querySelectorAll(".faq-item");
+  faqItems.forEach(item => {
+    const question = item.querySelector(".faq-question");
+    if (question) {
+      question.addEventListener("click", () => {
+        item.classList.toggle("active");
+      });
+    }
+  });
+
+  // 4. Sticky TOC active state handling
+  const tocLinks = document.querySelectorAll(".help-toc-link");
+  tocLinks.forEach(link => {
+    link.addEventListener("click", () => {
+      tocLinks.forEach(l => l.classList.remove("active"));
+      link.classList.add("active");
+    });
+  });
+
+  // Scrollspy for TOC
+  const sections = document.querySelectorAll(".help-section");
+  if (sections.length > 0 && tocLinks.length > 0) {
+    window.addEventListener("scroll", () => {
+      let currentId = "";
+      sections.forEach(sec => {
+        const top = sec.getBoundingClientRect().top;
+        if (top <= 200) {
+          currentId = sec.getAttribute("id");
+        }
+      });
+      if (currentId) {
+        tocLinks.forEach(l => {
+          if (l.getAttribute("href") === `#${currentId}`) {
+            l.classList.add("active");
+          } else {
+            l.classList.remove("active");
+          }
+        });
+      }
+    }, { passive: true });
+  }
+}
+
+// =====================================================================
 // EVENT LISTENERS & INITIALIZATION
 // =====================================================================
 document.addEventListener("DOMContentLoaded", () => {
@@ -1455,6 +1531,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // Initialize Help Center
+  initHelpCenter();
+
   // Initial load if on app page
   if (document.getElementById("watchlistTable")) {
     initPositionSizer();
@@ -1467,3 +1546,4 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 300000);
   }
 });
+

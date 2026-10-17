@@ -905,8 +905,524 @@ tr.row-danger {
   transform: translateY(0);
 }
 
+/* Floating Circular Help Button */
+.floating-help-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  font-size: 20px;
+  font-weight: 800;
+  box-shadow: 0 8px 24px -2px rgba(79, 70, 229, 0.6);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 998;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.floating-help-btn:hover {
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 12px 28px -2px rgba(79, 70, 229, 0.8);
+}
+
+/* Help Center Layout */
+.help-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+.help-sidebar {
+  position: sticky;
+  top: 90px;
+}
+
+.help-toc-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+}
+
+.help-toc-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.help-toc-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.help-toc-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.help-toc-link:hover, .help-toc-link.active {
+  background: rgba(79, 70, 229, 0.15);
+  color: #fff;
+  border-left: 3px solid var(--primary);
+}
+
+.help-badge-info {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.help-content {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.help-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+}
+
+.help-section-header {
+  margin-bottom: 24px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.help-section-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.help-section-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Daily Routine Timeline */
+.timeline-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  margin: 20px 0;
+  padding-left: 20px;
+  border-left: 2px dashed rgba(79, 70, 229, 0.35);
+}
+
+.timeline-step {
+  position: relative;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.timeline-step:hover {
+  border-color: var(--primary);
+  transform: translateX(4px);
+}
+
+.timeline-step-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(79, 70, 229, 0.2);
+  border: 1px solid var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.timeline-step-body {
+  flex: 1;
+}
+
+.timeline-step-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.timeline-step-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.timeline-step-time {
+  font-size: 11px;
+  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.timeline-step-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Flowchart & Diagram SVG Card */
+.flowchart-wrapper, .schematic-wrapper {
+  background: #090d15;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin: 16px 0;
+  overflow-x: auto;
+}
+
+.flowchart-svg, .schematic-svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+/* Schematics Grid */
+.schematics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 22px;
+}
+
+.schematic-card {
+  background: #0b0f19;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.schematic-header {
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border);
+}
+
+.schematic-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.schematic-canvas-box {
+  padding: 16px;
+  background: #070a10;
+  border-bottom: 1px solid var(--border);
+}
+
+.schematic-rules-box {
+  padding: 16px;
+  flex: 1;
+  background: #0b0f19;
+}
+
+.schematic-rules-box ul {
+  padding-left: 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.schematic-rules-box li {
+  margin-bottom: 6px;
+}
+
+.schematic-rules-box li strong {
+  color: var(--text-main);
+}
+
+/* Glossary Styles */
+.glossary-search-box {
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.glossary-search-box input {
+  width: 100%;
+  background: #090d15;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.glossary-search-box input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.25);
+}
+
+.glossary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.glossary-card {
+  background: #0b0f19;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.glossary-card:hover {
+  border-color: rgba(79, 70, 229, 0.5);
+  transform: translateY(-2px);
+}
+
+.glossary-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.glossary-term {
+  font-size: 14px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.glossary-category {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.glossary-meaning {
+  font-size: 12px;
+  color: var(--text-main);
+  line-height: 1.5;
+}
+
+.glossary-section-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+}
+
+.glossary-label {
+  color: var(--text-dim);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.glossary-threshold {
+  color: #fbbf24;
+  font-weight: 600;
+  background: rgba(245, 158, 11, 0.08);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border-left: 2px solid #f59e0b;
+}
+
+.glossary-example {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* Telegram Command Table */
+.telegram-cmd-table th, .telegram-cmd-table td {
+  padding: 12px 14px;
+  font-size: 12px;
+}
+
+.telegram-cmd-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* Risk Commandments */
+.commandments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.commandment-card {
+  background: #0b0f19;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  transition: transform 0.15s ease;
+}
+
+.commandment-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.commandment-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid var(--danger);
+  color: #f87171;
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.commandment-body h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.commandment-body p {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* FAQ Accordion */
+.faq-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.faq-item {
+  background: #0b0f19;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.faq-item.active {
+  border-color: var(--primary);
+}
+
+.faq-question {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.faq-icon {
+  font-size: 12px;
+  color: var(--text-dim);
+  transition: transform 0.2s ease;
+}
+
+.faq-item.active .faq-icon {
+  transform: rotate(180deg);
+  color: var(--primary);
+}
+
+.faq-answer {
+  display: none;
+  padding: 0 20px 18px 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.faq-item.active .faq-answer {
+  display: block;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
+  .help-layout {
+    grid-template-columns: 1fr;
+  }
+  .help-sidebar {
+    position: static;
+  }
+  .schematics-grid {
+    grid-template-columns: 1fr;
+  }
+  .timeline-container {
+    padding-left: 12px;
+  }
+  .floating-help-btn {
+    bottom: 16px;
+    right: 16px;
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+  }
   .header-container {
     padding: 12px 16px;
   }
