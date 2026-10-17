@@ -11,6 +11,9 @@
       "Coiling": "no",
       "DistToBreakout%": 0.42,
       "Close": 345.0,
+      "VolDryup": "no",
+      "RsiInRange": "YES",
+      "RSI14": 58.4,
       "score": 43,
       "grade": "C"
     },
@@ -22,6 +25,9 @@
       "Coiling": "no",
       "DistToBreakout%": 0.44,
       "Close": 2060.1,
+      "VolDryup": "no",
+      "RsiInRange": "YES",
+      "RSI14": 52.1,
       "score": 43,
       "grade": "C"
     },
@@ -33,6 +39,9 @@
       "Coiling": "no",
       "DistToBreakout%": 0.93,
       "Close": 1951.9,
+      "VolDryup": "no",
+      "RsiInRange": "YES",
+      "RSI14": 61.3,
       "score": 41,
       "grade": "C"
     },
@@ -44,6 +53,9 @@
       "Coiling": "no",
       "DistToBreakout%": 3.09,
       "Close": 1057.6,
+      "VolDryup": "no",
+      "RsiInRange": "YES",
+      "RSI14": 49.8,
       "score": 33,
       "grade": "C"
     },
@@ -55,6 +67,9 @@
       "Coiling": "no",
       "DistToBreakout%": 4.39,
       "Close": 1666.9,
+      "VolDryup": "no",
+      "RsiInRange": "no",
+      "RSI14": 38.2,
       "score": 27,
       "grade": "C"
     }

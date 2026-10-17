@@ -199,8 +199,13 @@ function renderNearBuy(scanData) {
     const gradeBadge = `<span class="badge ${gradeBadgeClass}">${grade}</span>`;
 
     return `
-      <tr class="${rowClass}">
-        <td><strong>${item.Symbol}</strong></td>
+      <tr class="watchlist-row ${rowClass}" data-symbol="${item.Symbol}" title="Click to view 6-month chart & checklist">
+        <td>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <strong>${item.Symbol}</strong>
+            <span class="chevron" style="font-size: 10px; color: var(--text-dim);">▼</span>
+          </div>
+        </td>
         <td>${scoreBadge}</td>
         <td>${gradeBadge}</td>
         <td>${formatINR(item.Close)}</td>
@@ -211,7 +216,599 @@ function renderNearBuy(scanData) {
       </tr>
     `;
   }).join("");
+
+  // Attach click listeners for expandable details
+  watchlistBody.querySelectorAll(".watchlist-row").forEach(row => {
+    row.addEventListener("click", () => {
+      const sym = row.getAttribute("data-symbol");
+      const item = sortedWatchlist.find(w => w.Symbol === sym);
+      if (item) {
+        toggleWatchlistDetail(row, item, scanData);
+      }
+    });
+  });
 }
+
+// =====================================================================
+// EXPANDABLE WATCHLIST DETAIL PANEL & CANVAS MINI-CHART
+// =====================================================================
+
+// Extract known earnings if within next 7 days, else returns null
+function extractEarningsDays(chartData, item) {
+  if (item && item.earnings_in_days != null && item.earnings_in_days >= 0 && item.earnings_in_days <= 7) {
+    return item.earnings_in_days;
+  }
+  const events = chartData?.chart?.result?.[0]?.events;
+  if (events && events.earnings) {
+    const nowSec = Date.now() / 1000;
+    const sevenDaysSec = 7 * 86400;
+    const earningsList = Object.values(events.earnings);
+    for (const e of earningsList) {
+      const eDate = e.date || e.startdate || e.timestamp;
+      if (eDate && eDate >= nowSec && eDate <= nowSec + sevenDaysSec) {
+        return Math.max(1, Math.ceil((eDate - nowSec) / 86400));
+      }
+    }
+  }
+  return null;
+}
+
+// Fetch 6-month chart data from Yahoo with localStorage cache keyed by symbol+date
+async function fetchChartData(symbol) {
+  const cleanSym = symbol.endsWith(".NS") ? symbol : `${symbol}.NS`;
+  const today = new Date().toISOString().slice(0, 10);
+  const cacheKey = `chart_${cleanSym}_${today}`;
+
+  // Check localStorage cache first
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      localStorage.removeItem(cacheKey);
+    }
+  }
+
+  const directUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${cleanSym}?interval=1d&range=6mo`;
+  let data = null;
+
+  try {
+    const res = await fetch(directUrl);
+    if (res.ok) {
+      data = await res.json();
+    }
+  } catch (err) {
+    console.warn("Direct Yahoo fetch failed, trying proxy fallback:", err);
+  }
+
+  // Graceful fallback proxies if direct fetch has CORS restriction in client browser
+  if (!data || !data.chart || !data.chart.result) {
+    const proxies = [
+      `https://corsproxy.io/?url=${encodeURIComponent(directUrl)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`
+    ];
+    for (const pUrl of proxies) {
+      try {
+        const res = await fetch(pUrl);
+        if (res.ok) {
+          data = await res.json();
+          if (data && data.chart && data.chart.result) break;
+        }
+      } catch (e) {
+        // try next
+      }
+    }
+  }
+
+  if (data && data.chart && data.chart.result && data.chart.result.length > 0) {
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(data));
+    } catch (e) {
+      console.warn("localStorage quota write notice:", e);
+    }
+    return data;
+  }
+  return null;
+}
+
+// Standard Wilder's RSI calculation helper
+function calculateRSI(closes, period = 14) {
+  if (!closes || closes.length <= period) return 50;
+  let gains = 0;
+  let losses = 0;
+  for (let i = 1; i <= period; i++) {
+    const diff = closes[i] - closes[i - 1];
+    if (diff >= 0) gains += diff;
+    else losses -= diff;
+  }
+  let avgGain = gains / period;
+  let avgLoss = losses / period;
+
+  for (let i = period + 1; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1];
+    if (diff >= 0) {
+      avgGain = (avgGain * (period - 1) + diff) / period;
+      avgLoss = (avgLoss * (period - 1)) / period;
+    } else {
+      avgGain = (avgGain * (period - 1)) / period;
+      avgLoss = (avgLoss * (period - 1) - diff) / period;
+    }
+  }
+
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - (100 / (1 + rs));
+}
+
+// Plain HTML5 Canvas Mini-Chart Renderer with SMA50, SMA200, Breakout Line, and Volume Subplot
+function drawMiniChart(canvas, candles, breakoutLevel, symbol) {
+  const container = canvas.parentElement;
+  const width = Math.max(300, container.clientWidth || 800);
+  const height = 280;
+  const dpr = window.devicePixelRatio || 1;
+
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+
+  // Retain data reference for seamless redraw on window resize
+  canvas._candles = candles;
+  canvas._breakoutLevel = breakoutLevel;
+  canvas._symbol = symbol;
+
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, width, height);
+
+  const n = candles.length;
+  if (n === 0) return;
+
+  const marginTop = 22;
+  const priceHeight = 170;
+  const priceBottom = marginTop + priceHeight;
+  const volumeGap = 16;
+  const volumeTop = priceBottom + volumeGap;
+  const volumeHeight = 44;
+  const volumeBottom = volumeTop + volumeHeight;
+  const marginLeft = 14;
+  const marginRight = 74;
+  const plotWidth = width - marginLeft - marginRight;
+
+  const barStep = plotWidth / n;
+  const barWidth = Math.max(1.5, Math.min(8, barStep * 0.68));
+
+  // Determine min & max price bounds including breakout level
+  let minPrice = Infinity;
+  let maxPrice = -Infinity;
+  for (const c of candles) {
+    if (c.low < minPrice) minPrice = c.low;
+    if (c.high > maxPrice) maxPrice = c.high;
+  }
+  if (breakoutLevel && !isNaN(breakoutLevel)) {
+    minPrice = Math.min(minPrice, breakoutLevel);
+    maxPrice = Math.max(maxPrice, breakoutLevel);
+  }
+
+  const priceRange = (maxPrice - minPrice) || 1;
+  const pMin = minPrice - priceRange * 0.05;
+  const pMax = maxPrice + priceRange * 0.05;
+  const pSpan = pMax - pMin;
+
+  function priceToY(p) {
+    return priceBottom - ((p - pMin) / pSpan) * priceHeight;
+  }
+
+  // Calculate SMA 50 and SMA 200
+  const sma50 = [];
+  const sma200 = [];
+  for (let i = 0; i < n; i++) {
+    // SMA 50
+    if (i >= 49) {
+      let sum50 = 0;
+      for (let j = i - 49; j <= i; j++) sum50 += candles[j].close;
+      sma50.push(sum50 / 50);
+    } else if (i >= 5) {
+      let sumProg = 0;
+      for (let j = 0; j <= i; j++) sumProg += candles[j].close;
+      sma50.push(sumProg / (i + 1));
+    } else {
+      sma50.push(null);
+    }
+
+    // SMA 200 (uses full 200 if present or progressive rolling if in 6mo chart)
+    if (i >= 199) {
+      let sum200 = 0;
+      for (let j = i - 199; j <= i; j++) sum200 += candles[j].close;
+      sma200.push(sum200 / 200);
+    } else if (i >= 15) {
+      let sumProg = 0;
+      for (let j = 0; j <= i; j++) sumProg += candles[j].close;
+      sma200.push(sumProg / (i + 1));
+    } else {
+      sma200.push(null);
+    }
+  }
+
+  // Max volume for volume subplot
+  let maxVol = 0;
+  for (const c of candles) {
+    if (c.volume > maxVol) maxVol = c.volume;
+  }
+  maxVol = maxVol || 1;
+
+  function volToH(v) {
+    return Math.max(1, (v / maxVol) * volumeHeight);
+  }
+
+  // 1. Grid Lines & Price Ticks
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
+  ctx.lineWidth = 1;
+  ctx.fillStyle = "#64748b";
+  ctx.font = "10px Inter, sans-serif";
+  ctx.textAlign = "left";
+
+  const numGridTicks = 4;
+  for (let t = 0; t <= numGridTicks; t++) {
+    const p = pMin + (pSpan / numGridTicks) * t;
+    const y = priceToY(p);
+    ctx.beginPath();
+    ctx.moveTo(marginLeft, y);
+    ctx.lineTo(width - marginRight, y);
+    ctx.stroke();
+    ctx.fillText("₹" + p.toFixed(1), width - marginRight + 6, y + 3);
+  }
+
+  // Volume separator line & label
+  ctx.beginPath();
+  ctx.moveTo(marginLeft, volumeTop - 4);
+  ctx.lineTo(width - marginRight, volumeTop - 4);
+  ctx.stroke();
+  ctx.fillText("Vol", width - marginRight + 6, volumeTop + 14);
+
+  // 2. Volume Subplot Bars
+  for (let i = 0; i < n; i++) {
+    const c = candles[i];
+    const x = marginLeft + i * barStep + barStep / 2;
+    const h = volToH(c.volume);
+    const y = volumeBottom - h;
+    ctx.fillStyle = c.close >= c.open ? "rgba(16, 185, 129, 0.4)" : "rgba(239, 68, 68, 0.4)";
+    ctx.fillRect(x - barWidth / 2, y, barWidth, h);
+  }
+
+  // 3. Candlesticks (Price)
+  for (let i = 0; i < n; i++) {
+    const c = candles[i];
+    const x = marginLeft + i * barStep + barStep / 2;
+    const isGreen = c.close >= c.open;
+    const color = isGreen ? "#10b981" : "#ef4444";
+
+    // Wick line
+    const highY = priceToY(c.high);
+    const lowY = priceToY(c.low);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, highY);
+    ctx.lineTo(x, lowY);
+    ctx.stroke();
+
+    // Body rectangle
+    const openY = priceToY(c.open);
+    const closeY = priceToY(c.close);
+    const bodyTop = Math.min(openY, closeY);
+    const bodyH = Math.max(1.5, Math.abs(closeY - openY));
+    ctx.fillStyle = color;
+    ctx.fillRect(x - barWidth / 2, bodyTop, barWidth, bodyH);
+  }
+
+  // 4. Overlay SMA 50 (Orange)
+  ctx.strokeStyle = "#f97316";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  let sma50Started = false;
+  for (let i = 0; i < n; i++) {
+    if (sma50[i] != null) {
+      const x = marginLeft + i * barStep + barStep / 2;
+      const y = priceToY(sma50[i]);
+      if (!sma50Started) {
+        ctx.moveTo(x, y);
+        sma50Started = true;
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+  }
+  ctx.stroke();
+
+  // 5. Overlay SMA 200 (Blue)
+  ctx.strokeStyle = "#3b82f6";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  let sma200Started = false;
+  for (let i = 0; i < n; i++) {
+    if (sma200[i] != null) {
+      const x = marginLeft + i * barStep + barStep / 2;
+      const y = priceToY(sma200[i]);
+      if (!sma200Started) {
+        ctx.moveTo(x, y);
+        sma200Started = true;
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+  }
+  ctx.stroke();
+
+  // 6. Horizontal Dashed Line at 20-Day Breakout Level
+  if (breakoutLevel && !isNaN(breakoutLevel)) {
+    const bY = priceToY(breakoutLevel);
+    ctx.strokeStyle = "#ef4444";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(marginLeft, bY);
+    ctx.lineTo(width - marginRight, bY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Breakout text badge on right
+    ctx.fillStyle = "#ef4444";
+    ctx.font = "bold 10px Inter, sans-serif";
+    ctx.fillText("Breakout", width - marginRight + 6, bY - 3);
+    ctx.fillStyle = "#fca5a5";
+    ctx.font = "9px Inter, sans-serif";
+    ctx.fillText("₹" + breakoutLevel.toFixed(1), width - marginRight + 6, bY + 9);
+  }
+
+  // 7. Date Ticks on Bottom Axis
+  ctx.fillStyle = "#64748b";
+  ctx.font = "10px Inter, sans-serif";
+  ctx.textAlign = "center";
+  const dateStep = Math.max(1, Math.floor(n / 4));
+  for (let i = 0; i < n; i += dateStep) {
+    if (candles[i] && candles[i].time) {
+      const d = new Date(candles[i].time * 1000);
+      const str = d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+      const x = marginLeft + i * barStep + barStep / 2;
+      ctx.fillText(str, x, height - 3);
+    }
+  }
+}
+
+// Toggle detail row below the clicked stock row
+async function toggleWatchlistDetail(row, item, scanData) {
+  const symbol = item.Symbol;
+  const existingDetail = document.getElementById(`detail-${symbol}`);
+
+  // If already open, collapse it
+  if (existingDetail) {
+    existingDetail.remove();
+    row.classList.remove("expanded");
+    const chevron = row.querySelector(".chevron");
+    if (chevron) chevron.textContent = "▼";
+    return;
+  }
+
+  // Close other open detail rows to keep view tidy
+  document.querySelectorAll(".detail-row").forEach(el => el.remove());
+  document.querySelectorAll(".watchlist-row.expanded").forEach(el => {
+    el.classList.remove("expanded");
+    const ch = el.querySelector(".chevron");
+    if (ch) ch.textContent = "▼";
+  });
+
+  row.classList.add("expanded");
+  const chevron = row.querySelector(".chevron");
+  if (chevron) chevron.textContent = "▲";
+
+  // Initial checklist values
+  const trendPass = item.Trend === "YES";
+  const setupPass = item.Coiling === "YES";
+  const secPass = item.SectorBullish === "YES";
+  const mktPass = Boolean(scanData && scanData.market_ok);
+  const volPassInit = item.VolDryup === "YES";
+  const rsiPassInit = item.RsiInRange === "YES";
+
+  const detailHtml = `
+    <tr class="detail-row" id="detail-${symbol}">
+      <td colspan="8">
+        <div class="stock-detail-panel">
+          <div class="detail-header">
+            <div class="detail-title-group">
+              <span class="detail-symbol">${symbol}</span>
+              <span class="badge badge-neutral">${item.Sector || "^NSEI"}</span>
+              <span class="badge badge-success">₹${item.Close || 0}</span>
+              <span class="badge badge-warning">${parseFloat(item["DistToBreakout%"] || 0).toFixed(2)}% to Breakout</span>
+              <span class="detail-hint">(Click row to collapse)</span>
+            </div>
+            <div id="earnings-warn-${symbol}"></div>
+          </div>
+
+          <!-- Rules Checklist -->
+          <div class="checklist-title">Setup Criteria Checklist</div>
+          <div class="checklist-grid" id="checklist-${symbol}">
+            <div class="check-item ${trendPass ? 'pass' : 'fail'}">
+              <span class="check-icon">${trendPass ? '✅' : '❌'}</span>
+              <div class="check-info">
+                <span class="check-label">Trend Filter</span>
+                <span class="check-desc">Stage 2 Uptrend (Close > SMA50 > SMA200)</span>
+              </div>
+              <span class="check-status">${trendPass ? 'Passed (+25)' : 'Failed (0)'}</span>
+            </div>
+
+            <div class="check-item ${setupPass ? 'pass' : 'fail'}">
+              <span class="check-icon">${setupPass ? '✅' : '❌'}</span>
+              <div class="check-info">
+                <span class="check-label">Setup (Coiling)</span>
+                <span class="check-desc">Vol contraction & range tightness</span>
+              </div>
+              <span class="check-status">${setupPass ? 'Passed (+15)' : 'Failed (0)'}</span>
+            </div>
+
+            <div class="check-item ${secPass ? 'pass' : 'fail'}">
+              <span class="check-icon">${secPass ? '✅' : '❌'}</span>
+              <div class="check-info">
+                <span class="check-label">Sector Bullish</span>
+                <span class="check-desc">${item.Sector || '^NSEI'} active Stage 2 uptrend</span>
+              </div>
+              <span class="check-status">${secPass ? 'Passed (+15)' : 'Failed (0)'}</span>
+            </div>
+
+            <div class="check-item ${mktPass ? 'pass' : 'fail'}">
+              <span class="check-icon">${mktPass ? '✅' : '❌'}</span>
+              <div class="check-info">
+                <span class="check-label">Market OK (M-Rule)</span>
+                <span class="check-desc">NIFTY 50 Benchmark Uptrend</span>
+              </div>
+              <span class="check-status">${mktPass ? 'Passed (+5)' : 'Failed (Capped ≤50)'}</span>
+            </div>
+
+            <div class="check-item ${volPassInit ? 'pass' : 'fail'}" id="vol-check-${symbol}">
+              <span class="check-icon">${volPassInit ? '✅' : '❌'}</span>
+              <div class="check-info">
+                <span class="check-label">Volume Dry-Up</span>
+                <span class="check-desc">VOL5 < 80% of VOL50</span>
+              </div>
+              <span class="check-status">${volPassInit ? 'Passed (+10)' : 'Failed (0)'}</span>
+            </div>
+
+            <div class="check-item ${rsiPassInit ? 'pass' : 'fail'}" id="rsi-check-${symbol}">
+              <span class="check-icon">${rsiPassInit ? '✅' : '❌'}</span>
+              <div class="check-info">
+                <span class="check-label">RSI In Range (40-65)</span>
+                <span class="check-desc">Momentum healthy, not overbought</span>
+              </div>
+              <span class="check-status">${rsiPassInit ? 'Passed (+10)' : 'Failed (0)'}</span>
+            </div>
+          </div>
+
+          <!-- Chart Section -->
+          <div class="detail-chart-section">
+            <div class="chart-top-bar">
+              <div class="chart-title-legend">
+                <span class="chart-heading">6-Month Daily Candles</span>
+                <span class="legend-item"><span class="legend-dot sma50-dot"></span> SMA 50</span>
+                <span class="legend-item"><span class="legend-dot sma200-dot"></span> SMA 200</span>
+                <span class="legend-item"><span class="legend-line breakout-line"></span> 20D Breakout</span>
+              </div>
+              <div class="chart-meta-stats" id="chart-meta-${symbol}">Loading 6-month chart...</div>
+            </div>
+            <div class="canvas-wrapper" style="position: relative; width: 100%; height: 280px;">
+              <canvas id="canvas-${symbol}" class="mini-chart-canvas"></canvas>
+              <div id="chart-loader-${symbol}" class="chart-loading-overlay">
+                <div class="spinner"></div>
+                <span>Fetching 6-month daily data from Yahoo Finance...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </td>
+    </tr>
+  `;
+
+  row.insertAdjacentHTML("afterend", detailHtml);
+
+  // Default breakout level from item
+  const distPct = parseFloat(item["DistToBreakout%"]) || 0;
+  const initialBreakout = item.Close ? item.Close * (1 + distPct / 100) : null;
+
+  try {
+    const chartData = await fetchChartData(symbol);
+    const canvas = document.getElementById(`canvas-${symbol}`);
+    const loader = document.getElementById(`chart-loader-${symbol}`);
+    const metaEl = document.getElementById(`chart-meta-${symbol}`);
+    const warnEl = document.getElementById(`earnings-warn-${symbol}`);
+
+    if (!canvas) return; // closed before fetch resolved
+
+    if (loader) loader.style.display = "none";
+
+    if (!chartData || !chartData.chart || !chartData.chart.result || chartData.chart.result.length === 0) {
+      if (metaEl) metaEl.textContent = "Chart unavailable (Yahoo API rate limit or network error)";
+      return;
+    }
+
+    const res = chartData.chart.result[0];
+    const timestamps = res.timestamp || [];
+    const quote = res.indicators?.quote?.[0] || {};
+    const candles = [];
+
+    for (let i = 0; i < timestamps.length; i++) {
+      const o = quote.open?.[i];
+      const h = quote.high?.[i];
+      const l = quote.low?.[i];
+      const c = quote.close?.[i];
+      const v = quote.volume?.[i] || 0;
+      if (o != null && h != null && l != null && c != null && !isNaN(c)) {
+        candles.push({ time: timestamps[i], open: o, high: h, low: l, close: c, volume: v });
+      }
+    }
+
+    if (candles.length === 0) {
+      if (metaEl) metaEl.textContent = "No valid trading candles returned.";
+      return;
+    }
+
+    // Determine 20D breakout level from candles if available
+    const last20 = candles.slice(-21, -1);
+    const calculatedBreakout = last20.length > 0 ? Math.max(...last20.map(c => c.high)) : initialBreakout;
+    const finalBreakout = calculatedBreakout || initialBreakout;
+
+    // Check earnings within next 7 days
+    const earningsDays = extractEarningsDays(chartData, item);
+    if (earningsDays !== null && warnEl) {
+      warnEl.innerHTML = `<div class="earnings-warning-banner">⚠️ Earnings in ${earningsDays} day${earningsDays === 1 ? '' : 's'}</div>`;
+    }
+
+    // Live validation for VolDryup / RsiInRange if not pre-populated
+    if (item.VolDryup === undefined && candles.length >= 50) {
+      const vol5 = candles.slice(-5).reduce((s, c) => s + c.volume, 0) / 5;
+      const vol50 = candles.slice(-50).reduce((s, c) => s + c.volume, 0) / 50;
+      const volPass = vol5 < 0.8 * vol50;
+      const el = document.getElementById(`vol-check-${symbol}`);
+      if (el) {
+        el.className = `check-item ${volPass ? 'pass' : 'fail'}`;
+        el.querySelector(".check-icon").textContent = volPass ? '✅' : '❌';
+        el.querySelector(".check-status").textContent = volPass ? 'Passed (+10)' : 'Failed (0)';
+      }
+    }
+
+    if (item.RsiInRange === undefined && candles.length >= 15) {
+      const closes = candles.map(c => c.close);
+      const rsi = calculateRSI(closes, 14);
+      const rsiPass = rsi >= 40 && rsi <= 65;
+      const el = document.getElementById(`rsi-check-${symbol}`);
+      if (el) {
+        el.className = `check-item ${rsiPass ? 'pass' : 'fail'}`;
+        el.querySelector(".check-icon").textContent = rsiPass ? '✅' : '❌';
+        el.querySelector(".check-status").textContent = rsiPass ? `Passed (RSI ${rsi.toFixed(1)})` : `Failed (RSI ${rsi.toFixed(1)})`;
+      }
+    }
+
+    // Draw the chart on HTML5 canvas
+    drawMiniChart(canvas, candles, finalBreakout, symbol);
+
+    if (metaEl) {
+      const lastCandle = candles[candles.length - 1];
+      metaEl.textContent = `${candles.length} trading days • Close: ₹${lastCandle.close.toFixed(2)} • 20D Breakout: ₹${finalBreakout.toFixed(2)}`;
+    }
+  } catch (err) {
+    console.error("Error loading mini chart:", err);
+    const metaEl = document.getElementById(`chart-meta-${symbol}`);
+    if (metaEl) metaEl.textContent = "Error rendering chart: " + err.message;
+  }
+}
+
+// Redraw open detail canvases on window resize
+window.addEventListener("resize", () => {
+  document.querySelectorAll(".detail-row").forEach(detailRow => {
+    const canvas = detailRow.querySelector("canvas");
+    if (canvas && canvas._candles) {
+      drawMiniChart(canvas, canvas._candles, canvas._breakoutLevel, canvas._symbol);
+    }
+  });
+});
 
 // 2. Render Tab: Open Positions
 async function renderOpenPositions(positions) {
