@@ -33,6 +33,11 @@
         </div>
       </div>
       <div class="header-actions">
+        <button id="globalSearchBtn" class="search-trigger-btn" title="Search terms and definitions (Press /)">
+          <span style="font-size: 14px;">🔍</span>
+          <span>Search</span>
+          <kbd class="search-shortcut-kbd">/</kbd>
+        </button>
         <button id="refreshBtn" class="btn btn-secondary" title="Fetch fresh data">
           🔄 Refresh
         </button>
@@ -58,6 +63,15 @@
   <main class="main-container">
     <!-- TAB 1: NEAR BUY / WATCHLIST -->
     <section id="tabNearBuy" class="tab-content active">
+      <!-- Tab Guide Banner -->
+      <div class="tab-guide-banner" id="bannerNearBuy" data-tab-banner="near_buy">
+        <div class="tab-guide-content">
+          <span class="tab-guide-icon">💡</span>
+          <span class="tab-guide-text">Stocks in uptrend closest to their breakout. Act only on Grade A/A+ when the market badge is green.</span>
+        </div>
+        <button class="tab-guide-dismiss" title="Dismiss banner" aria-label="Dismiss">×</button>
+      </div>
+
       <div id="regimeBanner" class="regime-banner" style="display: none;">
         <span id="regimeText">Market Regime: Checking...</span>
         <span id="scannedMeta">100 constituents scanned</span>
@@ -72,11 +86,11 @@
                 <th>Type</th>
                 <th>Symbol</th>
                 <th>Entry</th>
-                <th>Stop</th>
-                <th>Target</th>
-                <th>Qty</th>
+                <th><span class="term-lookup" data-term="Stop loss">Stop</span></th>
+                <th><span class="term-lookup" data-term="Target">Target</span></th>
+                <th><span class="term-lookup" data-term="Position size">Qty</span></th>
                 <th>Risk Amount</th>
-                <th>Sector</th>
+                <th><span class="term-lookup" data-term="Sector filter">Sector</span></th>
               </tr>
             </thead>
             <tbody id="signalsBody"></tbody>
@@ -89,13 +103,13 @@
           <thead>
             <tr>
               <th>Symbol</th>
-              <th>Score</th>
-              <th>Grade</th>
+              <th><span class="term-lookup" data-term="Setup score">Score</span></th>
+              <th><span class="term-lookup" data-term="Grade">Grade</span></th>
               <th>Close</th>
-              <th>Dist to Breakout</th>
-              <th>Coiling</th>
+              <th><span class="term-lookup" data-term="Dist to Breakout">Dist to Breakout</span></th>
+              <th><span class="term-lookup" data-term="Coiling">Coiling</span></th>
               <th>Sector</th>
-              <th>Sector Bullish</th>
+              <th><span class="term-lookup" data-term="Sector Bullish">Sector Bullish</span></th>
               <th>Action</th>
             </tr>
           </thead>
@@ -110,6 +124,15 @@
 
     <!-- TAB 2: OPEN POSITIONS -->
     <section id="tabOpen" class="tab-content">
+      <!-- Tab Guide Banner -->
+      <div class="tab-guide-banner" id="bannerOpenPositions" data-tab-banner="open_positions">
+        <div class="tab-guide-content">
+          <span class="tab-guide-icon">💡</span>
+          <span class="tab-guide-text">Your live trades. Red rows are near stop - defend or exit. Green rows are near target - consider booking.</span>
+        </div>
+        <button class="tab-guide-dismiss" title="Dismiss banner" aria-label="Dismiss">×</button>
+      </div>
+
       <!-- Position Sizer Card -->
       <div id="positionSizerCard" class="sizer-card">
         <div class="sizer-header">
@@ -151,15 +174,15 @@
             <div id="sizerRiskPerUnit" class="sizer-stat-value">₹0.00</div>
           </div>
           <div class="sizer-stat-card">
-            <div class="sizer-stat-label">Suggested Qty (Floor)</div>
+            <div class="sizer-stat-label"><span class="term-lookup" data-term="Position size">Suggested Qty (Floor)</span></div>
             <div id="sizerQty" class="sizer-stat-value highlight">0 units</div>
           </div>
           <div class="sizer-stat-card">
-            <div class="sizer-stat-label">Max Loss (Rupees)</div>
+            <div class="sizer-stat-label"><span class="term-lookup" data-term="1% risk rule">Max Loss (Rupees)</span></div>
             <div id="sizerMaxLoss" class="sizer-stat-value loss">₹0.00</div>
           </div>
           <div class="sizer-stat-card">
-            <div class="sizer-stat-label">Target (2R)</div>
+            <div class="sizer-stat-label"><span class="term-lookup" data-term="2R">Target (2R)</span></div>
             <div id="sizerTarget" class="sizer-stat-value profit">₹0.00</div>
           </div>
           <div class="sizer-stat-card">
@@ -183,11 +206,11 @@
 
       <div class="summary-strip">
         <div class="stat-card">
-          <div class="stat-label">Total Unrealized PnL</div>
+          <div class="stat-label"><span class="term-lookup" data-term="Unrealized PnL">Total Unrealized PnL</span></div>
           <div id="openTotalPnl" class="stat-value neutral">₹0.00</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Open Positions</div>
+          <div class="stat-label"><span class="term-lookup" data-term="Open positions">Open Positions</span></div>
           <div id="openPositionsCount" class="stat-value">0</div>
         </div>
         <div class="stat-card">
@@ -203,13 +226,13 @@
               <th>Symbol</th>
               <th>Entry Date</th>
               <th>Entry Price</th>
-              <th>Qty</th>
-              <th>Stop</th>
-              <th>Target</th>
+              <th><span class="term-lookup" data-term="Position size">Qty</span></th>
+              <th><span class="term-lookup" data-term="Stop loss">Stop</span></th>
+              <th><span class="term-lookup" data-term="Target">Target</span></th>
               <th>Last Price</th>
-              <th>Unrealized PnL</th>
-              <th>% to Stop</th>
-              <th>% to Target</th>
+              <th><span class="term-lookup" data-term="Unrealized PnL">Unrealized PnL</span></th>
+              <th><span class="term-lookup" data-term="% to Stop">% to Stop</span></th>
+              <th><span class="term-lookup" data-term="% to Target">% to Target</span></th>
             </tr>
           </thead>
           <tbody id="openPositionsBody">
@@ -223,9 +246,18 @@
 
     <!-- TAB 3: TRADE HISTORY & EQUITY CURVE -->
     <section id="tabHistory" class="tab-content">
+      <!-- Tab Guide Banner -->
+      <div class="tab-guide-banner" id="bannerHistory" data-tab-banner="history">
+        <div class="tab-guide-content">
+          <span class="tab-guide-icon">💡</span>
+          <span class="tab-guide-text">Every closed trade. The curve shows your journey; red bars are lessons, green bars are proof the system works.</span>
+        </div>
+        <button class="tab-guide-dismiss" title="Dismiss banner" aria-label="Dismiss">×</button>
+      </div>
+
       <div class="chart-card">
         <div class="chart-header">
-          <h2 class="chart-title">Cumulative Equity Curve (Realized PnL)</h2>
+          <h2 class="chart-title"><span class="term-lookup" data-term="Equity curve">Cumulative Equity Curve</span> (<span class="term-lookup" data-term="Realized PnL">Realized PnL</span>)</h2>
           <span id="equityTotalBadge" class="badge badge-success">₹0.00</span>
         </div>
         <div class="canvas-wrapper">
@@ -240,12 +272,12 @@
               <th>Symbol</th>
               <th>Entry Date</th>
               <th>Entry</th>
-              <th>Qty</th>
+              <th><span class="term-lookup" data-term="Position size">Qty</span></th>
               <th>Exit Date</th>
               <th>Exit</th>
-              <th>Realized PnL</th>
+              <th><span class="term-lookup" data-term="Realized PnL">Realized PnL</span></th>
               <th>Return %</th>
-              <th>R-Multiple</th>
+              <th><span class="term-lookup" data-term="R-multiple">R-Multiple</span></th>
               <th>Note</th>
             </tr>
           </thead>
@@ -260,25 +292,34 @@
 
     <!-- TAB 4: PERFORMANCE STATS -->
     <section id="tabStats" class="tab-content">
+      <!-- Tab Guide Banner -->
+      <div class="tab-guide-banner" id="bannerStats" data-tab-banner="stats">
+        <div class="tab-guide-content">
+          <span class="tab-guide-icon">💡</span>
+          <span class="tab-guide-text">Your report card. Judge the system over 20+ trades, not 2.</span>
+        </div>
+        <button class="tab-guide-dismiss" title="Dismiss banner" aria-label="Dismiss">×</button>
+      </div>
+
       <div class="summary-strip" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
         <div class="stat-card">
           <div class="stat-label">Total Closed Trades</div>
           <div id="statTotalTrades" class="stat-value">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Win Rate</div>
+          <div class="stat-label"><span class="term-lookup" data-term="Win rate">Win Rate</span></div>
           <div id="statWinRate" class="stat-value">0.0%</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Total Realized PnL</div>
+          <div class="stat-label"><span class="term-lookup" data-term="Realized PnL">Total Realized PnL</span></div>
           <div id="statTotalPnl" class="stat-value">₹0.00</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Profit Factor</div>
+          <div class="stat-label"><span class="term-lookup" data-term="Profit factor">Profit Factor</span></div>
           <div id="statProfitFactor" class="stat-value">0.00</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Expectancy / Trade</div>
+          <div class="stat-label"><span class="term-lookup" data-term="Expectancy">Expectancy / Trade</span></div>
           <div id="statExpectancy" class="stat-value">₹0.00</div>
         </div>
         <div class="stat-card">
@@ -290,7 +331,7 @@
           <div id="statAvgLoss" class="stat-value negative">-₹0.00</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Max Drawdown</div>
+          <div class="stat-label"><span class="term-lookup" data-term="Max drawdown">Max Drawdown</span></div>
           <div id="statMaxDD" class="stat-value negative">₹0.00</div>
         </div>
         <div class="stat-card">
@@ -1343,6 +1384,39 @@
 
   <!-- Global Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Site-Wide Term Search Modal -->
+  <div id="termSearchModal" class="term-search-modal" style="display: none;">
+    <div class="term-search-backdrop" id="termSearchBackdrop"></div>
+    <div class="term-search-dialog" role="dialog" aria-modal="true" aria-label="Term Search">
+      <div class="term-search-header">
+        <span class="term-search-icon">🔍</span>
+        <input type="text" id="termSearchInput" class="term-search-input" placeholder="Search trading terms, metrics, formulas, or UI labels... (Esc to close)" autocomplete="off" />
+        <span class="term-search-esc-hint"><kbd>ESC</kbd></span>
+      </div>
+      <div id="termSearchResults" class="term-search-results">
+        <!-- Injected dynamically -->
+      </div>
+      <div class="term-search-footer">
+        <span><kbd>↑</kbd> <kbd>↓</kbd> to navigate</span>
+        <span><kbd>↵</kbd> to select</span>
+        <span><kbd>ESC</kbd> to close</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inline Term Definition Popover -->
+  <div id="termPopover" class="term-popover" style="display: none;">
+    <div class="term-popover-header">
+      <span id="termPopoverTitle" class="term-popover-title">Term Title</span>
+      <button id="termPopoverClose" class="term-popover-close" title="Close">×</button>
+    </div>
+    <div id="termPopoverBody" class="term-popover-body">Short meaning definition...</div>
+    <div class="term-popover-footer">
+      <span id="termPopoverWhere" class="term-popover-where">Used in: Near Buy</span>
+      <a href="#" id="termPopoverGuideLink" class="term-popover-link">Full guide ➔</a>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

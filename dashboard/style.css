@@ -1440,3 +1440,393 @@ tr.row-danger {
     font-size: 13px;
   }
 }
+
+/* =====================================================================
+   SITE-WIDE TERM SEARCH, POPOVER & TAB GUIDE BANNERS
+   ===================================================================== */
+
+/* Top bar Search Button */
+.search-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.search-trigger-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.search-shortcut-kbd {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 1px 6px;
+  color: var(--text-dim);
+}
+
+/* Term Search Modal */
+.term-search-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10vh;
+}
+
+.term-search-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 7, 18, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.term-search-dialog {
+  position: relative;
+  width: 90%;
+  max-width: 620px;
+  background: #0d121f;
+  border: 1px solid rgba(79, 70, 229, 0.4);
+  border-radius: 14px;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.8), 0 0 30px rgba(79, 70, 229, 0.2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: searchModalSlideDown 0.18s ease-out;
+}
+
+@keyframes searchModalSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.term-search-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.term-search-icon {
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+.term-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+  font-family: inherit;
+}
+
+.term-search-input::placeholder {
+  color: var(--text-dim);
+}
+
+.term-search-esc-hint kbd {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 2px 7px;
+  color: var(--text-dim);
+}
+
+.term-search-results {
+  max-height: 380px;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.term-search-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.term-search-item:hover, .term-search-item.selected {
+  background: rgba(79, 70, 229, 0.15);
+  border-color: rgba(79, 70, 229, 0.35);
+}
+
+.term-search-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.term-search-item-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.term-search-item-where {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.term-search-item-meaning {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.term-search-empty {
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.term-search-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 10px 18px;
+  background: rgba(0, 0, 0, 0.25);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.term-search-footer kbd {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  padding: 1px 4px;
+  color: var(--text-muted);
+}
+
+/* Clickable Term Lookups in Tables and Badges */
+.term-lookup {
+  display: inline-block;
+  cursor: pointer;
+  border-bottom: 1px dotted var(--accent);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.term-lookup:hover {
+  color: #38bdf8 !important;
+  border-bottom-style: solid;
+  border-bottom-color: #38bdf8;
+}
+
+th .term-lookup {
+  color: inherit;
+}
+
+/* Term Popover */
+.term-popover {
+  position: fixed;
+  z-index: 10001;
+  width: 320px;
+  background: #0f172a;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: 0 16px 32px -6px rgba(0, 0, 0, 0.75), 0 0 20px rgba(56, 189, 248, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: popoverFadeIn 0.15s ease-out;
+}
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.term-popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.term-popover-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.term-popover-close {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color 0.15s ease;
+}
+
+.term-popover-close:hover {
+  color: #fff;
+}
+
+.term-popover-body {
+  font-size: 12px;
+  color: var(--text-main);
+  line-height: 1.5;
+}
+
+.term-popover-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+}
+
+.term-popover-where {
+  color: var(--text-dim);
+}
+
+.term-popover-link {
+  color: #818cf8;
+  text-decoration: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.term-popover-link:hover {
+  color: #a5b4fc;
+  text-decoration: underline;
+}
+
+/* "How to read this tab" Dismissible Info Banner */
+.tab-guide-banner {
+  background: rgba(56, 189, 248, 0.06);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-left: 3px solid #38bdf8;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.tab-guide-banner.dismissing {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.tab-guide-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.tab-guide-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.tab-guide-text {
+  font-size: 12.5px;
+  color: #e2e8f0;
+  line-height: 1.4;
+}
+
+.tab-guide-dismiss {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.tab-guide-dismiss:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Help Card Flash Highlight Animation */
+@keyframes termHighlightFlash {
+  0% {
+    box-shadow: 0 0 0 4px #38bdf8, 0 0 30px rgba(56, 189, 248, 0.6);
+    border-color: #38bdf8;
+    background-color: rgba(56, 189, 248, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 0 3px #818cf8, 0 0 25px rgba(129, 140, 248, 0.5);
+    border-color: #818cf8;
+    background-color: rgba(129, 140, 248, 0.1);
+  }
+  100% {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    border-color: var(--border);
+    background-color: #0b0f19;
+  }
+}
+
+.term-highlight-flash {
+  animation: termHighlightFlash 2.5s ease-out;
+}
+

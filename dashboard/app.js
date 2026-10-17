@@ -15,6 +15,345 @@ const TRADES_URL = `${REPO_BASE}/trades.json`;
 
 let equityChartInstance = null;
 
+// =====================================================================
+// SITE-WIDE TERMS & DEFINITIONS DICTIONARY
+// =====================================================================
+const TERMS = {
+  // Moving Averages & Trend
+  "SMA50": {
+    short: "50-day Simple Moving Average representing 10 weeks of institutional price trend.",
+    long: "The 50-day Simple Moving Average calculates the mean closing price over the last 10 calendar weeks. In Minervini Stage 2 uptrends, leading stocks stay above their rising SMA 50, which serves as primary institutional support.",
+    where_used: "Near Buy (Trend Filter), Help Guide",
+    anchor: "glossary-sma50"
+  },
+  "SMA150": {
+    short: "150-day Simple Moving Average tracking intermediate-term institutional support.",
+    long: "The 150-day Simple Moving Average reflects roughly 7 months of price action. It validates healthy intermediate trend structure by staying positioned between the 50 SMA and 200 SMA in Stage 2 leaders.",
+    where_used: "Near Buy (Trend Filter), Help Guide",
+    anchor: "glossary-sma150"
+  },
+  "SMA200": {
+    short: "200-day Simple Moving Average defining the macro boundary between bull and bear trends.",
+    long: "The premier long-term benchmark average representing ~10 months of trading. Minervini rules require the 200 SMA to be trending up for at least 1 month before taking any long swing trades.",
+    where_used: "Near Buy (Trend Filter), Help Guide",
+    anchor: "glossary-sma200"
+  },
+  "EMA10": {
+    short: "10-period Exponential Moving Average used as our mechanical trailing stop line.",
+    long: "A fast moving average heavily weighted toward recent prices. Once a winning swing trade surpasses its initial 2R target, we trail our stop loss along the daily 10 EMA to ride multi-week momentum runners.",
+    where_used: "Open Positions, Trade Management, Help Guide",
+    anchor: "glossary-ema10"
+  },
+  "EMA20": {
+    short: "20-period Exponential Moving Average capturing short-term pullbacks and base support.",
+    long: "The 20-period Exponential Moving Average approximates a 1-month trading trend. Strong momentum stocks routinely test and bounce off their rising 20 EMA while forming volatility squeezes.",
+    where_used: "Indicators, Mini Charts, Help Guide",
+    anchor: "glossary-ema20"
+  },
+  "ATR14": {
+    short: "14-day Average True Range measuring true daily volatility in rupees.",
+    long: "ATR measures the average rupee swing per session, accounting for overnight gap moves. It allows us to set dynamic, volatility-based stop losses rather than using arbitrary percentage stops.",
+    where_used: "Position Sizer, Watchlist, Help Guide",
+    anchor: "glossary-atr14"
+  },
+  "RSI14": {
+    short: "Standard 14-day Relative Strength Index oscillator filtering momentum extremes.",
+    long: "Bounded between 0 and 100, RSI14 measures the magnitude of recent gains versus losses. Our scanner rewards candidates with RSI14 between 40 and 65, ensuring positive momentum without chasing overbought tops.",
+    where_used: "Near Buy (Score Filter), Help Guide",
+    anchor: "glossary-rsi14"
+  },
+  "RSI2": {
+    short: "Ultra-fast 2-period RSI oscillator designed to spot short-term rubber-band dips.",
+    long: "Popularized by Larry Connors, 2-period RSI drops into extreme oversold territory (<10) during quick 2-3 day pullbacks. Buying the subsequent green reversal candle offers exceptional reward-to-risk asymmetry.",
+    where_used: "Pullback Setup, Help Guide",
+    anchor: "glossary-rsi2"
+  },
+  "Volume": {
+    short: "Total number of shares transacted during a trading day.",
+    long: "Volume confirms the validity of price movements. Without volume, price breakouts lack genuine institutional sponsorship and frequently fail due to low liquidity.",
+    where_used: "Turnover Filter, Volume Dry-up, Help Guide",
+    anchor: "glossary-volume"
+  },
+  "Volume dry-up": {
+    short: "Trading activity shrinking below 80% of normal, proving sellers are exhausted.",
+    long: "When 5-day average volume drops below 80% of the 50-day average, supply has completely dried up. With few shares left for sale, it takes minimal buyer interest to trigger an explosive breakout.",
+    where_used: "Near Buy (Coiling Setup), Help Guide",
+    anchor: "glossary-volumedryup"
+  },
+  "50-day average volume": {
+    short: "The 50-session moving average of volume acting as our liquidity baseline.",
+    long: "Calculates baseline turnover and participation. Serves as the quantitative yardstick against which both volume dry-ups (<80%) and breakout volume spikes (>150%) are measured.",
+    where_used: "Near Buy Filter, Help Guide",
+    anchor: "glossary-vol50"
+  },
+  "VCP / coiling": {
+    short: "Volatility Contraction Pattern showing shrinking price swings and dried-up volume.",
+    long: "Mark Minervini's signature institutional pattern where each successive pullback becomes shallower (e.g. -15% then -8% then -3%). When accompanied by volume dry-up, it indicates institutional absorption.",
+    where_used: "Near Buy (Coiling Badge), Help Guide",
+    anchor: "glossary-vcp"
+  },
+  "Coiling": {
+    short: "A tight consolidation where price range and volume both contract significantly.",
+    long: "Indicates that buyers and sellers have reached price equilibrium under resistance. A 'Coiling: YES' tag confirms the stock is spring-loaded and eligible for immediate breakout triggers.",
+    where_used: "Near Buy Table Header & Badges, Help Guide",
+    anchor: "glossary-vcp"
+  },
+  "price contraction": {
+    short: "Daily candle trading range narrowing below 80% of historical average range.",
+    long: "Measured as 5-day average high-low range dropping below 80% of the 50-day range. Confirms volatility compression before a rapid expansion in price.",
+    where_used: "Near Buy (VCP Setup), Help Guide",
+    anchor: "glossary-pricecontraction"
+  },
+  "20-day breakout level": {
+    short: "The highest intra-day price reached across the previous 20 trading sessions.",
+    long: "Represents the overhead resistance level that trapped prior buyers. Penetrating this level on high volume signals that all overhead sellers are cleared.",
+    where_used: "Near Buy Table, Mini Charts, Help Guide",
+    anchor: "glossary-high20"
+  },
+  "breakout": {
+    short: "Price crossing and closing above a critical resistance ceiling on heavy volume.",
+    long: "A valid breakout occurs when a coiled Stage 2 stock closes above its 20-day high on volume >1.5x average. It triggers our automated /buy signal on Telegram.",
+    where_used: "Signals Table, Telegram Alerts, Help Guide",
+    anchor: "glossary-breakout"
+  },
+  "volume spike": {
+    short: "Daily volume exceeding 1.5 times the 50-day average volume.",
+    long: "The indispensable fuel behind every genuine breakout. Institutional funds cannot enter or accumulate a stock quietly on a breakout without creating an obvious volume spike.",
+    where_used: "Breakout Confirmation, Help Guide",
+    anchor: "glossary-volumespike"
+  },
+  "strong close": {
+    short: "Session candle finishing in the top 40% of its daily high-to-low range.",
+    long: "Calculated as (Close - Low) / (High - Low) > 0.60. Filters out intraday upper rejection wicks and proves that buyers retained aggressive control into the closing bell.",
+    where_used: "Signal Confirmation, Help Guide",
+    anchor: "glossary-strongclose"
+  },
+  "52-week high and low": {
+    short: "The annual peak and trough prices defining the stock's 1-year trading boundary.",
+    long: "Minervini Stage 2 criteria require price to trade at least 30% above its 52-week low and within 25% of its 52-week high. Winning swing trades emerge near 52-week highs, not lows.",
+    where_used: "Trend Filter, Help Guide",
+    anchor: "glossary-52whighlow"
+  },
+  "Relative Strength vs index": {
+    short: "Outperformance of an individual stock compared to the NIFTY 50 benchmark.",
+    long: "Stocks with high Relative Strength resist market sell-offs and reach new highs first. Our strategy focuses strictly on market leaders with sector and index outperformance.",
+    where_used: "Trend Ranking, Help Guide",
+    anchor: "glossary-rs"
+  },
+  "Sector filter": {
+    short: "Requirement that the stock's industry sector index is also in an active Stage 2 uptrend.",
+    long: "Verifies that the stock's broader industry index (e.g. NIFTY IT, NIFTY Bank) is trading above its 50 and 200 SMAs. Prevents buying isolated winners in declining sector groups.",
+    where_used: "Near Buy (Sector Bullish), Help Guide",
+    anchor: "glossary-sectorfilter"
+  },
+  "Sector Bullish": {
+    short: "Confirmation that the stock's sector index is in an active Stage 2 uptrend.",
+    long: "Displays 'YES' if the company's sector index satisfies Close > SMA50 > SMA200. Adds +15 points to the Setup Score and is required for Grade A and A+ status.",
+    where_used: "Near Buy Table Column & Badges, Help Guide",
+    anchor: "glossary-sectorfilter"
+  },
+  "Market regime (M-rule)": {
+    short: "O'Neil benchmark index filter based on NIFTY 50 moving averages.",
+    long: "75% of individual stocks follow the broader market trend. If the NIFTY 50 index falls below its 50 or 200 SMA, the market flips to Defensive, capping all scores at 50 and blocking buy signals.",
+    where_used: "Top Bar Market Badge, Regime Banner, Help Guide",
+    anchor: "glossary-mrule"
+  },
+  "Market regime": {
+    short: "Macro market environment filter: Uptrend (trading permitted) vs Defensive (cash only).",
+    long: "Evaluates whether NIFTY 50 is trading cleanly above its 50-day and 200-day moving averages. If market conditions deteriorate, capital preservation mandates holding cash.",
+    where_used: "Top Bar Header, Near Buy Tab, Help Guide",
+    anchor: "glossary-mrule"
+  },
+  "Defensive": {
+    short: "Market regime indicating benchmark downtrend; cash is held to protect capital.",
+    long: "When NIFTY 50 breaks below key moving averages, the terminal badge displays 'Market: Defensive'. All setup scores are capped at 50 and no new purchases are allowed.",
+    where_used: "Market Badge, Regime Banner, FAQ, Help Guide",
+    anchor: "glossary-mrule"
+  },
+  "Distance to breakout": {
+    short: "Percentage distance from current closing price to the 20-day high resistance level.",
+    long: "Stocks within 0-2% of breakout receive top priority for immediate entry. Stocks between 2% and 5% are kept on the watchlist for observation.",
+    where_used: "Near Buy Table, Score Calculation, Help Guide",
+    anchor: "glossary-dist"
+  },
+  "Dist to Breakout": {
+    short: "Percentage distance remaining before the stock reaches its 20-day breakout trigger.",
+    long: "Quantifies how close the setup is to breaking out. Scaled into the Setup Score (up to +20 points for candidates within 2% of the breakout line).",
+    where_used: "Near Buy Table Header, Help Guide",
+    anchor: "glossary-dist"
+  },
+  "Setup window": {
+    short: "10-day lookback buffer during which a prior coiling pattern remains valid.",
+    long: "Breakouts do not always trigger on the exact session a stock finishes coiling. A 10-day memory window ensures eligible setups are rewarded when the volume spike arrives.",
+    where_used: "Scanner Engine, Help Guide",
+    anchor: "glossary-setupwindow"
+  },
+  "Stop loss": {
+    short: "Predefined price level where a trade is automatically liquidated to prevent major losses.",
+    long: "Calculated dynamically as Entry minus 1.5x ATR, capped at a maximum of 7% from entry. Strictly executed without hesitation or emotional debate.",
+    where_used: "Position Sizer, Open Positions, Help Guide",
+    anchor: "glossary-stoploss"
+  },
+  "1.5x ATR stop": {
+    short: "Dynamic stop loss buffer set at 1.5 times the 14-day Average True Range below entry.",
+    long: "Adapts stop loss distance to the specific volatility of the stock, preventing normal intraday noise from triggering premature exits.",
+    where_used: "Signal Generation, Position Sizer, Help Guide",
+    anchor: "glossary-15atr"
+  },
+  "7% max stop": {
+    short: "Absolute hard ceiling capping initial stop loss distance at 7% from entry price.",
+    long: "Even if ATR volatility would dictate a wider buffer, the system clamps the stop loss at 7% below entry to maintain favorable expectancy and prevent outsized losses.",
+    where_used: "Signal Generation, Position Sizer, Help Guide",
+    anchor: "glossary-maxstop"
+  },
+  "Target": {
+    short: "Pre-planned exit price where profits are locked in at a 2:1 reward-to-risk ratio.",
+    long: "Set at Entry + 2 * (Entry - Stop). Exiting at predefined 2R targets ensures consistent profitability even when win rate hovers around 45-50%.",
+    where_used: "Position Sizer, Open Positions, Help Guide",
+    anchor: "glossary-target"
+  },
+  "2R": {
+    short: "Profit target delivering exactly twice the rupee risk taken on the trade.",
+    long: "A 2R target produces asymmetric returns: risking ₹1,000 to make ₹2,000. This mathematical asymmetry is the bedrock of profitable swing trading.",
+    where_used: "Position Sizer, Open Positions, Help Guide",
+    anchor: "glossary-2rtarget"
+  },
+  "R-multiple": {
+    short: "Trade outcome expressed as a multiple of initial risk (1R = Risk Budget).",
+    long: "Normalizes performance across different stocks and account sizes. A win of +₹2,000 on a ₹1,000 risk trade is scored as +2.0R, while a stop loss is -1.0R.",
+    where_used: "Trade History Table, Help Guide",
+    anchor: "glossary-rmultiple"
+  },
+  "Position size": {
+    short: "Exact number of shares to buy so potential loss equals your 1% risk budget.",
+    long: "Calculated as floor((Capital * Risk%) / (Entry - Stop)). Sizing according to risk distance rather than capital allocation protects you from oversized losses on volatile stocks.",
+    where_used: "Position Sizer, Signals Table, Help Guide",
+    anchor: "glossary-positionsize"
+  },
+  "1% risk rule": {
+    short: "Risking no more than 1% of total portfolio capital on any single swing trade.",
+    long: "On a ₹100,000 capital account, max loss per trade is strictly capped at ₹1,000. Ensures survival across normal losing streaks without inflicting severe psychological damage.",
+    where_used: "Position Sizer, Risk Commandments, Help Guide",
+    anchor: "glossary-1percentsizing"
+  },
+  "Expectancy": {
+    short: "Expected average rupee payoff per trade over a large series of trades.",
+    long: "Formula: (Win% * AvgWin) - (Loss% * AvgLoss). A positive expectancy (e.g. >₹500 per trade) proves that your trading edge is mathematically sound and profitable.",
+    where_used: "Performance Stats Tab, Help Guide",
+    anchor: "glossary-expectancy"
+  },
+  "Win rate": {
+    short: "The percentage of closed trades that resulted in a positive realized profit.",
+    long: "Calculated as Winning Trades / Total Trades. Because our 2R target delivers twice what our stop loses, a 45-50% win rate generates steady capital growth.",
+    where_used: "Performance Stats Tab, Help Guide",
+    anchor: "glossary-winrate"
+  },
+  "Profit factor": {
+    short: "Ratio of gross winning rupees divided by gross losing rupees across closed trades.",
+    long: "A key health metric of any trading system. A profit factor above 1.5 indicates a robust, reliable edge, while values above 2.0 represent exceptional efficiency.",
+    where_used: "Performance Stats Tab, Help Guide",
+    anchor: "glossary-profitfactor"
+  },
+  "Max drawdown": {
+    short: "The largest peak-to-trough decline in total portfolio capital.",
+    long: "Quantifies the worst drawdown period experienced by the account. Strict adherence to 1% risk and 2% daily loss rules keeps drawdowns well under 8%.",
+    where_used: "Performance Stats Tab, Help Guide",
+    anchor: "glossary-maxdrawdown"
+  },
+  "Time stop": {
+    short: "Discipline rule to cut a stagnant breakout after 5 trading days without follow-through.",
+    long: "Genuine momentum breakouts follow through swiftly. If a stock trades sideways near entry for 5 trading sessions, we close the trade to liberate capital for better setups.",
+    where_used: "Trade Management, Risk Commandments, Help Guide",
+    anchor: "glossary-timestop"
+  },
+  "Breakeven ratchet": {
+    short: "Moving stop loss up to entry price once trade reaches +8% unrealized profit.",
+    long: "Eliminates downside risk by locking in a free trade once price rallies +8%. Guarantees that a substantial winning trade never turns into a losing trade.",
+    where_used: "Trade Management, Help Guide",
+    anchor: "glossary-breakeven"
+  },
+  "Breakeven": {
+    short: "Adjusting your stop loss to the exact entry price to guarantee zero loss.",
+    long: "Triggered mechanically at +8% gain. Once at breakeven, you hold the position risk-free while letting profits run toward the 2R target or 10 EMA trailing exit.",
+    where_used: "Trade Management, Help Guide",
+    anchor: "glossary-breakeven"
+  },
+  "Trailing stop (10 EMA)": {
+    short: "Dynamic exit technique riding big winners until a session closes below the 10 EMA.",
+    long: "Once a stock exceeds its initial 2R target, we hold until a daily candle closes below the rising 10 EMA line. This allows exceptional trends to turn into 3R+ mega winners.",
+    where_used: "Trade Management, Help Guide",
+    anchor: "glossary-trailingema10"
+  },
+  "Grade": {
+    short: "Setup quality rating (A+, A, B, C) based on score and sector/market confirmation.",
+    long: "Grade A+ (Score ≥80 with Bullish Sector & Market OK) and Grade A (Score ≥70 with Bullish Sector) represent top-tier setups. Grade B and C are for observation only.",
+    where_used: "Near Buy Table, Signals Table, Help Guide",
+    anchor: "glossary-gradescore"
+  },
+  "Setup score": {
+    short: "Composite setup rating from 0 to 100 evaluating trend, coiling, volume, and sector.",
+    long: "Combines 7 quantitative factors: Trend (+25), Breakout Proximity (+20), Coiling (+15), Sector (+15), Volume Dry-up (+10), RSI in range (+10), and Market filter (+5).",
+    where_used: "Near Buy Table, Help Guide",
+    anchor: "glossary-gradescore"
+  },
+  "Score": {
+    short: "Composite setup score (0-100) ranking the statistical edge of each candidate.",
+    long: "Scores 80+ indicate Grade A+ setups; scores 70-79 indicate Grade A setups. Directs attention and capital exclusively to the highest probability opportunities.",
+    where_used: "Near Buy Table Column & Pills, Help Guide",
+    anchor: "glossary-gradescore"
+  },
+  "Watchlist": {
+    short: "Candidate stocks meeting Minervini Stage 2 criteria and within 5% of 20-day high.",
+    long: "Refreshed after every market close. Provides early visibility into coiling stocks that are preparing to break out, allowing you to prepare order sizing in advance.",
+    where_used: "Near Buy Tab, Help Guide",
+    anchor: "glossary-dist"
+  },
+  "Open positions": {
+    short: "Live swing trades currently active in the portfolio with active stops and targets.",
+    long: "Monitored against daily market closes. Each position displays real-time paper PnL, percentage distance to protective stop loss, and percentage distance to 2R target.",
+    where_used: "Open Positions Tab, Telegram /open, Help Guide",
+    anchor: "glossary-positionsize"
+  },
+  "Unrealized PnL": {
+    short: "Floating paper profit or loss on active open positions based on current prices.",
+    long: "Reflects mark-to-market performance of active trades. Becomes Realized PnL only after closing the position with a /sell command.",
+    where_used: "Open Positions Table & Summary Strip",
+    anchor: "glossary-positionsize"
+  },
+  "Realized PnL": {
+    short: "Net rupee profit or loss booked upon closing a position.",
+    long: "Recorded in trades.json upon executing /sell. Forms the data points for the cumulative equity curve, win rate, and profit factor calculations.",
+    where_used: "Trade History Table, Stats Tab, Help Guide",
+    anchor: "glossary-expectancy"
+  },
+  "% to Stop": {
+    short: "Percentage distance from the current price down to your protective stop loss.",
+    long: "Highlights how close a position is to triggering its exit stop. Low values (<1.5%) indicate positions requiring defensive attention.",
+    where_used: "Open Positions Table Column"
+  },
+  "% to Target": {
+    short: "Percentage distance remaining from current price up to your 2R profit target.",
+    long: "Shows progress toward your predefined exit target. As price approaches target, prepare to exit or activate the 10 EMA trailing stop.",
+    where_used: "Open Positions Table Column"
+  },
+  "Equity curve": {
+    short: "Cumulative line chart tracking total realized profits and losses over time.",
+    long: "Visualizes the trajectory of your trading account. A rising equity curve with shallow pullbacks demonstrates a consistent statistical edge and sound risk management.",
+    where_used: "Trade History Tab, Help Guide"
+  }
+};
+
+// Safe HTML Escaper
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 // Currency Formatter (INR)
 function formatINR(val, includeSign = false) {
   if (val === null || val === undefined || isNaN(val)) return "N/A";
@@ -110,12 +449,14 @@ function renderNearBuy(scanData) {
   lastUpdated.textContent = `Updated: ${formatDateTime(scanData.updated_at)}`;
 
   if (scanData.market_ok) {
-    marketBadge.className = "badge badge-success";
+    marketBadge.className = "badge badge-success term-lookup";
+    marketBadge.setAttribute("data-term", "Market regime");
     marketBadge.textContent = "Market: Uptrend";
     regimeBanner.className = "regime-banner uptrend";
     regimeText.textContent = "🟢 MARKET UPTREND CONFIRMED: Normal buy entry rules active.";
   } else {
-    marketBadge.className = "badge badge-danger";
+    marketBadge.className = "badge badge-danger term-lookup";
+    marketBadge.setAttribute("data-term", "Market regime");
     marketBadge.textContent = "Market: Defensive";
     regimeBanner.className = "regime-banner defensive";
     regimeText.textContent = "🔴 MARKET FILTER ACTIVE: Index in pullback/downtrend. New entry signals blocked (O'Neil M-rule).";
@@ -175,12 +516,12 @@ function renderNearBuy(scanData) {
 
     const isBullish = item.SectorBullish === "YES";
     const bullishBadge = isBullish
-      ? `<span class="badge badge-success">YES</span>`
-      : `<span class="badge badge-warning">no</span>`;
+      ? `<span class="badge badge-success term-lookup" data-term="Sector Bullish">YES</span>`
+      : `<span class="badge badge-warning term-lookup" data-term="Sector Bullish">no</span>`;
 
     const coilingBadge = item.Coiling === "YES"
-      ? `<span class="badge badge-success">Coiling</span>`
-      : `<span class="badge badge-neutral">no</span>`;
+      ? `<span class="badge badge-success term-lookup" data-term="Coiling">Coiling</span>`
+      : `<span class="badge badge-neutral term-lookup" data-term="Coiling">no</span>`;
 
     const score = Number(item.score ?? item.Score ?? 0);
     let scoreBadgeClass = "badge-danger";
@@ -189,14 +530,14 @@ function renderNearBuy(scanData) {
     } else if (score >= 60) {
       scoreBadgeClass = "badge-warning";
     }
-    const scoreBadge = `<span class="badge ${scoreBadgeClass}">${score}</span>`;
+    const scoreBadge = `<span class="badge ${scoreBadgeClass} term-lookup" data-term="Score">${score}</span>`;
 
     const grade = item.grade ?? item.Grade ?? "C";
     let gradeBadgeClass = "badge-neutral";
     if (grade === "A+" || grade === "A") gradeBadgeClass = "badge-success";
     else if (grade === "B") gradeBadgeClass = "badge-warning";
     else if (grade === "C") gradeBadgeClass = "badge-danger";
-    const gradeBadge = `<span class="badge ${gradeBadgeClass}">${grade}</span>`;
+    const gradeBadge = `<span class="badge ${gradeBadgeClass} term-lookup" data-term="Grade">${grade}</span>`;
 
     return `
       <tr class="watchlist-row ${rowClass}" data-symbol="${item.Symbol}" title="Click to view 6-month chart & checklist">
@@ -1484,6 +1825,277 @@ function initHelpCenter() {
 }
 
 // =====================================================================
+// TERM SEARCH, INLINE DEFINITIONS & TAB BANNERS
+// =====================================================================
+
+// Helper to switch to Help tab and flash target glossary card
+function jumpToHelpTerm(anchor) {
+  const helpTabBtn = document.getElementById("helpTabBtn");
+  if (helpTabBtn) {
+    helpTabBtn.click();
+  }
+  if (!anchor) return;
+
+  setTimeout(() => {
+    const el = document.getElementById(anchor);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.remove("term-highlight-flash");
+      void el.offsetWidth; // trigger reflow
+      el.classList.add("term-highlight-flash");
+      setTimeout(() => el.classList.remove("term-highlight-flash"), 2600);
+    }
+  }, 120);
+}
+
+// Show term definition popover positioned near targetElement
+function showTermPopover(termKey, targetElement) {
+  const popover = document.getElementById("termPopover");
+  if (!popover) return;
+
+  // Search case-insensitive match in TERMS
+  const normKey = Object.keys(TERMS).find(k => k.toLowerCase() === termKey.toLowerCase()) || termKey;
+  const termData = TERMS[normKey];
+  if (!termData) return;
+
+  document.getElementById("termPopoverTitle").textContent = normKey;
+  document.getElementById("termPopoverBody").textContent = termData.short;
+  document.getElementById("termPopoverWhere").textContent = termData.where_used ? `Used in: ${termData.where_used}` : "";
+
+  const guideLink = document.getElementById("termPopoverGuideLink");
+  if (termData.anchor) {
+    guideLink.style.display = "inline-block";
+    guideLink.onclick = (e) => {
+      e.preventDefault();
+      popover.style.display = "none";
+      jumpToHelpTerm(termData.anchor);
+    };
+  } else {
+    guideLink.style.display = "none";
+  }
+
+  popover.style.display = "flex";
+  const rect = targetElement.getBoundingClientRect();
+  const popoverWidth = 320;
+  let left = rect.left + window.scrollX;
+  let top = rect.bottom + window.scrollY + 8;
+
+  // Viewport clamping
+  if (left + popoverWidth > window.innerWidth - 20) {
+    left = window.innerWidth - popoverWidth - 20;
+  }
+  if (left < 10) left = 10;
+
+  popover.style.left = `${left}px`;
+  popover.style.top = `${top}px`;
+}
+
+function hideTermPopover() {
+  const popover = document.getElementById("termPopover");
+  if (popover) {
+    popover.style.display = "none";
+  }
+}
+
+// Global Term Search Modal State & Handlers
+let currentSearchIndex = -1;
+
+function openTermSearchModal() {
+  const modal = document.getElementById("termSearchModal");
+  const input = document.getElementById("termSearchInput");
+  if (!modal || !input) return;
+  modal.style.display = "flex";
+  input.value = "";
+  currentSearchIndex = -1;
+  renderTermSearchResults("");
+  input.focus();
+}
+
+function closeTermSearchModal() {
+  const modal = document.getElementById("termSearchModal");
+  if (modal) {
+    modal.style.display = "none";
+  }
+}
+
+function renderTermSearchResults(query) {
+  const resultsContainer = document.getElementById("termSearchResults");
+  if (!resultsContainer) return;
+
+  const q = (query || "").toLowerCase().trim();
+  const entries = Object.entries(TERMS);
+
+  const matched = entries.filter(([name, data]) => {
+    if (!q) return true;
+    const matchName = name.toLowerCase().includes(q);
+    const matchShort = data.short.toLowerCase().includes(q);
+    const matchLong = (data.long || "").toLowerCase().includes(q);
+    const matchWhere = (data.where_used || "").toLowerCase().includes(q);
+    return matchName || matchShort || matchLong || matchWhere;
+  });
+
+  if (matched.length === 0) {
+    resultsContainer.innerHTML = `
+      <div class="term-search-empty">
+        No terms found matching "<strong>${escapeHtml(query)}</strong>". Try searching for SMA, ATR, PnL, or Grade.
+      </div>
+    `;
+    currentSearchIndex = -1;
+    return;
+  }
+
+  resultsContainer.innerHTML = matched.map(([name, data], idx) => `
+    <div class="term-search-item ${idx === currentSearchIndex ? "selected" : ""}" data-term="${escapeHtml(name)}" data-anchor="${data.anchor || ""}">
+      <div class="term-search-item-top">
+        <span class="term-search-item-title">${escapeHtml(name)}</span>
+        ${data.where_used ? `<span class="term-search-item-where">${escapeHtml(data.where_used)}</span>` : ""}
+      </div>
+      <div class="term-search-item-meaning">${escapeHtml(data.short)}</div>
+    </div>
+  `).join("");
+
+  // Attach click handlers
+  resultsContainer.querySelectorAll(".term-search-item").forEach(item => {
+    item.addEventListener("click", () => {
+      const termName = item.getAttribute("data-term");
+      const anchor = item.getAttribute("data-anchor");
+      closeTermSearchModal();
+      if (anchor) {
+        jumpToHelpTerm(anchor);
+      } else {
+        showTermPopover(termName, item);
+      }
+    });
+  });
+}
+
+// "How to read this tab" Dismissible Info Banners
+function initTabGuideBanners() {
+  const banners = document.querySelectorAll(".tab-guide-banner");
+  banners.forEach(banner => {
+    const bannerKey = banner.getAttribute("data-tab-banner");
+    const storageKey = `dismissed_tab_banner_${bannerKey}`;
+    if (localStorage.getItem(storageKey) === "1") {
+      banner.style.display = "none";
+      return;
+    }
+
+    const dismissBtn = banner.querySelector(".tab-guide-dismiss");
+    if (dismissBtn) {
+      dismissBtn.addEventListener("click", () => {
+        banner.classList.add("dismissing");
+        localStorage.setItem(storageKey, "1");
+        setTimeout(() => {
+          banner.style.display = "none";
+        }, 220);
+      });
+    }
+  });
+}
+
+// Initialize Global Search and Clickable Term Lookups
+function initTermSearchAndLookups() {
+  // Magnifier button in top bar
+  const globalSearchBtn = document.getElementById("globalSearchBtn");
+  if (globalSearchBtn) {
+    globalSearchBtn.addEventListener("click", openTermSearchModal);
+  }
+
+  // Search backdrop click
+  const backdrop = document.getElementById("termSearchBackdrop");
+  if (backdrop) {
+    backdrop.addEventListener("click", closeTermSearchModal);
+  }
+
+  // Search input typing
+  const searchInput = document.getElementById("termSearchInput");
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      currentSearchIndex = -1;
+      renderTermSearchResults(e.target.value);
+    });
+
+    // Arrow navigation & Enter selection
+    searchInput.addEventListener("keydown", (e) => {
+      const items = document.querySelectorAll("#termSearchResults .term-search-item");
+      if (items.length === 0) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        currentSearchIndex = (currentSearchIndex + 1) % items.length;
+        items.forEach((it, idx) => {
+          if (idx === currentSearchIndex) {
+            it.classList.add("selected");
+            it.scrollIntoView({ block: "nearest" });
+          } else {
+            it.classList.remove("selected");
+          }
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        currentSearchIndex = (currentSearchIndex - 1 + items.length) % items.length;
+        items.forEach((it, idx) => {
+          if (idx === currentSearchIndex) {
+            it.classList.add("selected");
+            it.scrollIntoView({ block: "nearest" });
+          } else {
+            it.classList.remove("selected");
+          }
+        });
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const target = currentSearchIndex >= 0 && currentSearchIndex < items.length
+          ? items[currentSearchIndex]
+          : items[0];
+        if (target) target.click();
+      }
+    });
+  }
+
+  // Keyboard shortcuts: "/" to open, "Escape" to close
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "/") {
+      const activeEl = document.activeElement;
+      const isInput = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable);
+      if (!isInput) {
+        e.preventDefault();
+        openTermSearchModal();
+      }
+    } else if (e.key === "Escape") {
+      const modal = document.getElementById("termSearchModal");
+      if (modal && modal.style.display !== "none") {
+        closeTermSearchModal();
+      }
+      hideTermPopover();
+    }
+  });
+
+  // Popover close button
+  const popoverClose = document.getElementById("termPopoverClose");
+  if (popoverClose) {
+    popoverClose.addEventListener("click", hideTermPopover);
+  }
+
+  // Clickable terms event delegation across all tabs
+  document.addEventListener("click", (e) => {
+    const lookupEl = e.target.closest(".term-lookup");
+    if (lookupEl) {
+      e.preventDefault();
+      e.stopPropagation();
+      const termKey = lookupEl.getAttribute("data-term") || lookupEl.textContent.trim();
+      showTermPopover(termKey, lookupEl);
+      return;
+    }
+
+    // Outside click closes popover
+    const popover = document.getElementById("termPopover");
+    if (popover && popover.style.display !== "none" && !popover.contains(e.target)) {
+      hideTermPopover();
+    }
+  });
+}
+
+// =====================================================================
 // EVENT LISTENERS & INITIALIZATION
 // =====================================================================
 document.addEventListener("DOMContentLoaded", () => {
@@ -1533,6 +2145,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initialize Help Center
   initHelpCenter();
+
+  // Initialize Term Search, Inline Definitions & Tab Banners
+  initTabGuideBanners();
+  initTermSearchAndLookups();
 
   // Initial load if on app page
   if (document.getElementById("watchlistTable")) {
