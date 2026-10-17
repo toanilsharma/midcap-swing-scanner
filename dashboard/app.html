@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Midcap Swing Terminal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <!-- Immediate Auth Guard (prevents flash of protected content) -->
+  <script>
+    if (localStorage.getItem("auth") !== "1") {
+      window.location.replace("index.html");
+    }
+  </script>
+  <!-- Chart.js for smooth equity curve rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <!-- Header Bar -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="header-title-group">
+        <span style="font-size: 22px;">📊</span>
+        <div>
+          <h1 class="header-title">Midcap Swing Terminal</h1>
+          <div class="header-meta">
+            <span id="marketBadge" class="badge badge-neutral">Checking Market...</span>
+            <span>•</span>
+            <span id="lastUpdatedText">Updated: Loading...</span>
+          </div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="refreshBtn" class="btn btn-secondary" title="Fetch fresh data">
+          🔄 Refresh
+        </button>
+        <button id="logoutBtn" class="btn btn-danger" title="Sign out">
+          Sign Out
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Tabs Navigation -->
+  <nav class="tabs-bar">
+    <div class="tabs-container">
+      <button class="tab-btn active" data-tab="tabNearBuy">🎯 Near Buy (Watchlist)</button>
+      <button class="tab-btn" data-tab="tabOpen">💼 Open Positions (<span id="openCountBadge">0</span>)</button>
+      <button class="tab-btn" data-tab="tabHistory">📜 Trade History</button>
+      <button class="tab-btn" data-tab="tabStats">📈 Performance Stats</button>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="main-container">
+    <!-- TAB 1: NEAR BUY / WATCHLIST -->
+    <section id="tabNearBuy" class="tab-content active">
+      <div id="regimeBanner" class="regime-banner" style="display: none;">
+        <span id="regimeText">Market Regime: Checking...</span>
+        <span id="scannedMeta">100 constituents scanned</span>
+      </div>
+
+      <div id="signalsContainer" style="margin-bottom: 24px; display: none;">
+        <h2 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 12px;">🟢 Active Today's Signals</h2>
+        <div class="table-responsive">
+          <table id="signalsTable">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Symbol</th>
+                <th>Entry</th>
+                <th>Stop</th>
+                <th>Target</th>
+                <th>Qty</th>
+                <th>Risk Amount</th>
+                <th>Sector</th>
+              </tr>
+            </thead>
+            <tbody id="signalsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table id="watchlistTable">
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Close</th>
+              <th>Dist to Breakout</th>
+              <th>Coiling</th>
+              <th>Sector</th>
+              <th>Sector Bullish</th>
+            </tr>
+          </thead>
+          <tbody id="watchlistBody">
+            <tr>
+              <td colspan="6" class="empty-state">Loading scan results from GitHub...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 2: OPEN POSITIONS -->
+    <section id="tabOpen" class="tab-content">
+      <div class="summary-strip">
+        <div class="stat-card">
+          <div class="stat-label">Total Unrealized PnL</div>
+          <div id="openTotalPnl" class="stat-value neutral">₹0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Open Positions</div>
+          <div id="openPositionsCount" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Capital Deployed</div>
+          <div id="openCapitalDeployed" class="stat-value">₹0.00</div>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table id="openPositionsTable">
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Entry Date</th>
+              <th>Entry Price</th>
+              <th>Qty</th>
+              <th>Stop</th>
+              <th>Target</th>
+              <th>Last Price</th>
+              <th>Unrealized PnL</th>
+              <th>% to Stop</th>
+              <th>% to Target</th>
+            </tr>
+          </thead>
+          <tbody id="openPositionsBody">
+            <tr>
+              <td colspan="10" class="empty-state">Loading active positions...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 3: TRADE HISTORY & EQUITY CURVE -->
+    <section id="tabHistory" class="tab-content">
+      <div class="chart-card">
+        <div class="chart-header">
+          <h2 class="chart-title">Cumulative Equity Curve (Realized PnL)</h2>
+          <span id="equityTotalBadge" class="badge badge-success">₹0.00</span>
+        </div>
+        <div class="canvas-wrapper">
+          <canvas id="equityChart"></canvas>
+        </div>
+      </div>
+
+      <div class="table-responsive" style="margin-top: 24px;">
+        <table id="tradesTable">
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Entry Date</th>
+              <th>Entry</th>
+              <th>Qty</th>
+              <th>Exit Date</th>
+              <th>Exit</th>
+              <th>Realized PnL</th>
+              <th>Return %</th>
+              <th>R-Multiple</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody id="tradesBody">
+            <tr>
+              <td colspan="10" class="empty-state">Loading closed trades...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 4: PERFORMANCE STATS -->
+    <section id="tabStats" class="tab-content">
+      <div class="summary-strip" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+        <div class="stat-card">
+          <div class="stat-label">Total Closed Trades</div>
+          <div id="statTotalTrades" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Win Rate</div>
+          <div id="statWinRate" class="stat-value">0.0%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Realized PnL</div>
+          <div id="statTotalPnl" class="stat-value">₹0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Profit Factor</div>
+          <div id="statProfitFactor" class="stat-value">0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Expectancy / Trade</div>
+          <div id="statExpectancy" class="stat-value">₹0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Average Win</div>
+          <div id="statAvgWin" class="stat-value positive">+₹0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Average Loss</div>
+          <div id="statAvgLoss" class="stat-value negative">-₹0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Max Drawdown</div>
+          <div id="statMaxDD" class="stat-value negative">₹0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Best Trade</div>
+          <div id="statBestTrade" class="stat-value positive">+₹0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Worst Trade</div>
+          <div id="statWorstTrade" class="stat-value negative">-₹0.00</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

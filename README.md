@@ -114,7 +114,7 @@ To prevent buying stocks swimming against their industry current, the scanner ap
    - **Media**: `^CNXMEDIA`
    - **PSU Bank**: `^CNXPSUBANK`
    - **Infra & Capital Goods**: `^CNXINFRA`
-   - *Stocks in sectors with unlisted or erratic Yahoo indices default gracefully to `^NSEI`.*
+   - _Stocks in sectors with unlisted or erratic Yahoo indices default gracefully to `^NSEI`._
 4. **Fail-Open Safety**: If any sector index feed is unavailable or missing data, the filter fails open (`True`) so technical glitches never obstruct valid trades.
 
 ---
@@ -125,24 +125,26 @@ You can manage your entire trading journal in real time directly through Telegra
 
 ### Available Commands
 
-| Command | Syntax | Description & Example |
-|---|---|---|
-| **`/buy`** | `/buy SYMBOL ENTRY QTY [STOP] [TARGET]` | Log a new position to `open_positions.json`<br>`/buy DIXON 12500 8 11800 13900` |
-| **`/sell`** | `/sell SYMBOL EXIT [NOTE]` | Close active trade, log PnL & R-multiple to `trades.json`<br>`/sell DIXON 13900 Hit 2R target` |
-| **`/open`** | `/open` | View all active positions with entry date, price, qty, stop, and target |
-| **`/trades`** | `/trades` | List your last 10 closed trades with realized PnL and return % |
-| **`/stats`** | `/stats` | View performance metrics: Win Rate, Profit Factor, Expectancy, Max Drawdown & PnL |
-| **`/help`** | `/help` | Display the interactive command menu and syntax hints |
+| Command       | Syntax                                  | Description & Example                                                                          |
+| ------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **`/buy`**    | `/buy SYMBOL ENTRY QTY [STOP] [TARGET]` | Log a new position to `open_positions.json`<br>`/buy DIXON 12500 8 11800 13900`                |
+| **`/sell`**   | `/sell SYMBOL EXIT [NOTE]`              | Close active trade, log PnL & R-multiple to `trades.json`<br>`/sell DIXON 13900 Hit 2R target` |
+| **`/open`**   | `/open`                                 | View all active positions with entry date, price, qty, stop, and target                        |
+| **`/trades`** | `/trades`                               | List your last 10 closed trades with realized PnL and return %                                 |
+| **`/stats`**  | `/stats`                                | View performance metrics: Win Rate, Profit Factor, Expectancy, Max Drawdown & PnL              |
+| **`/help`**   | `/help`                                 | Display the interactive command menu and syntax hints                                          |
 
 ### Running the Telegram Listener
 
-* **Continuous Polling (Local)**:
+- **Continuous Polling (Local)**:
+
   ```bash
   python main.py --poll
   ```
+
   Polls every 5 seconds for new commands. Press `Ctrl+C` to stop.
 
-* **Serverless 5-Minute Automation (GitHub Actions)**:
+- **Serverless 5-Minute Automation (GitHub Actions)**:
   Configured in `.github/workflows/telegram_listener.yml`:
   Runs every 5 minutes in `ONESHOT=1` mode, processes pending user commands, updates `trades.json` and `open_positions.json`, and commits updates back to GitHub.
 
@@ -152,4 +154,3 @@ You can manage your entire trading journal in real time directly through Telegra
 
 > [!WARNING]
 > This software is developed purely for **educational and research purposes**. It does not constitute financial, investment, or trading advice. Swing trading and stock market participation carry substantial risk of capital loss. Always perform your own due diligence, review company earnings dates, and consult a certified financial advisor before executing trades with real money.
-

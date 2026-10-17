@@ -12,7 +12,7 @@ import os
 import re
 import sys
 import time
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 
 # Suppress yfinance warning logs (e.g. 'No data found / may be delisted')
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
@@ -56,6 +56,7 @@ SYMBOLS_FILE = "symbols.txt"
 TRADES_FILE = "trades.json"
 OPEN_POSITIONS_FILE = "open_positions.json"
 TG_OFFSET_FILE = "tg_offset.txt"
+SCAN_RESULTS_FILE = "scan_results.json"
 
 # Sector mapping for NIFTY Midcap 100 and key liquid Indian equities
 # Uses only verified, live Yahoo Finance sector index symbols to avoid 404 warnings:
@@ -789,25 +790,31 @@ def format_signal(sig: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def run_scanner() -> None:
-    """Execute the full scan across all candidate symbols."""
+def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
+    """
+    Execute the scan across all candidate symbols.
+    Returns (signals, scanned_count, is_market_ok).
+    """
     print("Checking market regime filter...")
-    if not market_ok():
+    is_mkt_ok = market_ok()
+    if not is_mkt_ok:
         msg = "🔴 MARKET FILTER: Index not in uptrend. No new entries today (O'Neil M-rule)."
         print(msg)
         send_telegram(msg)
-        return
+        return [], 0, False
 
     symbols = get_symbols()
     total = len(symbols)
     print(f"Scanning {total} symbols for swing setups...")
 
+    signals: List[Dict[str, Any]] = []
     messages: List[str] = []
 
     for i, sym in enumerate(symbols, start=1):
         print(f"{i}/{total}: {sym}")
         sig = scan_symbol(sym)
         if sig:
+            signals.append(sig)
             formatted = f"{format_signal(sig)}\n\n{DISCIPLINE_CARD}"
             messages.append(formatted)
         time.sleep(0.25)
@@ -817,6 +824,8 @@ def run_scanner() -> None:
         send_telegram(joined_message)
     elif SEND_NO_SIGNAL_MESSAGE:
         send_telegram("No new midcap swing signals today.")
+
+    return signals, total, True
 
 
 # =====================================================================
@@ -856,9 +865,11 @@ def diagnose(symbol: str) -> Optional[Dict[str, Any]]:
     }
 
 
-def build_watchlist_text() -> str:
+def get_watchlist_candidates() -> List[Dict[str, Any]]:
     """
     Scan symbols to build a watchlist of stocks in an uptrend near breakout.
+    Returns list of diagnose() dicts with Trend YES and DistToBreakout% <= 5.0,
+    sorted by DistToBreakout% ascending.
     """
     symbols = get_symbols()
     watchlist_candidates: List[Dict[str, Any]] = []
@@ -870,14 +881,23 @@ def build_watchlist_text() -> str:
             watchlist_candidates.append(diag)
         time.sleep(0.2)
 
-    if not watchlist_candidates:
-        return "📋 Watchlist empty: no midcap in uptrend near breakout."
-
     # Sort ascending by distance to breakout
     watchlist_candidates.sort(key=lambda x: x["DistToBreakout%"])
+    return watchlist_candidates
+
+
+def build_watchlist_text(candidates: Optional[List[Dict[str, Any]]] = None) -> str:
+    """
+    Format watchlist candidates into a readable Telegram message.
+    """
+    if candidates is None:
+        candidates = get_watchlist_candidates()
+
+    if not candidates:
+        return "📋 Watchlist empty: no midcap in uptrend near breakout."
 
     lines = ["📋 MIDCAP WATCHLIST (near breakout)"]
-    for item in watchlist_candidates:
+    for item in candidates:
         sec_info = f"{item['Sector']} (Bullish: {item['SectorBullish']})"
         line = (
             f"{item['Symbol']} | {sec_info} | {item['DistToBreakout%']}% away | "
@@ -1326,6 +1346,42 @@ def poll_loop() -> None:
         time.sleep(5)
 
 
+def git_commit_scan_results() -> None:
+    """
+    Commit and push scan_results.json to origin main.
+    Skips if SKIP_GIT_PUSH environment variable is set to '1'.
+    Fails safely so git errors never break the scanner.
+    """
+    if os.getenv("SKIP_GIT_PUSH", "0").strip() == "1":
+        print("SKIP_GIT_PUSH=1: Skipping git commit & push.")
+        return
+
+    try:
+        import subprocess
+        # Check and stage scan_results.json
+        subprocess.run(["git", "add", SCAN_RESULTS_FILE], check=True, capture_output=True, text=True)
+        diff_proc = subprocess.run(["git", "diff", "--staged", "--quiet"], capture_output=True)
+        if diff_proc.returncode != 0:
+            commit_proc = subprocess.run(
+                ["git", "commit", "-m", "update scan results [skip ci]"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            print(f"Git committed scan results: {commit_proc.stdout.strip()}")
+            subprocess.run(
+                ["git", "push", "origin", "main"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            print("Git pushed scan results to origin main.")
+        else:
+            print("No changes in scan_results.json to commit.")
+    except Exception as exc:
+        print(f"Git auto-commit failed (non-blocking): {exc}")
+
+
 # =====================================================================
 # 11) SCRIPT ENTRY POINT
 # =====================================================================
@@ -1333,7 +1389,31 @@ if __name__ == "__main__":
     if "--poll" in sys.argv:
         poll_loop()  # long-running, for the listener workflow
     else:
-        run_scanner()  # daily scan, exits when done
+        # 1. Run daily setup scanner
+        signals, scanned_count, is_mkt_ok = run_scanner()
+
+        # 2. Build watchlist candidates & send Telegram alert
+        watchlist_candidates = get_watchlist_candidates()
         if SEND_WATCHLIST:
-            wl_text = build_watchlist_text()
+            wl_text = build_watchlist_text(watchlist_candidates)
             send_telegram(wl_text)
+
+        # 3. Publish scan_results.json for web dashboard
+        ist_tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+        now_ist = datetime.datetime.now(ist_tz).isoformat()
+
+        total_scanned = scanned_count if scanned_count > 0 else len(get_symbols())
+        scan_results = {
+            "updated_at": now_ist,
+            "market_ok": is_mkt_ok,
+            "signals": signals,
+            "watchlist": watchlist_candidates,
+            "scanned_count": total_scanned,
+        }
+
+        with open(SCAN_RESULTS_FILE, "w", encoding="utf-8") as f:
+            json.dump(scan_results, f, indent=2, ensure_ascii=False)
+        print(f"Published scan results to {SCAN_RESULTS_FILE}")
+
+        # 4. Attempt git auto-commit of scan_results.json
+        git_commit_scan_results()

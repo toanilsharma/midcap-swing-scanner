@@ -1,0 +1,53 @@
+{
+  "updated_at": "2026-10-17T16:45:08.791399+05:30",
+  "market_ok": false,
+  "signals": [],
+  "watchlist": [
+    {
+      "Symbol": "NYKAA",
+      "Sector": "^NSEI",
+      "SectorBullish": "no",
+      "Trend": "YES",
+      "Coiling": "no",
+      "DistToBreakout%": 0.42,
+      "Close": 345.0
+    },
+    {
+      "Symbol": "LAURUSLABS",
+      "Sector": "^CNXPHARMA",
+      "SectorBullish": "no",
+      "Trend": "YES",
+      "Coiling": "no",
+      "DistToBreakout%": 0.44,
+      "Close": 2060.1
+    },
+    {
+      "Symbol": "COFORGE",
+      "Sector": "^CNXIT",
+      "SectorBullish": "no",
+      "Trend": "YES",
+      "Coiling": "no",
+      "DistToBreakout%": 0.93,
+      "Close": 1951.9
+    },
+    {
+      "Symbol": "MOTILALOFS",
+      "Sector": "^NSEBANK",
+      "SectorBullish": "no",
+      "Trend": "YES",
+      "Coiling": "no",
+      "DistToBreakout%": 3.09,
+      "Close": 1057.6
+    },
+    {
+      "Symbol": "AUROPHARMA",
+      "Sector": "^CNXPHARMA",
+      "SectorBullish": "no",
+      "Trend": "YES",
+      "Coiling": "no",
+      "DistToBreakout%": 4.39,
+      "Close": 1666.9
+    }
+  ],
+  "scanned_count": 100
+}
