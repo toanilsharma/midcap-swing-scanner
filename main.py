@@ -1073,31 +1073,34 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
         if cmd == "/help":
             return (
                 "🤖 SWING TRADING JOURNAL COMMANDS:\n\n"
-                "• /buy SYMBOL ENTRY QTY [STOP] [TARGET]\n"
-                "  Example: /buy DIXON 12500 8 11800 13900\n\n"
-                "• /sell SYMBOL EXIT [NOTE]\n"
-                "  Example: /sell DIXON 13800 hit target 2R\n\n"
+                "• /buy SYMBOL ENTRY QTY [STOP] [TARGET] [#tags...]\n"
+                "  Example: /buy DIXON 12500 8 11800 13900 #breakout #plan_followed\n\n"
+                "• /sell SYMBOL EXIT [NOTE] [#tags...]\n"
+                "  Example: /sell DIXON 13800 hit target 2R #plan_followed\n\n"
                 "• /open\n"
                 "  List current open positions\n\n"
                 "• /trades\n"
-                "  List last 10 closed trades\n\n"
+                "  List last 10 closed trades with tags & discipline audits\n\n"
                 "• /stats\n"
-                "  Calculate win rate, profit factor, max drawdown & PnL\n\n"
+                "  Calculate win rate, setup types, discipline %, and PnL\n\n"
                 "• /help\n"
                 "  Show this command menu"
             )
 
         elif cmd == "/buy":
-            # Usage: /buy SYMBOL ENTRY_PRICE QTY [STOP] [TARGET]
-            if len(args) < 3:
-                return "⚠️ Usage: /buy SYMBOL ENTRY_PRICE QTY [STOP] [TARGET]\nExample: /buy PERSISTENT 5200 10 4950 5700"
+            # Usage: /buy SYMBOL ENTRY_PRICE QTY [STOP] [TARGET] [#tag1 #tag2 ...]
+            tags = [arg.strip() for arg in args if arg.strip().startswith("#")]
+            non_tag_args = [arg for arg in args if not arg.strip().startswith("#")]
 
-            raw_sym = args[0].strip().upper()
+            if len(non_tag_args) < 3:
+                return "⚠️ Usage: /buy SYMBOL ENTRY_PRICE QTY [STOP] [TARGET] [#tag1 #tag2 ...]\nExample: /buy PERSISTENT 5200 10 4950 5700 #breakout #plan_followed"
+
+            raw_sym = non_tag_args[0].strip().upper()
             sym = raw_sym if raw_sym.endswith(".NS") else f"{raw_sym}.NS"
 
             try:
-                entry_price = float(args[1])
-                qty = int(float(args[2]))
+                entry_price = float(non_tag_args[1])
+                qty = int(float(non_tag_args[2]))
             except ValueError:
                 return "⚠️ Invalid format: Entry price and quantity must be valid numbers."
 
@@ -1106,14 +1109,14 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
 
             stop = None
             target = None
-            if len(args) >= 4:
+            if len(non_tag_args) >= 4:
                 try:
-                    stop = float(args[3])
+                    stop = float(non_tag_args[3])
                 except ValueError:
                     return "⚠️ Invalid format: Stop loss must be a number."
-            if len(args) >= 5:
+            if len(non_tag_args) >= 5:
                 try:
-                    target = float(args[4])
+                    target = float(non_tag_args[4])
                 except ValueError:
                     return "⚠️ Invalid format: Target price must be a number."
 
@@ -1126,13 +1129,16 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
                 "entry_price": round(entry_price, 2),
                 "qty": qty,
                 "stop": round(stop, 2) if stop is not None else None,
+                "planned_stop": round(stop, 2) if stop is not None else None,
                 "target": round(target, 2) if target is not None else None,
+                "tags": tags,
             }
             open_positions.append(new_pos)
             save_open_positions(open_positions)
 
             stop_str = f"₹{stop:,.2f}" if stop is not None else "None"
             target_str = f"₹{target:,.2f}" if target is not None else "None"
+            tags_line = f"\nTags: {' '.join(tags)}" if tags else ""
 
             return (
                 f"✅ POSITION OPENED:\n"
@@ -1140,22 +1146,26 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
                 f"Entry: ₹{entry_price:,.2f} | Qty: {qty}\n"
                 f"Stop: {stop_str} | Target: {target_str}\n"
                 f"Date: {today_str}"
+                f"{tags_line}"
             )
 
         elif cmd == "/sell":
-            # Usage: /sell SYMBOL EXIT_PRICE [NOTE]
-            if len(args) < 2:
-                return "⚠️ Usage: /sell SYMBOL EXIT_PRICE [NOTE]\nExample: /sell PERSISTENT 5600 Exited at 2R target"
+            # Usage: /sell SYMBOL EXIT_PRICE [NOTE] [#tag1 #tag2 ...]
+            sell_tags = [arg.strip() for arg in args if arg.strip().startswith("#")]
+            non_tag_args = [arg for arg in args if not arg.strip().startswith("#")]
 
-            raw_sym = args[0].strip().upper()
+            if len(non_tag_args) < 2:
+                return "⚠️ Usage: /sell SYMBOL EXIT_PRICE [NOTE] [#tag1 #tag2 ...]\nExample: /sell PERSISTENT 5600 Exited at 2R target #plan_followed"
+
+            raw_sym = non_tag_args[0].strip().upper()
             search_sym = raw_sym[:-3] if raw_sym.endswith(".NS") else raw_sym
 
             try:
-                exit_price = float(args[1])
+                exit_price = float(non_tag_args[1])
             except ValueError:
                 return "⚠️ Invalid format: Exit price must be a valid number."
 
-            note = " ".join(args[2:]).strip() if len(args) > 2 else ""
+            note = " ".join(non_tag_args[2:]).strip() if len(non_tag_args) > 2 else ""
 
             open_positions = load_open_positions()
             matched_idx = -1
@@ -1180,6 +1190,7 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
             qty = int(matched_pos["qty"])
             entry_date = matched_pos.get("entry_date", datetime.date.today().isoformat())
             stop_val = matched_pos.get("stop")
+            planned_stop = matched_pos.get("planned_stop", stop_val)
             target_val = matched_pos.get("target")
 
             pnl = (exit_price - entry_price) * qty
@@ -1192,12 +1203,46 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
                     r_mult = (exit_price - entry_price) / risk_per_unit
 
             today_str = datetime.date.today().isoformat()
+
+            # Holding period calculation
+            holding_days = 0
+            try:
+                d_entry = datetime.date.fromisoformat(str(entry_date)[:10])
+                d_exit = datetime.date.fromisoformat(str(today_str)[:10])
+                holding_days = (d_exit - d_entry).days
+            except Exception:
+                holding_days = 0
+
+            # Tags handling (combine buy tags and sell tags without duplicates)
+            pos_tags = matched_pos.get("tags") or []
+            if not isinstance(pos_tags, list):
+                pos_tags = []
+            combined_tags = list(dict.fromkeys(pos_tags + sell_tags))
+
+            # Mistake tracking
+            # 1) If exit price is worse than planned_stop: "stop_moved"
+            # 2) If held more than 5 days with return under 3%: "time_stop_ignored"
+            # 3) Otherwise mistake is null
+            mistake = None
+            planned_stop_num = None
+            if planned_stop is not None:
+                try:
+                    planned_stop_num = float(planned_stop)
+                except (ValueError, TypeError):
+                    planned_stop_num = None
+
+            if planned_stop_num is not None and exit_price < planned_stop_num:
+                mistake = "stop_moved"
+            elif holding_days > 5 and pnl_pct < 3.0:
+                mistake = "time_stop_ignored"
+
             closed_trade = {
                 "symbol": matched_pos["symbol"],
                 "entry_date": entry_date,
                 "entry_price": round(entry_price, 2),
                 "qty": qty,
                 "stop": round(float(stop_val), 2) if stop_val is not None else None,
+                "planned_stop": round(planned_stop_num, 2) if planned_stop_num is not None else None,
                 "target": round(float(target_val), 2) if target_val is not None else None,
                 "exit_date": today_str,
                 "exit_price": round(exit_price, 2),
@@ -1205,6 +1250,8 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
                 "pnl_pct": round(pnl_pct, 2),
                 "r_multiple": round(r_mult, 2) if r_mult is not None else None,
                 "note": note,
+                "tags": combined_tags,
+                "mistake": mistake,
             }
 
             trades = load_trades()
@@ -1214,6 +1261,8 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
             sign = "+" if pnl >= 0 else ""
             r_str = f"{r_mult:+.2f}R" if r_mult is not None else "N/A"
             note_str = f"\nNote: {note}" if note else ""
+            tags_str = f"\nTags: {' '.join(combined_tags)}" if combined_tags else ""
+            mistake_str = f"\n⚠️ Mistake: {mistake}" if mistake else ""
 
             return (
                 f"🎯 POSITION CLOSED:\n"
@@ -1223,6 +1272,8 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
                 f"PnL: {sign}₹{pnl:,.2f} ({sign}{pnl_pct:.2f}%)\n"
                 f"R-Multiple: {r_str}"
                 f"{note_str}"
+                f"{tags_str}"
+                f"{mistake_str}"
             )
 
         elif cmd == "/open":
@@ -1238,7 +1289,8 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
                 e_date = p.get("entry_date", "N/A")
                 s_str = f"₹{p['stop']:,.2f}" if p.get("stop") is not None else "None"
                 t_str = f"₹{p['target']:,.2f}" if p.get("target") is not None else "None"
-                lines.append(f"{i}) {sym_clean} (Qty: {q})")
+                tags_str = f" | Tags: {' '.join(p['tags'])}" if p.get("tags") else ""
+                lines.append(f"{i}) {sym_clean} (Qty: {q}){tags_str}")
                 lines.append(f"   Entry: ₹{e_price:,.2f} on {e_date}")
                 lines.append(f"   Stop: {s_str} | Target: {t_str}")
 
@@ -1257,8 +1309,10 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
                 pnl = t["pnl"]
                 sign = "+" if pnl >= 0 else ""
                 r_str = f"{t['r_multiple']:+.2f}R" if t.get("r_multiple") is not None else "N/A"
+                tag_line = f" | Tags: {' '.join(t.get('tags', []))}" if t.get("tags") else ""
+                mistake_line = f" | ⚠️ {t.get('mistake')}" if t.get("mistake") else ""
                 lines.append(
-                    f"• {t['symbol']}: {sign}₹{pnl:,.2f} ({sign}{t['pnl_pct']:.1f}%) | R: {r_str}\n"
+                    f"• {t['symbol']}: {sign}₹{pnl:,.2f} ({sign}{t['pnl_pct']:.1f}%) | R: {r_str}{tag_line}{mistake_line}\n"
                     f"  Entry: ₹{t['entry_price']:,.2f} ({t['entry_date']}) -> Exit: ₹{t['exit_price']:,.2f} ({t['exit_date']})"
                 )
                 if t.get("note"):
@@ -1314,6 +1368,24 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
             best_sign = "+" if best_trade >= 0 else ""
             worst_sign = "+" if worst_trade >= 0 else ""
 
+            # Tag & Mistake stats
+            breakout_trades = [t for t in trades if "#breakout" in [tag.lower() for tag in (t.get("tags") or [])]]
+            pullback_trades = [t for t in trades if "#pullback" in [tag.lower() for tag in (t.get("tags") or [])]]
+            plan_trades = [t for t in trades if "#plan_followed" in [tag.lower() for tag in (t.get("tags") or [])]]
+            mistake_trades = [t for t in trades if t.get("mistake")]
+
+            breakout_wr = (len([t for t in breakout_trades if t["pnl"] > 0]) / len(breakout_trades) * 100) if breakout_trades else 0.0
+            pullback_wr = (len([t for t in pullback_trades if t["pnl"] > 0]) / len(pullback_trades) * 100) if pullback_trades else 0.0
+            plan_wr = (len([t for t in plan_trades if t["pnl"] > 0]) / len(plan_trades) * 100) if plan_trades else 0.0
+
+            discipline_lines = [
+                f"\n🎯 SETUP & DISCIPLINE AUDIT:",
+                f"• #breakout Win Rate: {breakout_wr:.1f}% ({len(breakout_trades)} trades)" if breakout_trades else "• #breakout: 0 trades",
+                f"• #pullback Win Rate: {pullback_wr:.1f}% ({len(pullback_trades)} trades)" if pullback_trades else "• #pullback: 0 trades",
+                f"• #plan_followed Win Rate: {plan_wr:.1f}% ({len(plan_trades)} trades)" if plan_trades else "• #plan_followed: 0 trades",
+                f"• Recorded Mistakes: {len(mistake_trades)}"
+            ]
+
             return (
                 "📊 SWING JOURNAL PERFORMANCE:\n\n"
                 f"• Total Trades: {total_trades} (Wins: {len(wins)}, Losses: {len(losses)})\n"
@@ -1325,7 +1397,8 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
                 f"• Average Loss: -₹{abs(avg_loss):,.2f}\n"
                 f"• Max Drawdown: ₹{max_dd:,.2f}\n"
                 f"• Best Trade: {best_sign}₹{best_trade:,.2f}\n"
-                f"• Worst Trade: {worst_sign}₹{worst_trade:,.2f}"
+                f"• Worst Trade: {worst_sign}₹{worst_trade:,.2f}\n"
+                + "\n".join(discipline_lines)
             )
 
         else:

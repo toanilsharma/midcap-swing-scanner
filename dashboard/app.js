@@ -340,6 +340,26 @@ const TERMS = {
     short: "Cumulative line chart tracking total realized profits and losses over time.",
     long: "Visualizes the trajectory of your trading account. A rising equity curve with shallow pullbacks demonstrates a consistent statistical edge and sound risk management.",
     where_used: "Trade History Tab, Help Guide"
+  },
+  "Stop moved": {
+    short: "Discipline mistake where exit price is worse than planned stop loss.",
+    long: "Occurs when a trader cancels, lowers, or fails to honor their initial stop loss, taking a larger loss than planned. Automatic flag: mistake = 'stop_moved'.",
+    where_used: "Trade History Table, Stats Tab (Mistakes Tracker), Help Guide"
+  },
+  "Time stop ignored": {
+    short: "Discipline mistake where a sluggish trade is held >5 days with return <3%.",
+    long: "Occurs when a trade fails to follow through within 5 days and is not exited, locking up valuable trading capital. Automatic flag: mistake = 'time_stop_ignored'.",
+    where_used: "Trade History Table, Stats Tab (Mistakes Tracker), Help Guide"
+  },
+  "Plan discipline": {
+    short: "Tracking win rate and performance of trades executed strictly according to plan.",
+    long: "Compares trades tagged #plan_followed against untagged/deviated trades to quantify the performance boost of strict adherence to rules.",
+    where_used: "Performance Stats Tab, Help Guide"
+  },
+  "Trade tags": {
+    short: "Hashtags (#breakout, #pullback, #plan_followed, #fomo) categorizing trade execution.",
+    long: "Attached to /buy and /sell commands to track edge by setup type and diagnose psychological trading habits.",
+    where_used: "Trade History Table, Stats Tab, Telegram Commands"
   }
 };
 
@@ -1622,7 +1642,7 @@ function renderHistory(trades) {
     totalBadge.textContent = "₹0.00";
     totalBadge.className = "badge badge-neutral";
     tableBody.innerHTML = `
-      <tr><td colspan="10" class="empty-state">📜 No closed trades recorded yet.</td></tr>
+      <tr><td colspan="11" class="empty-state">📜 No closed trades recorded yet.</td></tr>
     `;
     const canvas = document.getElementById("equityChart");
     if (canvas && window.Chart) {
@@ -1668,18 +1688,48 @@ function renderHistory(trades) {
     const colorStyle = pnl > 0 ? "style='color: var(--success); font-weight: 600;'" : "style='color: var(--danger); font-weight: 600;'";
     const rMultipleStr = t.r_multiple !== null && t.r_multiple !== undefined ? `${t.r_multiple > 0 ? "+" : ""}${t.r_multiple}R` : "N/A";
 
+    const hasMistake = Boolean(t.mistake);
+    const rowClass = hasMistake ? "trade-row row-mistake" : "trade-row";
+
+    let mistakeBadge = "";
+    if (t.mistake === "stop_moved") {
+      mistakeBadge = `<div style="margin-top: 3px;"><span class="badge badge-danger term-lookup" data-term="Stop moved" style="font-size: 10px;" title="Discipline mistake: Exit price was worse than planned stop">⚠️ Stop Moved</span></div>`;
+    } else if (t.mistake === "time_stop_ignored") {
+      mistakeBadge = `<div style="margin-top: 3px;"><span class="badge badge-danger term-lookup" data-term="Time stop ignored" style="font-size: 10px;" title="Discipline mistake: Held > 5 days with return < 3%">⚠️ Time Stop Ignored</span></div>`;
+    } else if (t.mistake) {
+      mistakeBadge = `<div style="margin-top: 3px;"><span class="badge badge-danger" style="font-size: 10px;" title="Discipline mistake: ${escapeHtml(String(t.mistake))}">⚠️ ${escapeHtml(String(t.mistake))}</span></div>`;
+    }
+
+    const tagsList = Array.isArray(t.tags) ? t.tags : [];
+    let tagsHtml = `<span style="color: var(--text-dim); font-size: 11px;">-</span>`;
+    if (tagsList.length > 0) {
+      tagsHtml = tagsList.map(tag => {
+        const clean = String(tag).trim().toLowerCase();
+        let tagClass = "tag-default";
+        if (clean === "#breakout") tagClass = "tag-breakout";
+        else if (clean === "#pullback") tagClass = "tag-pullback";
+        else if (clean === "#plan_followed") tagClass = "tag-plan";
+        else if (clean === "#fomo") tagClass = "tag-fomo";
+        return `<span class="tag-pill ${tagClass}">${escapeHtml(String(tag))}</span>`;
+      }).join("");
+    }
+
     return `
-      <tr>
-        <td><strong>${t.symbol}</strong></td>
+      <tr class="${rowClass}">
+        <td>
+          <strong>${escapeHtml(t.symbol || "")}</strong>
+          ${mistakeBadge}
+        </td>
+        <td>${tagsHtml}</td>
         <td>${formatDate(t.entry_date)}</td>
         <td>${formatINR(t.entry_price)}</td>
-        <td>${t.qty}</td>
+        <td>${t.qty || 0}</td>
         <td>${formatDate(t.exit_date)}</td>
         <td>${formatINR(t.exit_price)}</td>
         <td ${colorStyle}>${sign}${formatINR(pnl)}</td>
         <td ${colorStyle}>${sign}${pnlPct.toFixed(2)}%</td>
         <td><span class="badge ${pnl > 0 ? "badge-success" : "badge-danger"}">${rMultipleStr}</span></td>
-        <td><small style="color: var(--text-muted);">${t.note || "-"}</small></td>
+        <td><small style="color: var(--text-muted);">${escapeHtml(t.note || "-")}</small></td>
       </tr>
     `;
   }).join("");
@@ -1770,17 +1820,25 @@ function renderStats(trades) {
   const statBest = document.getElementById("statBestTrade");
   const statWorst = document.getElementById("statWorstTrade");
 
+  const setupEl = document.getElementById("statsSetupTypeContent");
+  const planEl = document.getElementById("statsPlanDisciplineContent");
+  const mistakesEl = document.getElementById("statsMistakesContent");
+
   if (!trades || trades.length === 0) {
-    statTotal.textContent = "0";
-    statWinRate.textContent = "0.0%";
-    statTotalPnl.textContent = "₹0.00";
-    statProfitFactor.textContent = "0.00";
-    statExpectancy.textContent = "₹0.00";
-    statAvgWin.textContent = "+₹0.00";
-    statAvgLoss.textContent = "-₹0.00";
-    statMaxDD.textContent = "₹0.00";
-    statBest.textContent = "+₹0.00";
-    statWorst.textContent = "-₹0.00";
+    if (statTotal) statTotal.textContent = "0";
+    if (statWinRate) statWinRate.textContent = "0.0%";
+    if (statTotalPnl) statTotalPnl.textContent = "₹0.00";
+    if (statProfitFactor) statProfitFactor.textContent = "0.00";
+    if (statExpectancy) statExpectancy.textContent = "₹0.00";
+    if (statAvgWin) statAvgWin.textContent = "+₹0.00";
+    if (statAvgLoss) statAvgLoss.textContent = "-₹0.00";
+    if (statMaxDD) statMaxDD.textContent = "₹0.00";
+    if (statBest) statBest.textContent = "+₹0.00";
+    if (statWorst) statWorst.textContent = "-₹0.00";
+
+    if (setupEl) setupEl.innerHTML = `<div class="empty-state-sm">No trades recorded yet to analyze setup types.</div>`;
+    if (planEl) planEl.innerHTML = `<div class="empty-state-sm">No trades recorded yet to analyze plan discipline.</div>`;
+    if (mistakesEl) mistakesEl.innerHTML = `<div class="empty-state-sm">No trades recorded yet to track mistakes.</div>`;
     return;
   }
 
@@ -1822,21 +1880,157 @@ function renderStats(trades) {
   const bestTrade = Math.max(...pnls);
   const worstTrade = Math.min(...pnls);
 
-  statTotal.textContent = `${totalTrades} (${wins.length}W / ${losses.length}L)`;
-  statWinRate.textContent = `${winRate.toFixed(1)}%`;
-  statTotalPnl.textContent = formatINR(totalPnl, true);
-  statTotalPnl.className = `stat-value ${totalPnl >= 0 ? "positive" : "negative"}`;
+  if (statTotal) statTotal.textContent = `${totalTrades} (${wins.length}W / ${losses.length}L)`;
+  if (statWinRate) statWinRate.textContent = `${winRate.toFixed(1)}%`;
+  if (statTotalPnl) {
+    statTotalPnl.textContent = formatINR(totalPnl, true);
+    statTotalPnl.className = `stat-value ${totalPnl >= 0 ? "positive" : "negative"}`;
+  }
 
-  statProfitFactor.textContent = profitFactorStr;
-  statExpectancy.textContent = formatINR(expectancy, true);
-  statExpectancy.className = `stat-value ${expectancy >= 0 ? "positive" : "negative"}`;
+  if (statProfitFactor) statProfitFactor.textContent = profitFactorStr;
+  if (statExpectancy) {
+    statExpectancy.textContent = formatINR(expectancy, true);
+    statExpectancy.className = `stat-value ${expectancy >= 0 ? "positive" : "negative"}`;
+  }
 
-  statAvgWin.textContent = `+${formatINR(avgWin)}`;
-  statAvgLoss.textContent = `-${formatINR(Math.abs(avgLoss))}`;
-  statMaxDD.textContent = `-${formatINR(maxDD)}`;
+  if (statAvgWin) statAvgWin.textContent = `+${formatINR(avgWin)}`;
+  if (statAvgLoss) statAvgLoss.textContent = `-${formatINR(Math.abs(avgLoss))}`;
+  if (statMaxDD) statMaxDD.textContent = `-${formatINR(maxDD)}`;
 
-  statBest.textContent = formatINR(bestTrade, true);
-  statWorst.textContent = formatINR(worstTrade, true);
+  if (statBest) statBest.textContent = formatINR(bestTrade, true);
+  if (statWorst) statWorst.textContent = formatINR(worstTrade, true);
+
+  // 1. "By setup type" block: win rate for #breakout vs #pullback
+  if (setupEl) {
+    const breakoutTrades = trades.filter(t => (t.tags || []).some(tag => String(tag).trim().toLowerCase() === "#breakout"));
+    const pullbackTrades = trades.filter(t => (t.tags || []).some(tag => String(tag).trim().toLowerCase() === "#pullback"));
+
+    const breakoutWins = breakoutTrades.filter(t => (parseFloat(t.pnl) || 0) > 0);
+    const pullbackWins = pullbackTrades.filter(t => (parseFloat(t.pnl) || 0) > 0);
+
+    const breakoutWinRate = breakoutTrades.length > 0
+      ? ((breakoutWins.length / breakoutTrades.length) * 100).toFixed(1) + "%"
+      : "N/A";
+    const pullbackWinRate = pullbackTrades.length > 0
+      ? ((pullbackWins.length / pullbackTrades.length) * 100).toFixed(1) + "%"
+      : "N/A";
+
+    const breakoutPnl = breakoutTrades.reduce((acc, t) => acc + (parseFloat(t.pnl) || 0), 0);
+    const pullbackPnl = pullbackTrades.reduce((acc, t) => acc + (parseFloat(t.pnl) || 0), 0);
+
+    setupEl.innerHTML = `
+      <div class="stats-compare-row">
+        <div class="stats-compare-label">
+          <div class="stats-compare-title"><span class="tag-pill tag-breakout">#breakout</span> Setup</div>
+          <div class="stats-compare-subtitle">${breakoutTrades.length} trade${breakoutTrades.length === 1 ? "" : "s"} (${breakoutWins.length}W / ${breakoutTrades.length - breakoutWins.length}L)</div>
+        </div>
+        <div class="stats-compare-val">
+          <span class="stats-compare-metric ${breakoutWinRate !== "N/A" && parseFloat(breakoutWinRate) >= 50 ? "positive" : (breakoutWinRate === "N/A" ? "" : "negative")}">${breakoutWinRate}</span>
+          <span class="stats-compare-subtitle" style="color: ${breakoutPnl >= 0 ? "var(--success)" : "var(--danger)"}">${formatINR(breakoutPnl, true)}</span>
+        </div>
+      </div>
+      <div class="stats-compare-row">
+        <div class="stats-compare-label">
+          <div class="stats-compare-title"><span class="tag-pill tag-pullback">#pullback</span> Setup</div>
+          <div class="stats-compare-subtitle">${pullbackTrades.length} trade${pullbackTrades.length === 1 ? "" : "s"} (${pullbackWins.length}W / ${pullbackTrades.length - pullbackWins.length}L)</div>
+        </div>
+        <div class="stats-compare-val">
+          <span class="stats-compare-metric ${pullbackWinRate !== "N/A" && parseFloat(pullbackWinRate) >= 50 ? "positive" : (pullbackWinRate === "N/A" ? "" : "negative")}">${pullbackWinRate}</span>
+          <span class="stats-compare-subtitle" style="color: ${pullbackPnl >= 0 ? "var(--success)" : "var(--danger)"}">${formatINR(pullbackPnl, true)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // 2. "Plan discipline" block: win rate and count for trades tagged #plan_followed vs not
+  if (planEl) {
+    const planTrades = trades.filter(t => (t.tags || []).some(tag => String(tag).trim().toLowerCase() === "#plan_followed"));
+    const noPlanTrades = trades.filter(t => !(t.tags || []).some(tag => String(tag).trim().toLowerCase() === "#plan_followed"));
+
+    const planWins = planTrades.filter(t => (parseFloat(t.pnl) || 0) > 0);
+    const noPlanWins = noPlanTrades.filter(t => (parseFloat(t.pnl) || 0) > 0);
+
+    const planWinRate = planTrades.length > 0
+      ? ((planWins.length / planTrades.length) * 100).toFixed(1) + "%"
+      : "N/A";
+    const noPlanWinRate = noPlanTrades.length > 0
+      ? ((noPlanWins.length / noPlanTrades.length) * 100).toFixed(1) + "%"
+      : "N/A";
+
+    const planPnl = planTrades.reduce((acc, t) => acc + (parseFloat(t.pnl) || 0), 0);
+    const noPlanPnl = noPlanTrades.reduce((acc, t) => acc + (parseFloat(t.pnl) || 0), 0);
+
+    planEl.innerHTML = `
+      <div class="stats-compare-row">
+        <div class="stats-compare-label">
+          <div class="stats-compare-title"><span class="tag-pill tag-plan">#plan_followed</span></div>
+          <div class="stats-compare-subtitle">${planTrades.length} trade${planTrades.length === 1 ? "" : "s"} (${planWins.length}W / ${planTrades.length - planWins.length}L)</div>
+        </div>
+        <div class="stats-compare-val">
+          <span class="stats-compare-metric ${planWinRate !== "N/A" && parseFloat(planWinRate) >= 50 ? "positive" : (planWinRate === "N/A" ? "" : "negative")}">${planWinRate}</span>
+          <span class="stats-compare-subtitle" style="color: ${planPnl >= 0 ? "var(--success)" : "var(--danger)"}">${formatINR(planPnl, true)}</span>
+        </div>
+      </div>
+      <div class="stats-compare-row">
+        <div class="stats-compare-label">
+          <div class="stats-compare-title"><span style="color: var(--text-muted); font-size: 13px; font-weight: 600;">Not Tagged / Deviated</span></div>
+          <div class="stats-compare-subtitle">${noPlanTrades.length} trade${noPlanTrades.length === 1 ? "" : "s"} (${noPlanWins.length}W / ${noPlanTrades.length - noPlanWins.length}L)</div>
+        </div>
+        <div class="stats-compare-val">
+          <span class="stats-compare-metric ${noPlanWinRate !== "N/A" && parseFloat(noPlanWinRate) >= 50 ? "positive" : (noPlanWinRate === "N/A" ? "" : "negative")}">${noPlanWinRate}</span>
+          <span class="stats-compare-subtitle" style="color: ${noPlanPnl >= 0 ? "var(--success)" : "var(--danger)"}">${formatINR(noPlanPnl, true)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // 3. "Mistakes" block: counting each mistake type
+  if (mistakesEl) {
+    const stopMovedTrades = trades.filter(t => t.mistake === "stop_moved");
+    const timeStopTrades = trades.filter(t => t.mistake === "time_stop_ignored");
+    const cleanTrades = trades.filter(t => !t.mistake);
+
+    mistakesEl.innerHTML = `
+      <div class="stats-mistake-item ${stopMovedTrades.length > 0 ? "" : "stats-mistake-clean"}">
+        <div class="stats-compare-label">
+          <div class="stats-compare-title" style="color: ${stopMovedTrades.length > 0 ? "var(--danger)" : "var(--text-dim)"};">
+            ${stopMovedTrades.length > 0 ? "⚠️" : "✓"} Stop Moved (stop_moved)
+          </div>
+          <div class="stats-compare-subtitle">Exit price was worse than planned stop</div>
+        </div>
+        <div class="stats-compare-val">
+          <span class="stats-compare-metric ${stopMovedTrades.length > 0 ? "negative" : "positive"}">${stopMovedTrades.length}</span>
+          <span class="stats-compare-subtitle">${stopMovedTrades.length === 1 ? "1 trade" : `${stopMovedTrades.length} trades`}</span>
+        </div>
+      </div>
+
+      <div class="stats-mistake-item ${timeStopTrades.length > 0 ? "" : "stats-mistake-clean"}">
+        <div class="stats-compare-label">
+          <div class="stats-compare-title" style="color: ${timeStopTrades.length > 0 ? "var(--danger)" : "var(--text-dim)"};">
+            ${timeStopTrades.length > 0 ? "⚠️" : "✓"} Time Stop Ignored (time_stop_ignored)
+          </div>
+          <div class="stats-compare-subtitle">Held &gt; 5 days with return &lt; 3%</div>
+        </div>
+        <div class="stats-compare-val">
+          <span class="stats-compare-metric ${timeStopTrades.length > 0 ? "negative" : "positive"}">${timeStopTrades.length}</span>
+          <span class="stats-compare-subtitle">${timeStopTrades.length === 1 ? "1 trade" : `${timeStopTrades.length} trades`}</span>
+        </div>
+      </div>
+
+      <div class="stats-mistake-item stats-mistake-clean">
+        <div class="stats-compare-label">
+          <div class="stats-compare-title" style="color: var(--success);">
+            🛡️ Clean Discipline Executions
+          </div>
+          <div class="stats-compare-subtitle">No recorded rule or discipline mistakes</div>
+        </div>
+        <div class="stats-compare-val">
+          <span class="stats-compare-metric positive">${cleanTrades.length}</span>
+          <span class="stats-compare-subtitle">${trades.length > 0 ? ((cleanTrades.length / trades.length) * 100).toFixed(0) + "% clean" : "0 trades"}</span>
+        </div>
+      </div>
+    `;
+  }
 }
 
 // =====================================================================

@@ -290,6 +290,7 @@
           <thead>
             <tr>
               <th>Symbol</th>
+              <th>Tags</th>
               <th>Entry Date</th>
               <th>Entry</th>
               <th><span class="term-lookup" data-term="Position size">Qty</span></th>
@@ -303,7 +304,7 @@
           </thead>
           <tbody id="tradesBody">
             <tr>
-              <td colspan="10" class="empty-state">Loading closed trades...</td>
+              <td colspan="11" class="empty-state">Loading closed trades...</td>
             </tr>
           </tbody>
         </table>
@@ -361,6 +362,55 @@
         <div class="stat-card">
           <div class="stat-label">Worst Trade</div>
           <div id="statWorstTrade" class="stat-value negative">-₹0.00</div>
+        </div>
+      </div>
+
+      <!-- Advanced Discipline & Setup Analytics -->
+      <div class="stats-insights-section">
+        <h2 class="stats-section-title"><span>🧠</span> Discipline & Setup Breakdown</h2>
+
+        <div class="stats-insights-grid">
+          <!-- 1. By setup type -->
+          <div class="stats-insight-card">
+            <div class="stats-insight-header">
+              <span class="stats-insight-icon">🎯</span>
+              <div>
+                <h3 class="stats-insight-title">By Setup Type</h3>
+                <span class="stats-insight-sub">Win rate for #breakout vs #pullback</span>
+              </div>
+            </div>
+            <div id="statsSetupTypeContent" class="stats-insight-body">
+              <div class="empty-state-sm">No setup tag data yet</div>
+            </div>
+          </div>
+
+          <!-- 2. Plan discipline -->
+          <div class="stats-insight-card">
+            <div class="stats-insight-header">
+              <span class="stats-insight-icon">📋</span>
+              <div>
+                <h3 class="stats-insight-title">Plan Discipline</h3>
+                <span class="stats-insight-sub">#plan_followed vs untagged / deviated</span>
+              </div>
+            </div>
+            <div id="statsPlanDisciplineContent" class="stats-insight-body">
+              <div class="empty-state-sm">No discipline tag data yet</div>
+            </div>
+          </div>
+
+          <!-- 3. Mistakes -->
+          <div class="stats-insight-card">
+            <div class="stats-insight-header">
+              <span class="stats-insight-icon">⚠️</span>
+              <div>
+                <h3 class="stats-insight-title">Mistakes Tracker</h3>
+                <span class="stats-insight-sub">Count of each mistake type</span>
+              </div>
+            </div>
+            <div id="statsMistakesContent" class="stats-insight-body">
+              <div class="empty-state-sm">No mistake records yet</div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -1176,39 +1226,39 @@
                 <tbody>
                   <tr>
                     <td><strong>/buy</strong></td>
-                    <td><span class="telegram-cmd-code">/buy SYMBOL ENTRY QTY [STOP] [TARGET]</span></td>
-                    <td><span class="telegram-cmd-code">/buy PERSISTENT 5200 10 4950 5700</span></td>
-                    <td>Validates numbers, creates new trade record in <code>open_positions.json</code>, returns trade confirmation card.</td>
+                    <td><span class="telegram-cmd-code">/buy SYMBOL ENTRY QTY [STOP] [TARGET] [#tags...]</span></td>
+                    <td><span class="telegram-cmd-code">/buy PERSISTENT 5200 10 4950 5700 #breakout #plan_followed</span></td>
+                    <td>Validates numbers, stores planned stop and tags in <code>open_positions.json</code>, returns trade confirmation card.</td>
                   </tr>
                   <tr>
                     <td><strong>/sell</strong></td>
-                    <td><span class="telegram-cmd-code">/sell SYMBOL EXIT_PRICE</span></td>
-                    <td><span class="telegram-cmd-code">/sell PERSISTENT 5650</span></td>
-                    <td>Closes position, computes realized PnL and return %, archives trade in <code>trades.json</code>, removes from open list.</td>
+                    <td><span class="telegram-cmd-code">/sell SYMBOL EXIT_PRICE [NOTE] [#tags...]</span></td>
+                    <td><span class="telegram-cmd-code">/sell PERSISTENT 5650 hit target #plan_followed</span></td>
+                    <td>Closes position, compares exit to planned stop (audits <code>stop_moved</code> or <code>time_stop_ignored</code> mistakes), saves tags, archives in <code>trades.json</code>.</td>
                   </tr>
                   <tr>
                     <td><strong>/open</strong></td>
                     <td><span class="telegram-cmd-code">/open</span></td>
                     <td><span class="telegram-cmd-code">/open</span></td>
-                    <td>Replies with all currently active open positions, entry prices, trailing stops, 2R targets, and live open PnL.</td>
+                    <td>Replies with all currently active open positions, entry prices, trailing stops, 2R targets, and tags.</td>
                   </tr>
                   <tr>
                     <td><strong>/trades</strong></td>
-                    <td><span class="telegram-cmd-code">/trades [N]</span></td>
-                    <td><span class="telegram-cmd-code">/trades 5</span></td>
-                    <td>Replies with the last N closed trades showing entry date, exit date, realized PnL, and percentage return.</td>
+                    <td><span class="telegram-cmd-code">/trades</span></td>
+                    <td><span class="telegram-cmd-code">/trades</span></td>
+                    <td>Replies with the last 10 closed trades showing realized PnL, percentage return, R-multiple, tags, and discipline flags.</td>
                   </tr>
                   <tr>
                     <td><strong>/stats</strong></td>
                     <td><span class="telegram-cmd-code">/stats</span></td>
                     <td><span class="telegram-cmd-code">/stats</span></td>
-                    <td>Calculates and returns lifetime performance metrics: Win Rate, Profit Factor, Expectancy, and Total Realized PnL.</td>
+                    <td>Calculates lifetime performance: Win Rate, Profit Factor, Expectancy, plus #breakout vs #pullback and plan discipline audit.</td>
                   </tr>
                   <tr>
                     <td><strong>/help</strong></td>
                     <td><span class="telegram-cmd-code">/help</span></td>
                     <td><span class="telegram-cmd-code">/help</span></td>
-                    <td>Displays syntax guides, command usage examples, and execution discipline rules directly inside your chat.</td>
+                    <td>Displays syntax guides, command usage examples, tag suggestions, and execution rules directly inside your chat.</td>
                   </tr>
                 </tbody>
               </table>

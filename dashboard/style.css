@@ -1905,4 +1905,198 @@ th .term-lookup {
   flex: 1;
 }
 
+/* =====================================================================
+   TRADE TAGS & MISTAKE TRACKING
+   ===================================================================== */
+
+/* Tag Pills */
+.tag-pill {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  margin-right: 4px;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.tag-pill.tag-breakout {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+.tag-pill.tag-pullback {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.tag-pill.tag-plan {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.tag-pill.tag-fomo {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+/* Subtle red left border on mistake rows */
+tr.row-mistake {
+  background: rgba(239, 68, 68, 0.04) !important;
+}
+
+tr.row-mistake > td:first-child {
+  border-left: 3px solid #ef4444 !important;
+  box-shadow: inset 1px 0 0 rgba(239, 68, 68, 0.4);
+}
+
+/* Stats Tab: Insights & Discipline Breakdown */
+.stats-insights-section {
+  margin-top: 32px;
+}
+
+.stats-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stats-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.stats-insight-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.stats-insight-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.stats-insight-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.stats-insight-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.stats-insight-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.stats-insight-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.stats-compare-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.stats-compare-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.stats-compare-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stats-compare-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.stats-compare-val {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.stats-compare-metric {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.stats-compare-metric.positive {
+  color: var(--success);
+}
+
+.stats-compare-metric.negative {
+  color: var(--danger);
+}
+
+.stats-mistake-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.stats-mistake-clean {
+  background: rgba(16, 185, 129, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.empty-state-sm {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 12px;
+  text-align: center;
+}
+
 
