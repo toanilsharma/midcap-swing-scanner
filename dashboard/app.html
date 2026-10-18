@@ -20,14 +20,14 @@
 <body>
   <!-- Header Bar -->
   <header class="app-header">
-    <div class="header-container">
+    <div class="page-container header-container">
       <div class="header-title-group">
         <span style="font-size: 22px;">📊</span>
         <div>
           <h1 class="header-title">Midcap Swing Terminal</h1>
           <div class="header-meta">
             <span id="marketBadge" class="badge badge-neutral">Checking Market...</span>
-            <span>•</span>
+            <span class="meta-dot">•</span>
             <span id="lastUpdatedText">Updated: Loading...</span>
           </div>
         </div>
@@ -50,7 +50,7 @@
 
   <!-- Tabs Navigation -->
   <nav class="tabs-bar">
-    <div class="tabs-container">
+    <div class="page-container tabs-container">
       <button class="tab-btn active" data-tab="tabNearBuy">🎯 Near Buy (Watchlist)</button>
       <button class="tab-btn" data-tab="tabOpen">💼 Open Positions (<span id="openCountBadge">0</span>)</button>
       <button class="tab-btn" data-tab="tabHistory">📜 Trade History</button>
@@ -60,7 +60,7 @@
   </nav>
 
   <!-- Main Container -->
-  <main class="main-container">
+  <main class="page-container main-container">
     <!-- TAB 1: NEAR BUY / WATCHLIST -->
     <section id="tabNearBuy" class="tab-content active">
       <!-- Tab Guide Banner -->
@@ -99,7 +99,7 @@
 
       <div id="signalsContainer" style="margin-bottom: 24px; display: none;">
         <h2 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 12px;">🟢 Active Today's Signals</h2>
-        <div class="table-responsive">
+        <div class="table-scroll" tabindex="0">
           <table id="signalsTable">
             <thead>
               <tr>
@@ -118,7 +118,7 @@
         </div>
       </div>
 
-      <div class="table-responsive">
+      <div class="table-scroll" tabindex="0">
         <table id="watchlistTable">
           <thead>
             <tr>
@@ -239,7 +239,7 @@
         </div>
       </div>
 
-      <div class="table-responsive">
+      <div class="table-scroll" tabindex="0">
         <table id="openPositionsTable">
           <thead>
             <tr>
@@ -285,7 +285,7 @@
         </div>
       </div>
 
-      <div class="table-responsive" style="margin-top: 24px;">
+      <div class="table-scroll" tabindex="0" style="margin-top: 24px;">
         <table id="tradesTable">
           <thead>
             <tr>
@@ -322,7 +322,7 @@
         <button class="tab-guide-dismiss" title="Dismiss banner" aria-label="Dismiss">×</button>
       </div>
 
-      <div class="summary-strip" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+      <div class="summary-strip">
         <div class="stat-card">
           <div class="stat-label">Total Closed Trades</div>
           <div id="statTotalTrades" class="stat-value">0</div>
@@ -1213,7 +1213,7 @@
               <p class="help-section-subtitle">Real-time trade logging, position management, and portfolio audit from your Telegram app</p>
             </div>
 
-            <div class="table-responsive">
+            <div class="table-scroll" tabindex="0">
               <table class="telegram-cmd-table">
                 <thead>
                   <tr>
@@ -1225,40 +1225,40 @@
                 </thead>
                 <tbody>
                   <tr>
-                    <td><strong>/buy</strong></td>
-                    <td><span class="telegram-cmd-code">/buy SYMBOL ENTRY QTY [STOP] [TARGET] [#tags...]</span></td>
-                    <td><span class="telegram-cmd-code">/buy PERSISTENT 5200 10 4950 5700 #breakout #plan_followed</span></td>
-                    <td>Validates numbers, stores planned stop and tags in <code>open_positions.json</code>, returns trade confirmation card.</td>
+                    <td data-label="Command"><strong>/buy</strong></td>
+                    <td data-label="Syntax"><span class="telegram-cmd-code">/buy SYMBOL ENTRY QTY [STOP] [TARGET] [#tags...]</span></td>
+                    <td data-label="Live Example"><span class="telegram-cmd-code">/buy PERSISTENT 5200 10 4950 5700 #breakout #plan_followed</span></td>
+                    <td data-label="What Happens After Sending">Validates numbers, stores planned stop and tags in <code>open_positions.json</code>, returns trade confirmation card.</td>
                   </tr>
                   <tr>
-                    <td><strong>/sell</strong></td>
-                    <td><span class="telegram-cmd-code">/sell SYMBOL EXIT_PRICE [NOTE] [#tags...]</span></td>
-                    <td><span class="telegram-cmd-code">/sell PERSISTENT 5650 hit target #plan_followed</span></td>
-                    <td>Closes position, compares exit to planned stop (audits <code>stop_moved</code> or <code>time_stop_ignored</code> mistakes), saves tags, archives in <code>trades.json</code>.</td>
+                    <td data-label="Command"><strong>/sell</strong></td>
+                    <td data-label="Syntax"><span class="telegram-cmd-code">/sell SYMBOL EXIT_PRICE [NOTE] [#tags...]</span></td>
+                    <td data-label="Live Example"><span class="telegram-cmd-code">/sell PERSISTENT 5650 hit target #plan_followed</span></td>
+                    <td data-label="What Happens After Sending">Closes position, compares exit to planned stop (audits <code>stop_moved</code> or <code>time_stop_ignored</code> mistakes), saves tags, archives in <code>trades.json</code>.</td>
                   </tr>
                   <tr>
-                    <td><strong>/open</strong></td>
-                    <td><span class="telegram-cmd-code">/open</span></td>
-                    <td><span class="telegram-cmd-code">/open</span></td>
-                    <td>Replies with all currently active open positions, entry prices, trailing stops, 2R targets, and tags.</td>
+                    <td data-label="Command"><strong>/open</strong></td>
+                    <td data-label="Syntax"><span class="telegram-cmd-code">/open</span></td>
+                    <td data-label="Live Example"><span class="telegram-cmd-code">/open</span></td>
+                    <td data-label="What Happens After Sending">Replies with all currently active open positions, entry prices, trailing stops, 2R targets, and tags.</td>
                   </tr>
                   <tr>
-                    <td><strong>/trades</strong></td>
-                    <td><span class="telegram-cmd-code">/trades</span></td>
-                    <td><span class="telegram-cmd-code">/trades</span></td>
-                    <td>Replies with the last 10 closed trades showing realized PnL, percentage return, R-multiple, tags, and discipline flags.</td>
+                    <td data-label="Command"><strong>/trades</strong></td>
+                    <td data-label="Syntax"><span class="telegram-cmd-code">/trades</span></td>
+                    <td data-label="Live Example"><span class="telegram-cmd-code">/trades</span></td>
+                    <td data-label="What Happens After Sending">Replies with the last 10 closed trades showing realized PnL, percentage return, R-multiple, tags, and discipline flags.</td>
                   </tr>
                   <tr>
-                    <td><strong>/stats</strong></td>
-                    <td><span class="telegram-cmd-code">/stats</span></td>
-                    <td><span class="telegram-cmd-code">/stats</span></td>
-                    <td>Calculates lifetime performance: Win Rate, Profit Factor, Expectancy, plus #breakout vs #pullback and plan discipline audit.</td>
+                    <td data-label="Command"><strong>/stats</strong></td>
+                    <td data-label="Syntax"><span class="telegram-cmd-code">/stats</span></td>
+                    <td data-label="Live Example"><span class="telegram-cmd-code">/stats</span></td>
+                    <td data-label="What Happens After Sending">Calculates lifetime performance: Win Rate, Profit Factor, Expectancy, plus #breakout vs #pullback and plan discipline audit.</td>
                   </tr>
                   <tr>
-                    <td><strong>/help</strong></td>
-                    <td><span class="telegram-cmd-code">/help</span></td>
-                    <td><span class="telegram-cmd-code">/help</span></td>
-                    <td>Displays syntax guides, command usage examples, tag suggestions, and execution rules directly inside your chat.</td>
+                    <td data-label="Command"><strong>/help</strong></td>
+                    <td data-label="Syntax"><span class="telegram-cmd-code">/help</span></td>
+                    <td data-label="Live Example"><span class="telegram-cmd-code">/help</span></td>
+                    <td data-label="What Happens After Sending">Displays syntax guides, command usage examples, tag suggestions, and execution rules directly inside your chat.</td>
                   </tr>
                 </tbody>
               </table>

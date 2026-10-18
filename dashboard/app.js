@@ -605,14 +605,14 @@ function renderNearBuy(scanData, openPositions) {
     signalsContainer.style.display = "block";
     signalsBody.innerHTML = scanData.signals.map(s => `
       <tr class="row-green">
-        <td><span class="badge badge-success">${s.Type || "BREAKOUT"}</span></td>
-        <td><strong>${s.Symbol}</strong></td>
-        <td>${formatINR(s.Entry)}</td>
-        <td style="color: var(--danger);">${formatINR(s.Stop)}</td>
-        <td style="color: var(--success);">${formatINR(s.Target)}</td>
-        <td>${s.Qty}</td>
-        <td>${formatINR(s["Risk Amount"])}</td>
-        <td><span class="badge badge-neutral">${s.Sector || "N/A"}</span></td>
+        <td data-label="Type"><span class="badge badge-success">${s.Type || "BREAKOUT"}</span></td>
+        <td data-label="Symbol"><strong>${s.Symbol}</strong></td>
+        <td data-label="Entry">${formatINR(s.Entry)}</td>
+        <td data-label="Stop" style="color: var(--danger);">${formatINR(s.Stop)}</td>
+        <td data-label="Target" style="color: var(--success);">${formatINR(s.Target)}</td>
+        <td data-label="Qty">${s.Qty}</td>
+        <td data-label="Risk Amount">${formatINR(s["Risk Amount"])}</td>
+        <td data-label="Sector"><span class="badge badge-neutral">${s.Sector || "N/A"}</span></td>
       </tr>
     `).join("");
   } else {
@@ -675,20 +675,20 @@ function renderNearBuy(scanData, openPositions) {
 
     return `
       <tr class="watchlist-row ${rowClass}" data-symbol="${item.Symbol}" title="Click to view 6-month chart & checklist">
-        <td>
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <td data-label="Symbol">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;">
             <strong>${item.Symbol}</strong>
-            <span class="chevron" style="font-size: 10px; color: var(--text-dim);">▼</span>
+            <span class="chevron" style="font-size: 10px; color: var(--text-dim); padding: 4px 8px;">▼</span>
           </div>
         </td>
-        <td>${scoreBadge}</td>
-        <td>${gradeBadge}</td>
-        <td>${formatINR(item.Close)}</td>
-        <td><strong>${dist.toFixed(2)}%</strong> away</td>
-        <td>${coilingBadge}</td>
-        <td><span class="badge badge-neutral">${item.Sector || "^NSEI"}</span></td>
-        <td>${bullishBadge}</td>
-        <td>
+        <td data-label="Score">${scoreBadge}</td>
+        <td data-label="Grade">${gradeBadge}</td>
+        <td data-label="Close">${formatINR(item.Close)}</td>
+        <td data-label="Dist to Breakout"><strong>${dist.toFixed(2)}%</strong> away</td>
+        <td data-label="Coiling">${coilingBadge}</td>
+        <td data-label="Sector"><span class="badge badge-neutral">${item.Sector || "^NSEI"}</span></td>
+        <td data-label="Sector Bullish">${bullishBadge}</td>
+        <td data-label="Action">
           <button class="btn btn-xs btn-outline-primary size-trade-btn" data-symbol="${item.Symbol}" title="Size this trade with Position Sizer">
             Size this trade
           </button>
@@ -835,13 +835,14 @@ function calculateRSI(closes, period = 14) {
 // Plain HTML5 Canvas Mini-Chart Renderer with SMA50, SMA200, Breakout Line, and Volume Subplot
 function drawMiniChart(canvas, candles, breakoutLevel, symbol) {
   const container = canvas.parentElement;
-  const width = Math.max(300, container.clientWidth || 800);
+  const width = Math.max(240, Math.floor(container.clientWidth || 800));
   const height = 280;
   const dpr = window.devicePixelRatio || 1;
 
   canvas.width = width * dpr;
   canvas.height = height * dpr;
-  canvas.style.width = `${width}px`;
+  canvas.style.width = "100%";
+  canvas.style.maxWidth = `${width}px`;
   canvas.style.height = `${height}px`;
 
   // Retain data reference for seamless redraw on window resize
@@ -863,12 +864,12 @@ function drawMiniChart(canvas, candles, breakoutLevel, symbol) {
   const volumeTop = priceBottom + volumeGap;
   const volumeHeight = 44;
   const volumeBottom = volumeTop + volumeHeight;
-  const marginLeft = 14;
-  const marginRight = 74;
-  const plotWidth = width - marginLeft - marginRight;
+  const marginLeft = width < 420 ? 8 : 14;
+  const marginRight = width < 420 ? 54 : 74;
+  const plotWidth = Math.max(10, width - marginLeft - marginRight);
 
   const barStep = plotWidth / n;
-  const barWidth = Math.max(1.5, Math.min(8, barStep * 0.68));
+  const barWidth = Math.max(1, Math.min(8, barStep * 0.68));
 
   // Determine min & max price bounds including breakout level
   let minPrice = Infinity;
@@ -1307,14 +1308,18 @@ async function toggleWatchlistDetail(row, item, scanData) {
   }
 }
 
-// Redraw open detail canvases on window resize
+// Redraw open detail canvases on window resize (debounced)
+let _resizeCanvasTimer = null;
 window.addEventListener("resize", () => {
-  document.querySelectorAll(".detail-row").forEach(detailRow => {
-    const canvas = detailRow.querySelector("canvas");
-    if (canvas && canvas._candles) {
-      drawMiniChart(canvas, canvas._candles, canvas._breakoutLevel, canvas._symbol);
-    }
-  });
+  clearTimeout(_resizeCanvasTimer);
+  _resizeCanvasTimer = setTimeout(() => {
+    document.querySelectorAll(".detail-row").forEach(detailRow => {
+      const canvas = detailRow.querySelector("canvas");
+      if (canvas && canvas._candles) {
+        drawMiniChart(canvas, canvas._candles, canvas._breakoutLevel, canvas._symbol);
+      }
+    });
+  }, 100);
 });
 
 // =====================================================================
@@ -1607,16 +1612,16 @@ async function renderOpenPositions(positions) {
 
     rows.push(`
       <tr class="${rowClass}">
-        <td><strong>${pos.symbol}</strong></td>
-        <td>${formatDate(pos.entry_date)}</td>
-        <td>${formatINR(entry)}</td>
-        <td>${qty}</td>
-        <td style="color: var(--danger);">${stop ? formatINR(stop) : "None"}</td>
-        <td style="color: var(--success);">${target ? formatINR(target) : "None"}</td>
-        <td>${formatINR(currentPrice)} ${!isLive ? "<small style='color: var(--text-dim);'>(entry)</small>" : ""}</td>
-        <td ${pnlClass}>${pnlSign}${formatINR(unrealized)}</td>
-        <td>${distToStopStr}</td>
-        <td>${distToTargetStr}</td>
+        <td data-label="Symbol"><strong>${pos.symbol}</strong></td>
+        <td data-label="Entry Date">${formatDate(pos.entry_date)}</td>
+        <td data-label="Entry Price">${formatINR(entry)}</td>
+        <td data-label="Qty">${qty}</td>
+        <td data-label="Stop" style="color: var(--danger);">${stop ? formatINR(stop) : "None"}</td>
+        <td data-label="Target" style="color: var(--success);">${target ? formatINR(target) : "None"}</td>
+        <td data-label="Last Price">${formatINR(currentPrice)} ${!isLive ? "<small style='color: var(--text-dim);'>(entry)</small>" : ""}</td>
+        <td data-label="Unrealized PnL" ${pnlClass}>${pnlSign}${formatINR(unrealized)}</td>
+        <td data-label="% to Stop">${distToStopStr}</td>
+        <td data-label="% to Target">${distToTargetStr}</td>
       </tr>
     `);
   }
@@ -1716,20 +1721,20 @@ function renderHistory(trades) {
 
     return `
       <tr class="${rowClass}">
-        <td>
+        <td data-label="Symbol">
           <strong>${escapeHtml(t.symbol || "")}</strong>
           ${mistakeBadge}
         </td>
-        <td>${tagsHtml}</td>
-        <td>${formatDate(t.entry_date)}</td>
-        <td>${formatINR(t.entry_price)}</td>
-        <td>${t.qty || 0}</td>
-        <td>${formatDate(t.exit_date)}</td>
-        <td>${formatINR(t.exit_price)}</td>
-        <td ${colorStyle}>${sign}${formatINR(pnl)}</td>
-        <td ${colorStyle}>${sign}${pnlPct.toFixed(2)}%</td>
-        <td><span class="badge ${pnl > 0 ? "badge-success" : "badge-danger"}">${rMultipleStr}</span></td>
-        <td><small style="color: var(--text-muted);">${escapeHtml(t.note || "-")}</small></td>
+        <td data-label="Tags">${tagsHtml}</td>
+        <td data-label="Entry Date">${formatDate(t.entry_date)}</td>
+        <td data-label="Entry">${formatINR(t.entry_price)}</td>
+        <td data-label="Qty">${t.qty || 0}</td>
+        <td data-label="Exit Date">${formatDate(t.exit_date)}</td>
+        <td data-label="Exit">${formatINR(t.exit_price)}</td>
+        <td data-label="Realized PnL" ${colorStyle}>${sign}${formatINR(pnl)}</td>
+        <td data-label="Return %" ${colorStyle}>${sign}${pnlPct.toFixed(2)}%</td>
+        <td data-label="R-Multiple"><span class="badge ${pnl > 0 ? "badge-success" : "badge-danger"}">${rMultipleStr}</span></td>
+        <td data-label="Note"><small style="color: var(--text-muted);">${escapeHtml(t.note || "-")}</small></td>
       </tr>
     `;
   }).join("");
