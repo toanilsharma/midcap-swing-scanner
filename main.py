@@ -1779,6 +1779,39 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
         return f"⚠️ Error processing command: {exc}"
 
 
+def select_new_updates(
+    updates: List[Dict[str, Any]],
+    offset: Optional[int]
+) -> Tuple[List[Dict[str, Any]], Optional[int]]:
+    """
+    Pure helper to partition incoming Telegram updates according to persistent offset bookmark.
+    - If offset is None (first run / lost bookmark / silent baseline):
+        returns ([], max(update_id)+1) if updates exist, else ([], None).
+    - If offset is valid (int):
+        returns only updates with id > offset, and new_offset = max(their ids)+1 (or offset if none);
+        older/equal ids are ignored.
+    - If empty updates list:
+        returns ([], offset).
+    """
+    if not updates:
+        return [], offset
+
+    if offset is None:
+        valid_ids = [u["update_id"] for u in updates if isinstance(u, dict) and u.get("update_id") is not None]
+        if not valid_ids:
+            return [], None
+        return [], max(valid_ids) + 1
+
+    new_items = [
+        u for u in updates
+        if isinstance(u, dict) and u.get("update_id") is not None and u["update_id"] > offset
+    ]
+    if new_items:
+        new_offset = max(u["update_id"] for u in new_items) + 1
+        return new_items, new_offset
+    return [], offset
+
+
 def poll_once() -> None:
     """
     Check for new Telegram updates, execute any commands, and update offset.
@@ -1791,11 +1824,10 @@ def poll_once() -> None:
     if last_offset is None:
         print(f"No persistent offset found in {TG_OFFSET_FILE}. Establishing silent baseline...")
         updates = get_updates(offset=None)
-        if updates:
-            highest_id = max(u["update_id"] for u in updates if isinstance(u, dict) and "update_id" in u)
-            new_offset = highest_id + 1
+        _, new_offset = select_new_updates(updates, None)
+        if new_offset is not None:
             save_tg_offset(new_offset)
-            print(f"Silent baseline established: highest update_id={highest_id}, offset bookmark set to {new_offset}. Skipping reply phase entirely.")
+            print(f"Silent baseline established: offset bookmark set to {new_offset}. Skipping reply phase entirely.")
             git_commit_listener_updates("Establish Telegram silent baseline offset [skip ci]")
         else:
             print("Silent baseline: No pending Telegram updates found.")
@@ -1806,12 +1838,13 @@ def poll_once() -> None:
     if not updates:
         return
 
-    new_offset = last_offset
-    for update in updates:
-        update_id = update.get("update_id")
-        if update_id is not None:
-            new_offset = max(new_offset, update_id + 1)
+    # In Telegram, last_offset in tg_offset.txt is already highest_id + 1.
+    # Passing (last_offset - 1) as the reference offset to select_new_updates ensures:
+    # (1) Any update with id >= last_offset is captured as new.
+    # (2) Any older update with id <= last_offset - 1 is safely ignored.
+    new_updates, new_offset = select_new_updates(updates, last_offset - 1)
 
+    for update in new_updates:
         message = update.get("message") or update.get("channel_post")
         if not message:
             continue
@@ -1825,7 +1858,7 @@ def poll_once() -> None:
             if reply:
                 send_telegram(reply, kind="reply")
 
-    if new_offset != last_offset:
+    if new_offset is not None and new_offset != last_offset:
         save_tg_offset(new_offset)
         git_commit_listener_updates("Auto-update Telegram offset and journal [skip ci]")
 

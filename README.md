@@ -150,6 +150,62 @@ You can manage your entire trading journal in real time directly through Telegra
 
 ---
 
+## Logic Audit (do not skip)
+
+To safeguard trading integrity and prevent unintended changes to indicator definitions, signal generation, risk budgeting, or notification gating, this repository includes an offline regression harness.
+
+### How to Run
+
+Install development dependencies and run the audit:
+
+```bash
+pip install -r tests/requirements-dev.txt
+python audit.py
+```
+
+Expected output:
+```text
+============================================================
+AUDIT SCOREBOARD
+============================================================
+RULES GOLDEN ............. PASS
+RISK MATH ................ PASS
+NOTIFY GATING ............ PASS
+OFFSET STATE ............. PASS
+HERMETIC SCAN ............ PASS
+SCHEMA DRIFT ............. PASS
+============================================================
+All trading-logic invariants intact.
+============================================================
+```
+
+### What Each Layer Protects
+
+1. **RULES GOLDEN (`tests/test_rules_golden.py`)**: Pins the exact 12-indicator AND-logic vector across 4 synthetic scenarios (Textbook Long, Downtrend, Breakout without Volume, and Coiling without Breakout). Compares against `tests/GOLDEN_RULES.json`.
+2. **RISK MATH (`tests/test_risk_math.py`)**: Pins ATR-based stop sizing (1.5x ATR), the 7% stop loss floor cap, 2R profit targets, and fixed 1% equity position sizing calculations.
+3. **NOTIFY GATING (`tests/test_notification_gating.py`)**: Verifies that Telegram alerts respect `QUIET=1`, quiet hour windows (21:00-08:00 IST), and category flags, while proving that muting notifications **never blocks data collection or `scan_results.json` generation**.
+4. **OFFSET STATE (`tests/test_offset_state.py`)**: Guarantees the Telegram listener state machine establishes a silent baseline on new/lost offsets and ignores stale or duplicate messages to prevent night spam.
+5. **HERMETIC SCAN (`tests/test_hermetic_scan.py`)**: End-to-end integration test validating that scanning, watchlist ranking, and digest bundling operate seamlessly 100% offline.
+6. **SCHEMA DRIFT (`tests/test_schema_drift.py`)**: Locks the JSON schema and key names in `scan_results.json` so the Netlify frontend dashboard never encounters missing or renamed properties.
+
+### Regenerating Golden Rules Snapshot
+
+If (and only if) an intentional, reviewed change is made to trading rules:
+
+```bash
+python audit.py --regen-golden
+```
+
+This overwrites `tests/GOLDEN_RULES.json` with the new rule vectors.
+
+### THE RULE
+
+> [!IMPORTANT]
+> **Any future change request to this repo must end with:**
+> Run `python audit.py`. If any test fails, fix the cause before pushing — **never regenerate the golden unless the rule change was intentional and reviewed.**
+
+---
+
 ## Risk Disclaimer
 
 > [!WARNING]
