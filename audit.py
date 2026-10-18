@@ -20,6 +20,7 @@ TEST_LAYERS = [
     ("tests/test_offset_state.py", "OFFSET STATE"),
     ("tests/test_hermetic_scan.py", "HERMETIC SCAN"),
     ("tests/test_schema_drift.py", "SCHEMA DRIFT"),
+    ("tests/test_thresholds_locked.py", "THRESHOLDS LOCKED"),
 ]
 
 
