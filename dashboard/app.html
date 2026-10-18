@@ -97,6 +97,21 @@
         <span id="scannedMeta">100 constituents scanned</span>
       </div>
 
+      <!-- SECTOR LEADERSHIP STRIP (Item #2) -->
+      <div id="sectorLeadershipStrip" class="sector-strip-card" style="display: none;">
+        <div class="sector-strip-header">
+          <div class="sector-strip-title-group">
+            <span style="font-size: 16px;">🧭</span>
+            <span class="sector-strip-title">Sector Leadership & Rotation</span>
+            <span id="sectorActiveFilterBadge" class="badge badge-primary sector-filter-badge" style="display: none; cursor: pointer;" title="Click to clear sector filter">
+              Filtered: <strong id="sectorFilterName"></strong> &times;
+            </span>
+          </div>
+          <span class="sector-strip-hint">Click a sector chip to filter setups</span>
+        </div>
+        <div id="sectorChipsContainer" class="sector-chips-row"></div>
+      </div>
+
       <div id="signalsContainer" style="margin-bottom: 24px; display: none;">
         <h2 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 12px;">🟢 Active Today's Signals</h2>
         <div class="table-scroll" tabindex="0">
@@ -115,6 +130,38 @@
             </thead>
             <tbody id="signalsBody"></tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- WATCHLIST FILTER & SORT TOOLBAR (Item #1) -->
+      <div class="watchlist-controls-card">
+        <div class="watchlist-controls-top">
+          <div class="watchlist-search-box">
+            <span class="search-box-icon">🔍</span>
+            <input type="text" id="watchlistSearchInput" placeholder="Filter by symbol or sector (e.g. TRENT, Auto)..." autocomplete="off" />
+            <button id="clearWatchlistSearchBtn" class="search-clear-btn" style="display: none;" title="Clear search">&times;</button>
+          </div>
+          <div class="watchlist-sort-group">
+            <label for="watchlistSortSelect">Sort:</label>
+            <select id="watchlistSortSelect" class="form-select-sm">
+              <option value="score_desc">Setup Score (High &rarr; Low)</option>
+              <option value="dist_asc">Dist to Breakout (Closest)</option>
+              <option value="price_desc">Price (High &rarr; Low)</option>
+              <option value="price_asc">Price (Low &rarr; High)</option>
+              <option value="symbol_asc">Symbol (A &rarr; Z)</option>
+            </select>
+          </div>
+        </div>
+        <div class="watchlist-filter-chips">
+          <button class="wl-filter-chip active" data-filter="all">All Setups (<span id="countAll">0</span>)</button>
+          <button class="wl-filter-chip" data-filter="grade_a">Grade A+ / A (<span id="countGradeA">0</span>)</button>
+          <button class="wl-filter-chip" data-filter="near_breakout">&le; 2% to Breakout (<span id="countNearBreakout">0</span>)</button>
+          <button class="wl-filter-chip" data-filter="coiling">Coiling Vol (<span id="countCoiling">0</span>)</button>
+          <button class="wl-filter-chip" data-filter="sector_bullish">Sector Bullish (<span id="countSectorBullish">0</span>)</button>
+        </div>
+        <div class="watchlist-status-bar">
+          <span id="watchlistCountStatus">Showing all setups</span>
+          <button id="resetWatchlistFiltersBtn" class="btn-link-sm" style="display: none;">Reset all filters</button>
         </div>
       </div>
 

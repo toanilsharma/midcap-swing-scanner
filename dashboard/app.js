@@ -619,30 +619,205 @@ function renderNearBuy(scanData, openPositions) {
     signalsContainer.style.display = "none";
   }
 
-  // Render Watchlist
-  const watchlistBody = document.getElementById("watchlistBody");
+  // Render Sector Leadership Strip & Watchlist Filters (Phase 1)
   const watchlist = scanData.watchlist || [];
+  initWatchlistFilterListeners();
+  renderSectorLeadership(watchlist);
+  applyWatchlistFiltering(watchlist, scanData);
+}
 
-  if (watchlist.length === 0) {
+// Module state for Watchlist Filter & Sort (Phase 1)
+let _wlSelectedFilter = "all";
+let _wlSelectedSector = null;
+let _wlSearchQuery = "";
+let _wlSortMode = "score_desc";
+let _wlFiltersInitialized = false;
+
+// 1. Render Sector Leadership & Rotation Strip (Item #2)
+function renderSectorLeadership(watchlist) {
+  const strip = document.getElementById("sectorLeadershipStrip");
+  const container = document.getElementById("sectorChipsContainer");
+  const badge = document.getElementById("sectorActiveFilterBadge");
+  const filterName = document.getElementById("sectorFilterName");
+  if (!strip || !container) return;
+
+  if (!watchlist || watchlist.length === 0) {
+    strip.style.display = "none";
+    return;
+  }
+
+  // Aggregate by Sector
+  const sectorMap = {};
+  for (const item of watchlist) {
+    const sec = (item.Sector || "^NSEI").trim();
+    if (!sectorMap[sec]) {
+      sectorMap[sec] = { count: 0, gradeA: 0, isBullish: false };
+    }
+    sectorMap[sec].count++;
+    const grade = item.grade ?? item.Grade ?? "C";
+    if (grade === "A+" || grade === "A") {
+      sectorMap[sec].gradeA++;
+    }
+    if (item.SectorBullish === "YES") {
+      sectorMap[sec].isBullish = true;
+    }
+  }
+
+  const sectors = Object.keys(sectorMap).sort((a, b) => {
+    if (sectorMap[b].count !== sectorMap[a].count) {
+      return sectorMap[b].count - sectorMap[a].count;
+    }
+    return sectorMap[b].gradeA - sectorMap[a].gradeA;
+  });
+
+  if (sectors.length === 0) {
+    strip.style.display = "none";
+    return;
+  }
+
+  strip.style.display = "block";
+
+  if (_wlSelectedSector && badge && filterName) {
+    filterName.textContent = _wlSelectedSector;
+    badge.style.display = "inline-flex";
+  } else if (badge) {
+    badge.style.display = "none";
+  }
+
+  container.innerHTML = sectors.map(sec => {
+    const data = sectorMap[sec];
+    const isSelected = _wlSelectedSector === sec;
+    const dot = data.isBullish ? "🟢" : "🔴";
+    const gradeTag = data.gradeA > 0 ? `<span class="sec-chip-grade">${data.gradeA} A</span>` : "";
+    return `
+      <button class="sector-chip ${isSelected ? 'active' : ''}" data-sector="${escapeHtml(sec)}" title="${data.isBullish ? 'Sector in Stage 2 Uptrend' : 'Sector in Pullback/Neutral'}">
+        <span class="sec-chip-dot">${dot}</span>
+        <span class="sec-chip-name">${escapeHtml(sec)}</span>
+        <span class="sec-chip-count">${data.count}</span>
+        ${gradeTag}
+      </button>
+    `;
+  }).join("");
+
+  container.querySelectorAll(".sector-chip").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const sec = btn.getAttribute("data-sector");
+      if (_wlSelectedSector === sec) {
+        _wlSelectedSector = null;
+      } else {
+        _wlSelectedSector = sec;
+      }
+      renderSectorLeadership(watchlist);
+      applyWatchlistFiltering(watchlist, _cachedScanData);
+    });
+  });
+
+  if (badge) {
+    badge.onclick = () => {
+      _wlSelectedSector = null;
+      renderSectorLeadership(watchlist);
+      applyWatchlistFiltering(watchlist, _cachedScanData);
+    };
+  }
+}
+
+// 2. Watchlist Filter & Sort State Manager (Item #1)
+function applyWatchlistFiltering(watchlist, scanData) {
+  const watchlistBody = document.getElementById("watchlistBody");
+  if (!watchlistBody) return;
+
+  if (!watchlist || watchlist.length === 0) {
     watchlistBody.innerHTML = `
       <tr><td colspan="9" class="empty-state">📋 Watchlist empty: no midcaps currently in uptrend within 5% of breakout.</td></tr>
+    `;
+    updateFilterCounts([], 0);
+    return;
+  }
+
+  const basePool = _wlSelectedSector ? watchlist.filter(w => (w.Sector || "^NSEI").trim() === _wlSelectedSector) : watchlist;
+  updateFilterCounts(basePool, watchlist.length);
+
+  let filtered = [...basePool];
+
+  // Search filter
+  if (_wlSearchQuery.trim() !== "") {
+    const q = _wlSearchQuery.trim().toLowerCase();
+    filtered = filtered.filter(item => {
+      const sym = (item.Symbol || "").toLowerCase();
+      const sec = (item.Sector || "").toLowerCase();
+      return sym.includes(q) || sec.includes(q);
+    });
+  }
+
+  // Chip filter
+  if (_wlSelectedFilter === "grade_a") {
+    filtered = filtered.filter(item => {
+      const g = item.grade ?? item.Grade ?? "C";
+      return g === "A+" || g === "A";
+    });
+  } else if (_wlSelectedFilter === "near_breakout") {
+    filtered = filtered.filter(item => (parseFloat(item["DistToBreakout%"]) || 0) <= 2.0);
+  } else if (_wlSelectedFilter === "coiling") {
+    filtered = filtered.filter(item => item.Coiling === "YES");
+  } else if (_wlSelectedFilter === "sector_bullish") {
+    filtered = filtered.filter(item => item.SectorBullish === "YES");
+  }
+
+  // Sorting
+  filtered.sort((a, b) => {
+    const scoreA = Number(a.score ?? a.Score ?? 0);
+    const scoreB = Number(b.score ?? b.Score ?? 0);
+    const distA = parseFloat(a["DistToBreakout%"]) || 0;
+    const distB = parseFloat(b["DistToBreakout%"]) || 0;
+    const closeA = parseFloat(a.Close) || 0;
+    const closeB = parseFloat(b.Close) || 0;
+    const symA = (a.Symbol || "");
+    const symB = (b.Symbol || "");
+
+    switch (_wlSortMode) {
+      case "dist_asc":
+        return distA - distB;
+      case "price_desc":
+        return closeB - closeA;
+      case "price_asc":
+        return closeA - closeB;
+      case "symbol_asc":
+        return symA.localeCompare(symB);
+      case "score_desc":
+      default:
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        return distA - distB;
+    }
+  });
+
+  const statusEl = document.getElementById("watchlistCountStatus");
+  const resetBtn = document.getElementById("resetWatchlistFiltersBtn");
+  const isFiltered = _wlSelectedFilter !== "all" || Boolean(_wlSelectedSector) || _wlSearchQuery.trim() !== "";
+
+  if (statusEl) {
+    if (isFiltered) {
+      statusEl.innerHTML = `Showing <strong>${filtered.length}</strong> of <strong>${watchlist.length}</strong> setups`;
+    } else {
+      statusEl.textContent = `Showing all ${watchlist.length} setups`;
+    }
+  }
+  if (resetBtn) {
+    resetBtn.style.display = isFiltered ? "inline-block" : "none";
+  }
+
+  if (filtered.length === 0) {
+    watchlistBody.innerHTML = `
+      <tr>
+        <td colspan="9" class="empty-state">
+          🔍 No setups match the current filters. 
+          <a href="javascript:void(0)" onclick="resetAllWatchlistFilters()" style="color: #38bdf8; text-decoration: underline; margin-left: 6px;">Reset filters</a>
+        </td>
+      </tr>
     `;
     return;
   }
 
-  // Sort watchlist by score descending (secondary: DistToBreakout% ascending)
-  const sortedWatchlist = [...watchlist].sort((a, b) => {
-    const scoreA = Number(a.score ?? a.Score ?? 0);
-    const scoreB = Number(b.score ?? b.Score ?? 0);
-    if (scoreB !== scoreA) {
-      return scoreB - scoreA;
-    }
-    const distA = parseFloat(a["DistToBreakout%"]) || 0;
-    const distB = parseFloat(b["DistToBreakout%"]) || 0;
-    return distA - distB;
-  });
-
-  watchlistBody.innerHTML = sortedWatchlist.map(item => {
+  watchlistBody.innerHTML = filtered.map(item => {
     const dist = parseFloat(item["DistToBreakout%"]) || 0;
     let rowClass = "";
     if (dist <= 2.0) rowClass = "row-green";
@@ -701,7 +876,7 @@ function renderNearBuy(scanData, openPositions) {
   watchlistBody.querySelectorAll(".watchlist-row").forEach(row => {
     row.addEventListener("click", () => {
       const sym = row.getAttribute("data-symbol");
-      const item = sortedWatchlist.find(w => w.Symbol === sym);
+      const item = filtered.find(w => w.Symbol === sym);
       if (item) {
         toggleWatchlistDetail(row, item, scanData);
       }
@@ -713,13 +888,114 @@ function renderNearBuy(scanData, openPositions) {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const sym = btn.getAttribute("data-symbol");
-      const item = sortedWatchlist.find(w => w.Symbol === sym);
+      const item = filtered.find(w => w.Symbol === sym);
       if (item) {
         openPositionSizerFor(item);
       }
     });
   });
 }
+
+function updateFilterCounts(pool, totalCount) {
+  const elAll = document.getElementById("countAll");
+  const elGradeA = document.getElementById("countGradeA");
+  const elNearBreakout = document.getElementById("countNearBreakout");
+  const elCoiling = document.getElementById("countCoiling");
+  const elSecBullish = document.getElementById("countSectorBullish");
+
+  if (elAll) elAll.textContent = pool.length;
+  if (elGradeA) {
+    const c = pool.filter(w => {
+      const g = w.grade ?? w.Grade ?? "C";
+      return g === "A+" || g === "A";
+    }).length;
+    elGradeA.textContent = c;
+  }
+  if (elNearBreakout) {
+    const c = pool.filter(w => (parseFloat(w["DistToBreakout%"]) || 0) <= 2.0).length;
+    elNearBreakout.textContent = c;
+  }
+  if (elCoiling) {
+    const c = pool.filter(w => w.Coiling === "YES").length;
+    elCoiling.textContent = c;
+  }
+  if (elSecBullish) {
+    const c = pool.filter(w => w.SectorBullish === "YES").length;
+    elSecBullish.textContent = c;
+  }
+}
+
+function initWatchlistFilterListeners() {
+  if (_wlFiltersInitialized) return;
+  _wlFiltersInitialized = true;
+
+  const searchInput = document.getElementById("watchlistSearchInput");
+  const clearBtn = document.getElementById("clearWatchlistSearchBtn");
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      _wlSearchQuery = searchInput.value;
+      if (clearBtn) clearBtn.style.display = _wlSearchQuery ? "inline-block" : "none";
+      if (_cachedScanData) applyWatchlistFiltering(_cachedScanData.watchlist || [], _cachedScanData);
+    });
+  }
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      if (searchInput) searchInput.value = "";
+      _wlSearchQuery = "";
+      clearBtn.style.display = "none";
+      if (_cachedScanData) applyWatchlistFiltering(_cachedScanData.watchlist || [], _cachedScanData);
+    });
+  }
+
+  const sortSelect = document.getElementById("watchlistSortSelect");
+  if (sortSelect) {
+    sortSelect.addEventListener("change", () => {
+      _wlSortMode = sortSelect.value;
+      if (_cachedScanData) applyWatchlistFiltering(_cachedScanData.watchlist || [], _cachedScanData);
+    });
+  }
+
+  document.querySelectorAll(".wl-filter-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll(".wl-filter-chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      _wlSelectedFilter = chip.getAttribute("data-filter") || "all";
+      if (_cachedScanData) applyWatchlistFiltering(_cachedScanData.watchlist || [], _cachedScanData);
+    });
+  });
+
+  const resetBtn = document.getElementById("resetWatchlistFiltersBtn");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      resetAllWatchlistFilters();
+    });
+  }
+}
+
+window.resetAllWatchlistFilters = function() {
+  _wlSelectedFilter = "all";
+  _wlSelectedSector = null;
+  _wlSearchQuery = "";
+  _wlSortMode = "score_desc";
+
+  const searchInput = document.getElementById("watchlistSearchInput");
+  if (searchInput) searchInput.value = "";
+  const clearBtn = document.getElementById("clearWatchlistSearchBtn");
+  if (clearBtn) clearBtn.style.display = "none";
+
+  const sortSelect = document.getElementById("watchlistSortSelect");
+  if (sortSelect) sortSelect.value = "score_desc";
+
+  document.querySelectorAll(".wl-filter-chip").forEach(c => {
+    if (c.getAttribute("data-filter") === "all") c.classList.add("active");
+    else c.classList.remove("active");
+  });
+
+  if (_cachedScanData) {
+    renderSectorLeadership(_cachedScanData.watchlist || []);
+    applyWatchlistFiltering(_cachedScanData.watchlist || [], _cachedScanData);
+  }
+};
 
 // =====================================================================
 // EXPANDABLE WATCHLIST DETAIL PANEL & CANVAS MINI-CHART
@@ -1103,6 +1379,19 @@ async function toggleWatchlistDetail(row, item, scanData) {
   const volPassInit = item.VolDryup === "YES";
   const rsiPassInit = item.RsiInRange === "YES";
 
+  // Trade Action Blueprint calculations (Item #4)
+  const close = parseFloat(item.Close) || 0;
+  const dist = parseFloat(item["DistToBreakout%"]) || 0;
+  const breakoutLevel = item.Breakout ? parseFloat(item.Breakout) : (item.Entry ? parseFloat(item.Entry) : Number((close * (1 + dist / 100)).toFixed(2)));
+  const atr = parseFloat(item.ATR14) || Number((close * 0.025).toFixed(2));
+  const stopPrice = item.Stop ? parseFloat(item.Stop) : Number(Math.max(1, breakoutLevel - 1.5 * atr).toFixed(2));
+  const riskAmt = Math.max(0.01, breakoutLevel - stopPrice);
+  const riskPct = ((riskAmt / (breakoutLevel || 1)) * 100).toFixed(1);
+  const targetPrice = item.Target ? parseFloat(item.Target) : Number((breakoutLevel + 2 * riskAmt).toFixed(2));
+  const targetPct = (((targetPrice - breakoutLevel) / (breakoutLevel || 1)) * 100).toFixed(1);
+  const bePrice = Number((breakoutLevel * 1.08).toFixed(2));
+  const atrPct = ((atr / (close || 1)) * 100).toFixed(1);
+
   const detailHtml = `
     <tr class="detail-row" id="detail-${symbol}">
       <td colspan="9">
@@ -1119,6 +1408,52 @@ async function toggleWatchlistDetail(row, item, scanData) {
               <span class="detail-hint">(Click row to collapse)</span>
             </div>
             <div id="earnings-warn-${symbol}"></div>
+          </div>
+
+          <!-- Trade Execution Blueprint (Item #4) -->
+          <div class="blueprint-card">
+            <div class="blueprint-header">
+              <div class="blueprint-title-group">
+                <span style="font-size: 16px;">🎯</span>
+                <span class="blueprint-title">Trade Action Blueprint</span>
+                <span class="blueprint-rr-pill">Planned R:R = 1 : 2.0</span>
+              </div>
+              <button class="btn btn-xs btn-outline-primary size-trade-btn" data-symbol="${symbol}" title="Size this trade with Position Sizer">
+                🎯 Size at 1% Risk
+              </button>
+            </div>
+            <div class="blueprint-grid">
+              <div class="blueprint-item entry-box">
+                <span class="bp-label">Breakout Trigger (Entry)</span>
+                <span class="bp-val">₹${breakoutLevel.toFixed(2)}</span>
+                <span class="bp-sub">20-day high (${dist.toFixed(1)}% away)</span>
+              </div>
+              <div class="blueprint-item stop-box">
+                <span class="bp-label">Hard Stop-Loss (1.5× ATR)</span>
+                <span class="bp-val danger">₹${stopPrice.toFixed(2)}</span>
+                <span class="bp-sub danger">-${riskPct}% risk (₹${riskAmt.toFixed(2)}/sh)</span>
+              </div>
+              <div class="blueprint-item target-box">
+                <span class="bp-label">Initial 2R Target</span>
+                <span class="bp-val success">₹${targetPrice.toFixed(2)}</span>
+                <span class="bp-sub success">+${targetPct}% gain (+2R multiple)</span>
+              </div>
+              <div class="blueprint-item be-box">
+                <span class="bp-label">Breakeven Ratchet (+8%)</span>
+                <span class="bp-val accent">₹${bePrice.toFixed(2)}</span>
+                <span class="bp-sub accent">Move stop to entry on hit</span>
+              </div>
+              <div class="blueprint-item time-box">
+                <span class="bp-label">Time Stop Rule</span>
+                <span class="bp-val warning">Day 5 Session</span>
+                <span class="bp-sub">Exit if gain is &lt; 3% on Day 5</span>
+              </div>
+              <div class="blueprint-item vol-box">
+                <span class="bp-label">Daily Range (ATR 14)</span>
+                <span class="bp-val">₹${atr.toFixed(2)}</span>
+                <span class="bp-sub">${atrPct}% typical daily volatility</span>
+              </div>
+            </div>
           </div>
 
           <!-- Rules Checklist -->
@@ -1205,16 +1540,15 @@ async function toggleWatchlistDetail(row, item, scanData) {
 
   row.insertAdjacentHTML("afterend", detailHtml);
 
-  // Attach listener to "Size this trade" button inside the detail panel
+  // Attach listener to all "Size this trade" buttons inside the detail panel
   const detailEl = document.getElementById(`detail-${symbol}`);
   if (detailEl) {
-    const detailSizeBtn = detailEl.querySelector(".size-trade-btn");
-    if (detailSizeBtn) {
-      detailSizeBtn.addEventListener("click", (e) => {
+    detailEl.querySelectorAll(".size-trade-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
         e.stopPropagation();
         openPositionSizerFor(item);
       });
-    }
+    });
   }
 
   // Default breakout level from item
