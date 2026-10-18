@@ -284,7 +284,15 @@
           <div class="stat-label">Total Capital Deployed</div>
           <div id="openCapitalDeployed" class="stat-value">₹0.00</div>
         </div>
+        <div class="stat-card">
+          <div class="stat-label"><span class="term-lookup" data-term="Portfolio heat">Portfolio Heat (Risk)</span></div>
+          <div id="openPortfolioHeat" class="stat-value neutral">0.0%</div>
+          <div id="openPortfolioHeatSub" class="stat-sub-text">₹0 at risk across 0 trades</div>
+        </div>
       </div>
+
+      <!-- SECTOR CONCENTRATION ALERT BANNER (Item #6) -->
+      <div id="openPositionsSectorAlert" class="positions-alert-banner" style="display: none;"></div>
 
       <div class="table-scroll" tabindex="0">
         <table id="openPositionsTable">
@@ -300,11 +308,13 @@
               <th><span class="term-lookup" data-term="Unrealized PnL">Unrealized PnL</span></th>
               <th><span class="term-lookup" data-term="% to Stop">% to Stop</span></th>
               <th><span class="term-lookup" data-term="% to Target">% to Target</span></th>
+              <th><span class="term-lookup" data-term="R-multiple">R-Trajectory &amp; Progress</span></th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody id="openPositionsBody">
             <tr>
-              <td colspan="10" class="empty-state">Loading active positions...</td>
+              <td colspan="12" class="empty-state">Loading active positions...</td>
             </tr>
           </tbody>
         </table>
@@ -1532,6 +1542,26 @@
     <div class="term-popover-footer">
       <span id="termPopoverWhere" class="term-popover-where">Used in: Near Buy</span>
       <a href="#" id="termPopoverGuideLink" class="term-popover-link">Full guide ➔</a>
+    </div>
+  </div>
+
+  <!-- TRADINGVIEW INTERACTIVE CHART MODAL (Item #3) -->
+  <div id="tvChartModal" class="tv-modal" style="display: none;">
+    <div class="tv-modal-backdrop" id="tvModalBackdrop"></div>
+    <div class="tv-modal-dialog" role="dialog" aria-modal="true" aria-label="TradingView Interactive Chart">
+      <div class="tv-modal-header">
+        <div class="tv-modal-title-group">
+          <span style="font-size: 18px;">📊</span>
+          <h3 id="tvModalTitle" class="tv-modal-title">Interactive Chart: NSE:SYMBOL</h3>
+          <a id="tvExternalLink" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-xs btn-outline-primary" title="Open chart on TradingView in new tab">
+            ↗ Open on TradingView
+          </a>
+        </div>
+        <button id="tvModalCloseBtn" class="tv-modal-close" title="Close chart (Esc)">&times;</button>
+      </div>
+      <div class="tv-modal-body">
+        <div id="tvWidgetContainer" class="tv-widget-container"></div>
+      </div>
     </div>
   </div>
 

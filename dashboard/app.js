@@ -1405,6 +1405,9 @@ async function toggleWatchlistDetail(row, item, scanData) {
               <button class="btn btn-sm btn-primary size-trade-btn" data-symbol="${symbol}">
                 🎯 Size this trade
               </button>
+              <button class="btn btn-sm btn-secondary tv-chart-trigger-btn" data-symbol="${symbol}" title="Open interactive TradingView chart">
+                📊 Interactive Chart
+              </button>
               <span class="detail-hint">(Click row to collapse)</span>
             </div>
             <div id="earnings-warn-${symbol}"></div>
@@ -1879,25 +1882,39 @@ async function renderOpenPositions(positions) {
   const countCard = document.getElementById("openPositionsCount");
   const totalPnlCard = document.getElementById("openTotalPnl");
   const capitalCard = document.getElementById("openCapitalDeployed");
+  const heatCard = document.getElementById("openPortfolioHeat");
+  const heatSub = document.getElementById("openPortfolioHeatSub");
+  const sectorAlert = document.getElementById("openPositionsSectorAlert");
   const tableBody = document.getElementById("openPositionsBody");
 
   if (!positions || positions.length === 0) {
-    countBadge.textContent = "0";
-    countCard.textContent = "0";
-    totalPnlCard.textContent = "₹0.00";
-    totalPnlCard.className = "stat-value neutral";
-    capitalCard.textContent = "₹0.00";
-    tableBody.innerHTML = `
-      <tr><td colspan="10" class="empty-state">💼 No active open positions recorded. Use /buy in Telegram to log trades.</td></tr>
-    `;
+    if (countBadge) countBadge.textContent = "0";
+    if (countCard) countCard.textContent = "0";
+    if (totalPnlCard) {
+      totalPnlCard.textContent = "₹0.00";
+      totalPnlCard.className = "stat-value neutral";
+    }
+    if (capitalCard) capitalCard.textContent = "₹0.00";
+    if (heatCard) {
+      heatCard.textContent = "0.0%";
+      heatCard.className = "stat-value positive";
+    }
+    if (heatSub) heatSub.textContent = "₹0 at risk (0 open positions)";
+    if (sectorAlert) sectorAlert.style.display = "none";
+    if (tableBody) {
+      tableBody.innerHTML = `
+        <tr><td colspan="12" class="empty-state">💼 No active open positions recorded. Use /buy in Telegram to log trades.</td></tr>
+      `;
+    }
     return;
   }
 
-  countBadge.textContent = positions.length;
-  countCard.textContent = positions.length;
+  if (countBadge) countBadge.textContent = positions.length;
+  if (countCard) countCard.textContent = positions.length;
 
   let totalUnrealized = 0;
   let totalCapital = 0;
+  let totalRiskAmount = 0;
   const rows = [];
 
   for (const pos of positions) {
@@ -1937,6 +1954,52 @@ async function renderOpenPositions(positions) {
     pos._is_near_stop = isNearStop;
     pos._is_near_target = isNearTarget;
 
+    // R-Multiple Trajectory & Progress calculations (Item #5)
+    const plannedRiskPerUnit = (stop && entry > stop) ? (entry - stop) : (entry * 0.05);
+    const posRiskAmount = plannedRiskPerUnit * qty;
+    totalRiskAmount += posRiskAmount;
+
+    const currentR = plannedRiskPerUnit > 0 ? (currentPrice - entry) / plannedRiskPerUnit : 0;
+    const pctGainFromEntry = entry > 0 ? ((currentPrice - entry) / entry) * 100 : 0;
+    const isBreakevenReached = pctGainFromEntry >= 8.0;
+
+    // Gauge needle position: -1R = 0%, 0R = 33.3%, +1R = 66.7%, +2R = 100%
+    const needlePercent = Math.max(0, Math.min(100, ((currentR + 1) / 3) * 100));
+
+    let rPillClass = "r-neutral";
+    let rPillText = `${currentR >= 0 ? "+" : ""}${currentR.toFixed(2)}R`;
+    if (isBreakevenReached) {
+      rPillClass = "r-breakeven";
+      rPillText = `🎯 Ratchet BE (${currentR >= 0 ? "+" : ""}${currentR.toFixed(1)}R)`;
+    } else if (currentR >= 1.8) {
+      rPillClass = "r-target";
+      rPillText = `🏆 Target Hit (${currentR.toFixed(1)}R)`;
+    } else if (currentR > 0) {
+      rPillClass = "r-profit";
+    } else if (currentR <= -0.8) {
+      rPillClass = "r-stop";
+      rPillText = `⚠️ Defend Stop (${currentR.toFixed(2)}R)`;
+    }
+
+    const trajectoryHtml = `
+      <div class="r-trajectory-cell">
+        <div class="r-trajectory-header">
+          <span class="r-pill ${rPillClass}">${rPillText}</span>
+          <span class="r-gain-text ${unrealized >= 0 ? 'text-success' : 'text-danger'}">${unrealized >= 0 ? '+' : ''}${pctGainFromEntry.toFixed(1)}%</span>
+        </div>
+        <div class="r-gauge-track" title="Stop (-1R) → Entry (0R) → Target (+2R). Current: ${currentR.toFixed(2)}R">
+          <div class="r-gauge-stop-zone"></div>
+          <div class="r-gauge-entry-mark" title="Entry (0R)"></div>
+          <div class="r-gauge-needle" style="left: ${needlePercent}%;"></div>
+        </div>
+        <div class="r-gauge-labels">
+          <span>-1R</span>
+          <span>Entry</span>
+          <span>+2R</span>
+        </div>
+      </div>
+    `;
+
     let rowClass = "";
     if (isNearStop) rowClass = "row-danger";
     else if (isNearTarget) rowClass = "row-green";
@@ -1956,13 +2019,73 @@ async function renderOpenPositions(positions) {
         <td data-label="Unrealized PnL" ${pnlClass}>${pnlSign}${formatINR(unrealized)}</td>
         <td data-label="% to Stop">${distToStopStr}</td>
         <td data-label="% to Target">${distToTargetStr}</td>
+        <td data-label="R-Trajectory">${trajectoryHtml}</td>
+        <td data-label="Action">
+          <button class="btn btn-xs btn-outline-primary tv-chart-trigger-btn" data-symbol="${pos.symbol}" title="Open TradingView Chart">
+            📊 Chart
+          </button>
+        </td>
       </tr>
     `);
   }
 
-  capitalCard.textContent = formatINR(totalCapital);
-  totalPnlCard.textContent = formatINR(totalUnrealized, true);
-  totalPnlCard.className = `stat-value ${totalUnrealized > 0 ? "positive" : totalUnrealized < 0 ? "negative" : "neutral"}`;
+  // Update Summary Cards
+  if (capitalCard) capitalCard.textContent = formatINR(totalCapital);
+  if (totalPnlCard) {
+    totalPnlCard.textContent = formatINR(totalUnrealized, true);
+    totalPnlCard.className = `stat-value ${totalUnrealized > 0 ? "positive" : totalUnrealized < 0 ? "negative" : "neutral"}`;
+  }
+
+  // Portfolio Heat Card (Item #6)
+  if (heatCard) {
+    const accountCapital = 100000;
+    const heatPct = ((totalRiskAmount / accountCapital) * 100).toFixed(1);
+    heatCard.textContent = `${heatPct}%`;
+    let heatClass = "positive";
+    if (heatPct > 5.0) heatClass = "negative";
+    else if (heatPct > 3.5) heatClass = "neutral";
+    heatCard.className = `stat-value ${heatClass}`;
+
+    if (heatSub) {
+      heatSub.textContent = `₹${formatINR(totalRiskAmount)} at risk across ${positions.length} trade${positions.length === 1 ? '' : 's'}`;
+    }
+  }
+
+  // Sector Concentration Warning (Item #6)
+  if (sectorAlert) {
+    const sectorCount = {};
+    for (const pos of positions) {
+      let sec = "Midcap";
+      if (_cachedScanData && _cachedScanData.watchlist) {
+        const match = _cachedScanData.watchlist.find(w => w.Symbol === pos.symbol);
+        if (match && match.Sector) sec = match.Sector;
+      }
+      sectorCount[sec] = (sectorCount[sec] || 0) + 1;
+    }
+    const multiSectors = Object.keys(sectorCount).filter(s => sectorCount[s] > 1);
+    if (multiSectors.length > 0) {
+      sectorAlert.innerHTML = `
+        <span class="alert-icon">⚠️</span>
+        <div class="alert-text">
+          <strong>Sector Exposure Alert:</strong> ${multiSectors.map(s => `${sectorCount[s]} open positions in <strong>${escapeHtml(s)}</strong>`).join(", ")}. Sector risk cap reached; avoid taking new breakout entries in these sectors.
+        </div>
+      `;
+      sectorAlert.className = "positions-alert-banner warning";
+      sectorAlert.style.display = "flex";
+    } else if (positions.length > 1) {
+      sectorAlert.innerHTML = `
+        <span class="alert-icon">🟢</span>
+        <div class="alert-text">
+          <strong>Sector Diversification Healthy:</strong> All ${positions.length} open positions belong to distinct industry sectors.
+        </div>
+      `;
+      sectorAlert.className = "positions-alert-banner success";
+      sectorAlert.style.display = "flex";
+    } else {
+      sectorAlert.style.display = "none";
+    }
+  }
+
   tableBody.innerHTML = rows.join("");
 
   // Update Today's Plan with live open positions metrics
@@ -2805,6 +2928,9 @@ document.addEventListener("DOMContentLoaded", () => {
   initTabGuideBanners();
   initTermSearchAndLookups();
 
+  // Initialize TradingView Modal Listeners (Phase 2 Item #3)
+  initTradingViewModalListeners();
+
   // Initial load if on app page
   if (document.getElementById("watchlistTable")) {
     initPositionSizer();
@@ -2817,4 +2943,79 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 300000);
   }
 });
+
+// =====================================================================
+// TRADINGVIEW INTERACTIVE CHART MODAL (Item #3)
+// =====================================================================
+function openTradingViewModal(symbol) {
+  if (!symbol) return;
+  const cleanSym = symbol.replace(/\.NS$/i, "").toUpperCase();
+  const modal = document.getElementById("tvChartModal");
+  const modalTitle = document.getElementById("tvModalTitle");
+  const externalLink = document.getElementById("tvExternalLink");
+  const widgetContainer = document.getElementById("tvWidgetContainer");
+
+  if (!modal || !widgetContainer) return;
+
+  if (modalTitle) modalTitle.textContent = `Interactive Chart: NSE:${cleanSym}`;
+  if (externalLink) {
+    externalLink.href = `https://in.tradingview.com/chart/?symbol=NSE%3A${cleanSym}`;
+  }
+
+  // Official TradingView widget iframe embed with dark theme, Indian market timezone, and moving averages
+  const widgetUrl = `https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=NSE%3A${cleanSym}&interval=D&hidesidetoolbar=0&symboledit=1&saveimage=1&toolbarbg=111827&studies=MASimple%40tv-basicstudies%1FMASimple%40tv-basicstudies%1FRSI%40tv-basicstudies&theme=dark&style=1&timezone=Asia%2FKolkata&withdateranges=1&hideideas=1`;
+
+  widgetContainer.innerHTML = `
+    <iframe
+      src="${widgetUrl}"
+      style="width: 100%; height: 100%; border: none; border-radius: 0 0 12px 12px;"
+      allowtransparency="true"
+      scrolling="no"
+      allowfullscreen>
+    </iframe>
+  `;
+
+  modal.style.display = "flex";
+  document.body.style.overflow = "hidden"; // Prevent background scrolling
+}
+
+function closeTradingViewModal() {
+  const modal = document.getElementById("tvChartModal");
+  const widgetContainer = document.getElementById("tvWidgetContainer");
+  if (modal) modal.style.display = "none";
+  if (widgetContainer) widgetContainer.innerHTML = ""; // Clear iframe to free memory and stop audio/network
+  document.body.style.overflow = "";
+}
+
+function initTradingViewModalListeners() {
+  const modal = document.getElementById("tvChartModal");
+  const backdrop = document.getElementById("tvModalBackdrop");
+  const closeBtn = document.getElementById("tvModalCloseBtn");
+
+  if (closeBtn) {
+    closeBtn.addEventListener("click", closeTradingViewModal);
+  }
+  if (backdrop) {
+    backdrop.addEventListener("click", closeTradingViewModal);
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal && modal.style.display === "flex") {
+      closeTradingViewModal();
+    }
+  });
+
+  // Delegate click for any .tv-chart-trigger-btn on document
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".tv-chart-trigger-btn");
+    if (btn) {
+      const sym = btn.getAttribute("data-symbol");
+      if (sym) {
+        e.stopPropagation();
+        openTradingViewModal(sym);
+      }
+    }
+  });
+}
+
 
