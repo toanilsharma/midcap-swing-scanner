@@ -56,7 +56,84 @@ SYMBOLS_FILE = "symbols.txt"
 TRADES_FILE = "trades.json"
 OPEN_POSITIONS_FILE = "open_positions.json"
 TG_OFFSET_FILE = "tg_offset.txt"
+ALERT_SETTINGS_FILE = "alert_settings.json"
 SCAN_RESULTS_FILE = "scan_results.json"
+
+IST_TZ = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+
+DEFAULT_ALERT_SETTINGS: Dict[str, Any] = {
+    "mute_until": None,
+    "quiet_start": "21:00",
+    "quiet_end": "08:00",
+    "enable": {
+        "scan": True,
+        "watchlist": True,
+        "market": True,
+    },
+    "digest": False,
+}
+
+_DIGEST_MESSAGES: List[Tuple[str, str]] = []
+
+
+def get_now_ist() -> datetime.datetime:
+    return datetime.datetime.now(IST_TZ)
+
+
+def load_alert_settings() -> Dict[str, Any]:
+    """
+    Load alert settings from alert_settings.json.
+    If missing or corrupt, initialize with defaults.
+    """
+    settings = dict(DEFAULT_ALERT_SETTINGS)
+    if os.path.exists(ALERT_SETTINGS_FILE):
+        try:
+            with open(ALERT_SETTINGS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    settings.update(data)
+                    if "enable" in data and isinstance(data["enable"], dict):
+                        en = dict(DEFAULT_ALERT_SETTINGS["enable"])
+                        en.update(data["enable"])
+                        settings["enable"] = en
+                    return settings
+        except Exception as exc:
+            print(f"Warning reading {ALERT_SETTINGS_FILE}: {exc}")
+
+    save_alert_settings(settings)
+    return settings
+
+
+def save_alert_settings(settings: Dict[str, Any]) -> None:
+    try:
+        with open(ALERT_SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=2, ensure_ascii=False)
+    except Exception as exc:
+        print(f"Error saving {ALERT_SETTINGS_FILE}: {exc}")
+
+
+def load_tg_offset() -> Optional[int]:
+    """
+    Read integer offset from tg_offset.txt if it exists and is non-empty.
+    Else returns None (treated as unknown).
+    """
+    if os.path.exists(TG_OFFSET_FILE):
+        try:
+            with open(TG_OFFSET_FILE, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content:
+                    return int(content)
+        except Exception as exc:
+            print(f"Warning reading {TG_OFFSET_FILE}: {exc}")
+    return None
+
+
+def save_tg_offset(offset: int) -> None:
+    try:
+        with open(TG_OFFSET_FILE, "w", encoding="utf-8") as f:
+            f.write(str(offset))
+    except Exception as exc:
+        print(f"Error saving {TG_OFFSET_FILE}: {exc}")
 
 # Sector mapping for NIFTY Midcap 100 and key liquid Indian equities
 # Uses only verified, live Yahoo Finance sector index symbols to avoid 404 warnings:
@@ -280,10 +357,9 @@ _SECTOR_CACHE: Dict[str, pd.DataFrame] = {}
 # =====================================================================
 # 2) TELEGRAM ALERTS
 # =====================================================================
-def send_telegram(message: str) -> bool:
+def _dispatch_telegram_http(message: str) -> bool:
     """
-    Send a message to Telegram using bot API.
-    Splits long messages into chunks of maximum 3500 characters.
+    Perform actual HTTP POST requests to Telegram sendMessage with chunking.
     """
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("Telegram Error: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing from .env")
@@ -313,6 +389,105 @@ def send_telegram(message: str) -> bool:
             all_success = False
 
     return all_success
+
+
+def send_telegram(
+    message: str,
+    kind: str = "proactive",
+    msg_type: Optional[str] = None
+) -> bool:
+    """
+    Send a message to Telegram using bot API with gating rules.
+    kind is 'proactive' for scan/watchlist/market/no-signals alerts and 'reply' for user commands.
+    A proactive send is blocked silently (print "[BLOCKED:<reason>] <first 40 chars>" and return True) if:
+      (a) QUIET environment variable is '1'
+      (b) mute_until is active (now < mute_until)
+      (c) current IST time is inside quiet_start..quiet_end window
+      (d) matching enable flag is false (scan / watchlist / market)
+    A 'reply' send is blocked ONLY by (b) mute.
+    """
+    if not message:
+        return True
+
+    # Normalize kind if caller passed msg_type as kind e.g. send_telegram(msg, kind="scan")
+    if kind in ("scan", "watchlist", "market"):
+        msg_type = kind
+        kind = "proactive"
+
+    settings = load_alert_settings()
+    now_ist = get_now_ist()
+
+    # Rule (b): Mute check applies to BOTH proactive and reply
+    mute_until_val = settings.get("mute_until")
+    if mute_until_val:
+        try:
+            mute_dt = datetime.datetime.fromisoformat(mute_until_val)
+            if mute_dt.tzinfo is None:
+                mute_dt = mute_dt.replace(tzinfo=IST_TZ)
+            if now_ist < mute_dt:
+                # Allow the confirmation reply of /mute itself so the user knows they are muted
+                if kind == "reply" and message.startswith("Muted until"):
+                    pass
+                else:
+                    first_chars = message[:40].replace("\n", " ")
+                    print(f"[BLOCKED:mute] {first_chars}")
+                    return True
+        except Exception as exc:
+            print(f"Warning parsing mute_until: {exc}")
+
+    # Reply is blocked ONLY by (b) mute
+    if kind == "reply":
+        return _dispatch_telegram_http(message)
+
+    # Gating for proactive alerts:
+    # Rule (a): Environment variable QUIET == "1"
+    if os.getenv("QUIET", "0").strip() == "1":
+        first_chars = message[:40].replace("\n", " ")
+        print(f"[BLOCKED:quiet_env] {first_chars}")
+        return True
+
+    # Rule (c): Inside quiet window quiet_start..quiet_end (handles past-midnight wrap)
+    q_start = settings.get("quiet_start")
+    q_end = settings.get("quiet_end")
+    if q_start and q_end and q_start != "off" and q_end != "off":
+        try:
+            qs_h, qs_m = map(int, q_start.split(":"))
+            qe_h, qe_m = map(int, q_end.split(":"))
+            now_m = now_ist.hour * 60 + now_ist.minute
+            start_m = qs_h * 60 + qs_m
+            end_m = qe_h * 60 + qe_m
+
+            in_quiet = False
+            if start_m < end_m:
+                in_quiet = (start_m <= now_m < end_m)
+            elif start_m > end_m:
+                in_quiet = (now_m >= start_m or now_m < end_m)
+
+            if in_quiet:
+                first_chars = message[:40].replace("\n", " ")
+                print(f"[BLOCKED:quiet_window] {first_chars}")
+                return True
+        except Exception as exc:
+            print(f"Warning checking quiet window ({q_start}-{q_end}): {exc}")
+
+    # Rule (d): Matching enable flag is false (scan / watchlist / market)
+    eff_type = msg_type
+    if not eff_type:
+        if "MARKET FILTER" in message:
+            eff_type = "market"
+        elif "WATCHLIST" in message:
+            eff_type = "watchlist"
+        else:
+            eff_type = "scan"
+
+    enable_flags = settings.get("enable", {})
+    if not enable_flags.get(eff_type, True):
+        first_chars = message[:40].replace("\n", " ")
+        print(f"[BLOCKED:disabled_{eff_type}] {first_chars}")
+        return True
+
+    return _dispatch_telegram_http(message)
+
 
 
 # =====================================================================
@@ -797,10 +972,16 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
     """
     print("Checking market regime filter...")
     is_mkt_ok = market_ok()
+    settings = load_alert_settings()
+    is_digest = settings.get("digest", False)
+
     if not is_mkt_ok:
         msg = "🔴 MARKET FILTER: Index not in uptrend. No new entries today (O'Neil M-rule)."
         print(msg)
-        send_telegram(msg)
+        if is_digest:
+            _DIGEST_MESSAGES.append(("market", msg))
+        else:
+            send_telegram(msg, kind="proactive", msg_type="market")
         return [], 0, False
 
     symbols = get_symbols()
@@ -821,9 +1002,16 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
 
     if messages:
         joined_message = "\n\n----\n\n".join(messages)
-        send_telegram(joined_message)
+        if is_digest:
+            _DIGEST_MESSAGES.append(("scan", joined_message))
+        else:
+            send_telegram(joined_message, kind="proactive", msg_type="scan")
     elif SEND_NO_SIGNAL_MESSAGE:
-        send_telegram("No new midcap swing signals today.")
+        no_sig_msg = "No new midcap swing signals today."
+        if is_digest:
+            _DIGEST_MESSAGES.append(("scan", no_sig_msg))
+        else:
+            send_telegram(no_sig_msg, kind="proactive", msg_type="scan")
 
     return signals, total, True
 
@@ -1072,19 +1260,37 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
     try:
         if cmd == "/help":
             return (
-                "🤖 SWING TRADING JOURNAL COMMANDS:\n\n"
+                "🤖 SWING TRADING BOT COMMANDS:\n\n"
                 "• /buy SYMBOL ENTRY QTY [STOP] [TARGET] [#tags...]\n"
-                "  Example: /buy DIXON 12500 8 11800 13900 #breakout #plan_followed\n\n"
+                "  Record a new open swing trade position.\n"
+                "  Example: /buy PERSISTENT 5200 10 4950 5700 #breakout #plan_followed\n\n"
                 "• /sell SYMBOL EXIT [NOTE] [#tags...]\n"
-                "  Example: /sell DIXON 13800 hit target 2R #plan_followed\n\n"
+                "  Close an open position and log PnL & discipline audit.\n"
+                "  Example: /sell PERSISTENT 5600 hit target 2R #plan_followed\n\n"
                 "• /open\n"
-                "  List current open positions\n\n"
+                "  List all current open swing positions.\n"
+                "  Example: /open\n\n"
                 "• /trades\n"
-                "  List last 10 closed trades with tags & discipline audits\n\n"
+                "  List the last 10 closed trades with tags & notes.\n"
+                "  Example: /trades\n\n"
                 "• /stats\n"
-                "  Calculate win rate, setup types, discipline %, and PnL\n\n"
+                "  View journal metrics: win rate, expectancy, drawdown & discipline.\n"
+                "  Example: /stats\n\n"
+                "• /mute [duration]\n"
+                "  Temporarily silence all alerts and command replies (default 8h).\n"
+                "  Example: /mute 4h (or: /mute 30m, /mute until 07:00)\n\n"
+                "• /unmute\n"
+                "  Cancel active mute and restore alerts immediately.\n"
+                "  Example: /unmute\n\n"
+                "• /quiet START END | /quiet off\n"
+                "  Set daily quiet window (HH:MM IST) or disable it.\n"
+                "  Example: /quiet 21:00 08:00 (or: /quiet off)\n\n"
+                "• /alerts [scan|watchlist|market|digest on|off]\n"
+                "  View alert configuration or toggle specific alert channels.\n"
+                "  Example: /alerts (or: /alerts scan off, /alerts digest on)\n\n"
                 "• /help\n"
-                "  Show this command menu"
+                "  Show this commands help menu.\n"
+                "  Example: /help"
             )
 
         elif cmd == "/buy":
@@ -1401,6 +1607,170 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
                 + "\n".join(discipline_lines)
             )
 
+        elif cmd == "/mute":
+            # Usage: /mute [duration] e.g. /mute 4h, /mute 30m, /mute until 07:00; default 8h.
+            settings = load_alert_settings()
+            now_ist = get_now_ist()
+            arg_str = " ".join(args).strip().lower()
+
+            target_dt = None
+            if not arg_str:
+                target_dt = now_ist + datetime.timedelta(hours=8)
+            elif arg_str.startswith("until"):
+                time_str = arg_str.replace("until", "").strip()
+                match = re.match(r"^(\d{1,2}):(\d{2})$", time_str)
+                if not match:
+                    return "⚠️ Invalid format for /mute until. Example: /mute until 07:00"
+                h, m = int(match.group(1)), int(match.group(2))
+                if not (0 <= h <= 23 and 0 <= m <= 59):
+                    return "⚠️ Invalid time: Hour must be 00-23, minute 00-59."
+                target_dt = now_ist.replace(hour=h, minute=m, second=0, microsecond=0)
+                if target_dt <= now_ist:
+                    target_dt += datetime.timedelta(days=1)
+            else:
+                match = re.match(r"^(\d+(?:\.\d+)?)\s*(h|m|d)$", arg_str)
+                if match:
+                    val = float(match.group(1))
+                    unit = match.group(2)
+                    if unit == "h":
+                        target_dt = now_ist + datetime.timedelta(hours=val)
+                    elif unit == "m":
+                        target_dt = now_ist + datetime.timedelta(minutes=val)
+                    elif unit == "d":
+                        target_dt = now_ist + datetime.timedelta(days=val)
+                else:
+                    return "⚠️ Invalid mute duration. Examples: /mute 4h, /mute 30m, /mute until 07:00, or /mute (defaults to 8h)"
+
+            settings["mute_until"] = target_dt.isoformat()
+            save_alert_settings(settings)
+            formatted_time = target_dt.strftime("%H:%M IST (%d %b)")
+            return f"Muted until {formatted_time}. /unmute to cancel."
+
+        elif cmd == "/unmute":
+            settings = load_alert_settings()
+            settings["mute_until"] = None
+            save_alert_settings(settings)
+            return "🔔 Unmuted. Alerts and replies restored."
+
+        elif cmd == "/quiet":
+            # Usage: /quiet START END (e.g. /quiet 21:00 08:00) or /quiet off
+            settings = load_alert_settings()
+            if not args:
+                q_s = settings.get("quiet_start")
+                q_e = settings.get("quiet_end")
+                if q_s and q_e and q_s != "off" and q_e != "off":
+                    return f"🌙 Current quiet window: {q_s} - {q_e} IST.\nUsage: /quiet START END (e.g. /quiet 21:00 08:00) or /quiet off"
+                return "🌙 Quiet window is currently disabled.\nUsage: /quiet START END (e.g. /quiet 21:00 08:00)"
+
+            if len(args) == 1 and args[0].lower() == "off":
+                settings["quiet_start"] = "off"
+                settings["quiet_end"] = "off"
+                save_alert_settings(settings)
+                return "🌙 Quiet window disabled. Proactive alerts allowed at any hour."
+
+            if len(args) == 2:
+                start_raw, end_raw = args[0].strip(), args[1].strip()
+                time_pat = r"^([01]?\d|2[0-3]):([0-5]\d)$"
+                m_start = re.match(time_pat, start_raw)
+                m_end = re.match(time_pat, end_raw)
+                if not m_start or not m_end:
+                    return "⚠️ Invalid format: /quiet START END must use HH:MM (e.g. /quiet 21:00 08:00) or /quiet off"
+
+                start_str = f"{int(m_start.group(1)):02d}:{m_start.group(2)}"
+                end_str = f"{int(m_end.group(1)):02d}:{m_end.group(2)}"
+
+                settings["quiet_start"] = start_str
+                settings["quiet_end"] = end_str
+                save_alert_settings(settings)
+                return f"🌙 Quiet window set to {start_str} - {end_str} IST."
+
+            return "⚠️ Usage: /quiet START END (e.g. /quiet 21:00 08:00) or /quiet off"
+
+        elif cmd == "/alerts":
+            # Usage:
+            # /alerts -> show current status
+            # /alerts scan on|off
+            # /alerts watchlist on|off
+            # /alerts market on|off
+            # /alerts digest on|off
+            settings = load_alert_settings()
+
+            if not args:
+                now_ist = get_now_ist()
+                mute_str = "Off (not muted)"
+                mute_until_val = settings.get("mute_until")
+                if mute_until_val:
+                    try:
+                        mute_dt = datetime.datetime.fromisoformat(mute_until_val)
+                        if mute_dt.tzinfo is None:
+                            mute_dt = mute_dt.replace(tzinfo=IST_TZ)
+                        if now_ist < mute_dt:
+                            mute_str = f"Muted until {mute_dt.strftime('%H:%M IST (%d %b)')}"
+                    except Exception:
+                        pass
+
+                q_s = settings.get("quiet_start")
+                q_e = settings.get("quiet_end")
+                if q_s and q_e and q_s != "off" and q_e != "off":
+                    quiet_str = f"{q_s} - {q_e} IST"
+                else:
+                    quiet_str = "Disabled (proactive alerts allowed any hour)"
+
+                quiet_env_active = (os.getenv("QUIET", "0").strip() == "1")
+                quiet_env_str = "ACTIVE (forcing silence)" if quiet_env_active else "Inactive"
+
+                en = settings.get("enable", {})
+                scan_en = "ON" if en.get("scan", True) else "OFF"
+                wl_en = "ON" if en.get("watchlist", True) else "OFF"
+                mkt_en = "ON" if en.get("market", True) else "OFF"
+                digest_en = "ON" if settings.get("digest", False) else "OFF"
+
+                return (
+                    "⚙️ TELEGRAM ALERT SETTINGS:\n\n"
+                    f"• Mute State: {mute_str}\n"
+                    f"• Quiet Window: {quiet_str}\n"
+                    f"• QUIET Env: {quiet_env_str}\n"
+                    f"• Scan Alerts: {scan_en}\n"
+                    f"• Watchlist Alerts: {wl_en}\n"
+                    f"• Market Alerts: {mkt_en}\n"
+                    f"• Digest Mode: {digest_en}\n\n"
+                    "Commands to modify:\n"
+                    "• /mute [duration] | /unmute\n"
+                    "• /quiet START END | /quiet off\n"
+                    "• /alerts scan on|off\n"
+                    "• /alerts watchlist on|off\n"
+                    "• /alerts market on|off\n"
+                    "• /alerts digest on|off"
+                )
+
+            subcmd = args[0].lower()
+            if len(args) < 2:
+                return "⚠️ Usage: /alerts scan on|off, /alerts watchlist on|off, /alerts market on|off, /alerts digest on|off"
+
+            state_val = args[1].lower()
+            if state_val not in ("on", "off"):
+                return f"⚠️ Invalid option '{args[1]}': choose 'on' or 'off'."
+
+            bool_val = (state_val == "on")
+
+            if subcmd in ("scan", "watchlist", "market"):
+                if "enable" not in settings or not isinstance(settings["enable"], dict):
+                    settings["enable"] = dict(DEFAULT_ALERT_SETTINGS["enable"])
+                settings["enable"][subcmd] = bool_val
+                save_alert_settings(settings)
+                status_icon = "✅" if bool_val else "⏸️"
+                return f"{status_icon} Alerts for '{subcmd}' set to {state_val.upper()}."
+
+            elif subcmd == "digest":
+                settings["digest"] = bool_val
+                save_alert_settings(settings)
+                status_icon = "✅" if bool_val else "⏸️"
+                desc = "evening alerts combined into 1 message" if bool_val else "alerts sent individually"
+                return f"{status_icon} Digest mode set to {state_val.upper()} ({desc})."
+
+            else:
+                return f"⚠️ Unknown alerts sub-command: '{subcmd}'. Choose scan, watchlist, market, or digest."
+
         else:
             return f"❓ Unknown command: {cmd}\nType /help to see all available commands."
 
@@ -1412,25 +1782,35 @@ def handle_command(text: str, chat_id: Any) -> Optional[str]:
 def poll_once() -> None:
     """
     Check for new Telegram updates, execute any commands, and update offset.
+    Follows silent baseline rule: if offset file was missing/empty, establishes
+    the baseline without replying, commits tg_offset.txt, and skips the reply phase.
     """
-    last_offset = None
-    if os.path.exists(TG_OFFSET_FILE):
-        try:
-            with open(TG_OFFSET_FILE, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-                if content:
-                    last_offset = int(content)
-        except Exception:
-            last_offset = None
+    last_offset = load_tg_offset()
 
+    # SILENT BASELINE RULE
+    if last_offset is None:
+        print(f"No persistent offset found in {TG_OFFSET_FILE}. Establishing silent baseline...")
+        updates = get_updates(offset=None)
+        if updates:
+            highest_id = max(u["update_id"] for u in updates if isinstance(u, dict) and "update_id" in u)
+            new_offset = highest_id + 1
+            save_tg_offset(new_offset)
+            print(f"Silent baseline established: highest update_id={highest_id}, offset bookmark set to {new_offset}. Skipping reply phase entirely.")
+            git_commit_listener_updates("Establish Telegram silent baseline offset [skip ci]")
+        else:
+            print("Silent baseline: No pending Telegram updates found.")
+        return
+
+    # Valid offset exists -> process new updates
     updates = get_updates(offset=last_offset)
     if not updates:
         return
 
+    new_offset = last_offset
     for update in updates:
         update_id = update.get("update_id")
         if update_id is not None:
-            last_offset = update_id + 1
+            new_offset = max(new_offset, update_id + 1)
 
         message = update.get("message") or update.get("channel_post")
         if not message:
@@ -1443,14 +1823,11 @@ def poll_once() -> None:
         if text and chat_id:
             reply = handle_command(text, chat_id)
             if reply:
-                send_telegram(reply)
+                send_telegram(reply, kind="reply")
 
-    if last_offset is not None:
-        try:
-            with open(TG_OFFSET_FILE, "w", encoding="utf-8") as f:
-                f.write(str(last_offset))
-        except Exception as exc:
-            print(f"Error saving {TG_OFFSET_FILE}: {exc}")
+    if new_offset != last_offset:
+        save_tg_offset(new_offset)
+        git_commit_listener_updates("Auto-update Telegram offset and journal [skip ci]")
 
 
 def poll_loop() -> None:
@@ -1477,40 +1854,112 @@ def poll_loop() -> None:
         time.sleep(5)
 
 
+def git_commit_and_push(files: List[str], commit_message: str) -> bool:
+    """
+    Robust git helper for auto-committing and pushing files to origin main.
+    Before pushing, runs 'git pull --rebase origin main'.
+    On conflict/failure retries the push once.
+    Wrapped in try/except so git errors never crash the run.
+    """
+    if os.getenv("SKIP_GIT_PUSH", "0").strip() == "1":
+        print("SKIP_GIT_PUSH=1: Skipping git commit & push.")
+        return True
+
+    try:
+        import subprocess
+
+        # Set default git identity if unset (for serverless environments)
+        name_check = subprocess.run(["git", "config", "user.name"], capture_output=True, text=True)
+        if not name_check.stdout.strip():
+            subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=False)
+            subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], check=False)
+
+        # Stage files that exist
+        staged_any = False
+        for f in files:
+            if os.path.exists(f):
+                subprocess.run(["git", "add", f], check=True, capture_output=True, text=True)
+                staged_any = True
+
+        if not staged_any:
+            return True
+
+        diff_proc = subprocess.run(["git", "diff", "--staged", "--quiet"], capture_output=True)
+        if diff_proc.returncode == 0:
+            print(f"No changes in {files} to commit.")
+            return True
+
+        commit_proc = subprocess.run(
+            ["git", "commit", "-m", commit_message],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        print(f"Git committed: {commit_proc.stdout.strip()}")
+
+        # Pull with rebase before pushing
+        pull_proc = subprocess.run(
+            ["git", "pull", "--rebase", "origin", "main"],
+            capture_output=True,
+            text=True,
+        )
+        if pull_proc.returncode != 0:
+            print(f"Warning: git pull --rebase failed: {pull_proc.stderr.strip()}. Aborting rebase if in progress.")
+            subprocess.run(["git", "rebase", "--abort"], capture_output=True)
+
+        push_proc = subprocess.run(
+            ["git", "push", "origin", "main"],
+            capture_output=True,
+            text=True,
+        )
+        if push_proc.returncode == 0:
+            print("Git pushed updates to origin main.")
+            return True
+
+        # Push failed, retry once with pull --rebase
+        print(f"Git push failed ({push_proc.stderr.strip()}), retrying push once...")
+        pull_retry = subprocess.run(
+            ["git", "pull", "--rebase", "origin", "main"],
+            capture_output=True,
+            text=True,
+        )
+        if pull_retry.returncode != 0:
+            subprocess.run(["git", "rebase", "--abort"], capture_output=True)
+
+        push_retry = subprocess.run(
+            ["git", "push", "origin", "main"],
+            capture_output=True,
+            text=True,
+        )
+        if push_retry.returncode == 0:
+            print("Git pushed updates to origin main on retry.")
+            return True
+        else:
+            print(f"Git push retry failed: {push_retry.stderr.strip()}")
+            return False
+
+    except Exception as exc:
+        print(f"Git auto-commit failed (non-blocking): {exc}")
+        return False
+
+
 def git_commit_scan_results() -> None:
     """
     Commit and push scan_results.json to origin main.
     Skips if SKIP_GIT_PUSH environment variable is set to '1'.
     Fails safely so git errors never break the scanner.
     """
-    if os.getenv("SKIP_GIT_PUSH", "0").strip() == "1":
-        print("SKIP_GIT_PUSH=1: Skipping git commit & push.")
-        return
+    git_commit_and_push([SCAN_RESULTS_FILE], "update scan results [skip ci]")
 
-    try:
-        import subprocess
-        # Check and stage scan_results.json
-        subprocess.run(["git", "add", SCAN_RESULTS_FILE], check=True, capture_output=True, text=True)
-        diff_proc = subprocess.run(["git", "diff", "--staged", "--quiet"], capture_output=True)
-        if diff_proc.returncode != 0:
-            commit_proc = subprocess.run(
-                ["git", "commit", "-m", "update scan results [skip ci]"],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            print(f"Git committed scan results: {commit_proc.stdout.strip()}")
-            subprocess.run(
-                ["git", "push", "origin", "main"],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            print("Git pushed scan results to origin main.")
-        else:
-            print("No changes in scan_results.json to commit.")
-    except Exception as exc:
-        print(f"Git auto-commit failed (non-blocking): {exc}")
+
+def git_commit_listener_updates(commit_message: str = "Auto-update Telegram offset and journal [skip ci]") -> None:
+    """
+    Commit and push listener updates (tg_offset.txt, alert_settings.json, trades.json, open_positions.json).
+    Skips if SKIP_GIT_PUSH environment variable is set to '1'.
+    Fails safely so git errors never break the listener.
+    """
+    files = [TG_OFFSET_FILE, ALERT_SETTINGS_FILE, TRADES_FILE, OPEN_POSITIONS_FILE]
+    git_commit_and_push(files, commit_message)
 
 
 # =====================================================================
@@ -1520,6 +1969,9 @@ if __name__ == "__main__":
     if "--poll" in sys.argv:
         poll_loop()  # long-running, for the listener workflow
     else:
+        settings = load_alert_settings()
+        is_digest = settings.get("digest", False)
+
         # 1. Run daily setup scanner
         signals, scanned_count, is_mkt_ok = run_scanner()
 
@@ -1527,7 +1979,23 @@ if __name__ == "__main__":
         watchlist_candidates = get_watchlist_candidates()
         if SEND_WATCHLIST:
             wl_text = build_watchlist_text(watchlist_candidates)
-            send_telegram(wl_text)
+            if is_digest:
+                _DIGEST_MESSAGES.append(("watchlist", wl_text))
+            else:
+                send_telegram(wl_text, kind="proactive", msg_type="watchlist")
+
+        # In digest mode, combine valid parts into 1 message and send once
+        if is_digest and _DIGEST_MESSAGES:
+            enable_flags = settings.get("enable", {})
+            valid_parts = [
+                text for mtype, text in _DIGEST_MESSAGES
+                if enable_flags.get(mtype, True) and text.strip()
+            ]
+            if valid_parts:
+                separator = "\n\n" + ("-" * 30) + "\n\n"
+                combined_digest = separator.join(valid_parts)
+                send_telegram(combined_digest, kind="proactive", msg_type="scan")
+            _DIGEST_MESSAGES.clear()
 
         # 3. Publish scan_results.json for web dashboard
         ist_tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
@@ -1548,3 +2016,4 @@ if __name__ == "__main__":
 
         # 4. Attempt git auto-commit of scan_results.json
         git_commit_scan_results()
+
