@@ -14,6 +14,9 @@ const OPEN_POSITIONS_URL = `${REPO_BASE}/open_positions.json`;
 const TRADES_URL = `${REPO_BASE}/trades.json`;
 
 let equityChartInstance = null;
+let _liveScanData = null;
+let _cachedTradesData = null;
+let _isViewingArchive = false;
 
 // =====================================================================
 // SITE-WIDE TERMS & DEFINITIONS DICTIONARY
@@ -1408,6 +1411,15 @@ async function toggleWatchlistDetail(row, item, scanData) {
               <button class="btn btn-sm btn-secondary tv-chart-trigger-btn" data-symbol="${symbol}" title="Open interactive TradingView chart">
                 📊 Interactive Chart
               </button>
+              <button class="btn btn-sm btn-secondary gtt-copy-btn"
+                data-symbol="${symbol}"
+                data-entry="${breakoutLevel}"
+                data-stop="${stopPrice}"
+                data-target="${targetPrice}"
+                data-qty="10"
+                title="Copy GTT Breakout & Stop order parameters for Zerodha Kite / Groww">
+                📋 GTT
+              </button>
               <span class="detail-hint">(Click row to collapse)</span>
             </div>
             <div id="earnings-warn-${symbol}"></div>
@@ -1421,9 +1433,20 @@ async function toggleWatchlistDetail(row, item, scanData) {
                 <span class="blueprint-title">Trade Action Blueprint</span>
                 <span class="blueprint-rr-pill">Planned R:R = 1 : 2.0</span>
               </div>
-              <button class="btn btn-xs btn-outline-primary size-trade-btn" data-symbol="${symbol}" title="Size this trade with Position Sizer">
-                🎯 Size at 1% Risk
-              </button>
+              <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                <button class="btn btn-xs btn-outline-primary size-trade-btn" data-symbol="${symbol}" title="Size this trade with Position Sizer">
+                  🎯 Size at 1% Risk
+                </button>
+                <button class="btn btn-xs btn-outline-secondary gtt-copy-btn"
+                  data-symbol="${symbol}"
+                  data-entry="${breakoutLevel}"
+                  data-stop="${stopPrice}"
+                  data-target="${targetPrice}"
+                  data-qty="10"
+                  title="Copy GTT Breakout & Stop order parameters for Zerodha Kite / Groww">
+                  📋 Copy GTT
+                </button>
+              </div>
             </div>
             <div class="blueprint-grid">
               <div class="blueprint-item entry-box">
@@ -2021,9 +2044,20 @@ async function renderOpenPositions(positions) {
         <td data-label="% to Target">${distToTargetStr}</td>
         <td data-label="R-Trajectory">${trajectoryHtml}</td>
         <td data-label="Action">
-          <button class="btn btn-xs btn-outline-primary tv-chart-trigger-btn" data-symbol="${pos.symbol}" title="Open TradingView Chart">
-            📊 Chart
-          </button>
+          <div style="display: flex; gap: 4px; align-items: center; justify-content: flex-end; flex-wrap: nowrap;">
+            <button class="btn btn-xs btn-outline-primary tv-chart-trigger-btn" data-symbol="${pos.symbol}" title="Open TradingView Chart">
+              📊 Chart
+            </button>
+            <button class="btn btn-xs btn-outline-secondary gtt-copy-btn"
+              data-symbol="${pos.symbol}"
+              data-entry="${entry}"
+              data-stop="${stop}"
+              data-target="${target}"
+              data-qty="${qty}"
+              title="Copy Zerodha/Groww GTT Stop & Target order snippet">
+              📋 GTT
+            </button>
+          </div>
         </td>
       </tr>
     `);
@@ -2162,18 +2196,36 @@ function renderHistory(trades) {
       mistakeBadge = `<div style="margin-top: 3px;"><span class="badge badge-danger" style="font-size: 10px;" title="Discipline mistake: ${escapeHtml(String(t.mistake))}">⚠️ ${escapeHtml(String(t.mistake))}</span></div>`;
     }
 
-    const tagsList = Array.isArray(t.tags) ? t.tags : [];
+    // Merge system tags with user local post-mortem tags
+    const localPm = getTradePostMortem(t.symbol, t.entry_date) || { tags: [], notes: "" };
+    const rawTags = [...(Array.isArray(t.tags) ? t.tags : []), ...(localPm.tags || [])];
+    const uniqueTags = [...new Set(rawTags.map(tag => String(tag).trim()))].filter(Boolean);
+
     let tagsHtml = `<span style="color: var(--text-dim); font-size: 11px;">-</span>`;
-    if (tagsList.length > 0) {
-      tagsHtml = tagsList.map(tag => {
+    if (uniqueTags.length > 0) {
+      tagsHtml = uniqueTags.map(tag => {
         const clean = String(tag).trim().toLowerCase();
         let tagClass = "tag-default";
-        if (clean === "#breakout") tagClass = "tag-breakout";
+        if (clean === "#breakout" || clean === "#cleanbreakout") tagClass = "tag-breakout";
         else if (clean === "#pullback") tagClass = "tag-pullback";
-        else if (clean === "#plan_followed") tagClass = "tag-plan";
-        else if (clean === "#fomo") tagClass = "tag-fomo";
+        else if (clean === "#plan_followed" || clean === "#followedplan" || clean === "#targethit") tagClass = "tag-plan";
+        else if (clean === "#fomo" || clean === "#chasedgap" || clean === "#stopmoved" || clean === "#revengetrade") tagClass = "tag-fomo";
         return `<span class="tag-pill ${tagClass}">${escapeHtml(String(tag))}</span>`;
       }).join("");
+    }
+
+    const noteText = t.note || "";
+    const reflectionText = localPm.notes || "";
+    let noteCellHtml = "";
+    if (reflectionText) {
+      noteCellHtml = `
+        <div class="trade-note-block">
+          ${noteText ? `<div class="trade-system-note"><small>${escapeHtml(noteText)}</small></div>` : ""}
+          <div class="trade-pm-reflection"><span class="pm-reflection-icon">📝</span> <em>"${escapeHtml(reflectionText)}"</em></div>
+        </div>
+      `;
+    } else {
+      noteCellHtml = `<small style="color: var(--text-muted);">${escapeHtml(noteText || "-")}</small>`;
     }
 
     return `
@@ -2191,7 +2243,20 @@ function renderHistory(trades) {
         <td data-label="Realized PnL" ${colorStyle}>${sign}${formatINR(pnl)}</td>
         <td data-label="Return %" ${colorStyle}>${sign}${pnlPct.toFixed(2)}%</td>
         <td data-label="R-Multiple"><span class="badge ${pnl > 0 ? "badge-success" : "badge-danger"}">${rMultipleStr}</span></td>
-        <td data-label="Note"><small style="color: var(--text-muted);">${escapeHtml(t.note || "-")}</small></td>
+        <td data-label="Note & Reflection">${noteCellHtml}</td>
+        <td data-label="Action">
+          <button class="btn btn-xs btn-outline-secondary pm-edit-btn"
+            data-symbol="${escapeHtml(t.symbol || '')}"
+            data-entry-date="${escapeHtml(t.entry_date || '')}"
+            data-exit-date="${escapeHtml(t.exit_date || '')}"
+            data-entry-price="${t.entry_price || 0}"
+            data-exit-price="${t.exit_price || 0}"
+            data-pnl="${pnl}"
+            data-r="${t.r_multiple !== null && t.r_multiple !== undefined ? t.r_multiple : 'N/A'}"
+            title="Add post-mortem takeaways & execution tags">
+            📝 Reflect
+          </button>
+        </td>
       </tr>
     `;
   }).join("");
@@ -2493,6 +2558,31 @@ function renderStats(trades) {
       </div>
     `;
   }
+
+  // Update Discipline Index Card (Phase 3 Item #9)
+  const statDisciplineIndex = document.getElementById("statDisciplineIndex");
+  const statDisciplineSub = document.getElementById("statDisciplineSub");
+  if (statDisciplineIndex) {
+    const totalTrades = trades.length;
+    const cleanTrades = trades.filter(t => {
+      if (t.mistake) return false;
+      const pm = getTradePostMortem(t.symbol, t.entry_date);
+      if (pm && pm.tags) {
+        if (pm.tags.includes("#StopMoved") || pm.tags.includes("#ChasedGap") || pm.tags.includes("#RevengeTrade")) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const discPct = totalTrades > 0 ? Math.round((cleanTrades.length / totalTrades) * 100) : 100;
+    statDisciplineIndex.textContent = `${discPct}%`;
+    statDisciplineIndex.className = `stat-value ${discPct >= 80 ? "positive" : (discPct >= 60 ? "neutral" : "negative")}`;
+    if (statDisciplineSub) {
+      const mistakesCount = totalTrades - cleanTrades.length;
+      statDisciplineSub.textContent = mistakesCount === 0 ? "100% adhered to plan" : `${mistakesCount} rule deviation${mistakesCount === 1 ? '' : 's'}`;
+    }
+  }
 }
 
 // =====================================================================
@@ -2512,7 +2602,17 @@ async function loadAllData() {
       fetchJson(TRADES_URL).catch(e => { console.warn("Trades fetch error:", e); return []; }),
     ]);
 
-    renderNearBuy(scanData, openPositions);
+    _liveScanData = scanData;
+    _cachedOpenPositions = openPositions;
+    _cachedTradesData = trades;
+
+    if (scanData) {
+      archiveScanData(scanData);
+    }
+
+    if (!_isViewingArchive) {
+      renderNearBuy(scanData, openPositions);
+    }
     await renderOpenPositions(openPositions);
     renderHistory(trades);
     renderStats(trades);
@@ -2931,6 +3031,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initialize TradingView Modal Listeners (Phase 2 Item #3)
   initTradingViewModalListeners();
 
+  // Initialize Phase 3 Listeners (Items #7, #8, #9, #10)
+  initGttListeners();
+  initScanArchiveListeners();
+  initPostMortemListeners();
+  initCsvExportListeners();
+
   // Initial load if on app page
   if (document.getElementById("watchlistTable")) {
     initPositionSizer();
@@ -3017,5 +3123,421 @@ function initTradingViewModalListeners() {
     }
   });
 }
+
+// =====================================================================
+// PHASE 3: GLOBAL FLOATING TOAST NOTIFICATION
+// =====================================================================
+function showToast(message, icon = "✅", duration = 3000) {
+  const toast = document.getElementById("dashboardToast");
+  const msgEl = document.getElementById("toastMessage");
+  const iconEl = document.getElementById("toastIcon");
+  if (!toast) return;
+  if (msgEl) msgEl.textContent = message;
+  if (iconEl) iconEl.textContent = icon;
+  toast.style.display = "flex";
+  void toast.offsetWidth;
+  toast.classList.add("show");
+  if (window._toastTimeout) clearTimeout(window._toastTimeout);
+  window._toastTimeout = setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => { toast.style.display = "none"; }, 300);
+  }, duration);
+}
+
+// =====================================================================
+// PHASE 3: BROKER GTT ORDER COPY ASSISTANT (Item #7)
+// =====================================================================
+function copyGttParameters(symbol, entry, stop, target, qty) {
+  const sym = (symbol || "").replace(/\.NS$/i, "").toUpperCase();
+  const ePrice = parseFloat(entry) || 0;
+  const sPrice = parseFloat(stop) || 0;
+  const tPrice = parseFloat(target) || 0;
+  const q = parseInt(qty, 10) || 1;
+
+  // Buffer: Stop limit 0.5% below trigger for fast market depth protection
+  const stopLimit = (sPrice * 0.995).toFixed(2);
+  const targetTrigger = tPrice.toFixed(2);
+
+  const gttText = `[GTT ORDER: NSE:${sym}]
+Broker: Zerodha Kite / Groww / Upstox
+• Stop Loss Trigger: ₹${sPrice.toFixed(2)}
+• Stop Loss Limit: ₹${stopLimit} (0.5% buffer)
+• Target Trigger: ₹${targetTrigger}
+• Qty: ${q}
+• Entry Ref: ₹${ePrice.toFixed(2)}`;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(gttText).then(() => {
+      showToast(`Copied GTT Stop for ${sym}: Trigger ₹${sPrice.toFixed(2)}`, "📋");
+    }).catch(() => {
+      prompt("Copy GTT snippet:", gttText);
+    });
+  } else {
+    prompt("Copy GTT snippet:", gttText);
+  }
+}
+
+function initGttListeners() {
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".gtt-copy-btn");
+    if (btn) {
+      e.stopPropagation();
+      const sym = btn.getAttribute("data-symbol");
+      const entry = btn.getAttribute("data-entry");
+      const stop = btn.getAttribute("data-stop");
+      const target = btn.getAttribute("data-target");
+      const qty = btn.getAttribute("data-qty") || 1;
+      copyGttParameters(sym, entry, stop, target, qty);
+    }
+  });
+}
+
+// =====================================================================
+// PHASE 3: LOCAL SCAN HISTORY & RETROSPECTIVE ARCHIVE (Item #8)
+// =====================================================================
+function archiveScanData(data) {
+  if (!data || !data.watchlist) return;
+  try {
+    const scanTime = data.scan_time || new Date().toISOString();
+    const dateKey = scanTime.substring(0, 10);
+    const storageKey = "midcap_scan_archive";
+    const existingStr = localStorage.getItem(storageKey);
+    const archive = existingStr ? JSON.parse(existingStr) : {};
+
+    archive[dateKey] = {
+      date: dateKey,
+      scan_time: scanTime,
+      market_regime: data.market_regime,
+      market_ok: data.market_ok,
+      scanned_count: data.scanned_count,
+      watchlist: data.watchlist,
+      signals: data.signals || []
+    };
+
+    const dates = Object.keys(archive).sort().reverse();
+    if (dates.length > 30) {
+      dates.slice(30).forEach(d => delete archive[d]);
+    }
+    localStorage.setItem(storageKey, JSON.stringify(archive));
+    updateArchiveDropdown();
+  } catch (err) {
+    console.warn("Could not archive scan data to localStorage:", err);
+  }
+}
+
+function updateArchiveDropdown() {
+  const select = document.getElementById("watchlistDateSelect");
+  if (!select) return;
+  try {
+    const storageKey = "midcap_scan_archive";
+    const existingStr = localStorage.getItem(storageKey);
+    const archive = existingStr ? JSON.parse(existingStr) : {};
+    const dates = Object.keys(archive).sort().reverse();
+
+    const currentVal = select.value || "latest";
+    let optionsHtml = '<option value="latest">Latest (Live)</option>';
+    dates.forEach(d => {
+      const count = archive[d].watchlist ? archive[d].watchlist.length : 0;
+      optionsHtml += `<option value="${d}">${d} (${count} setups)</option>`;
+    });
+    select.innerHTML = optionsHtml;
+    if (currentVal && (currentVal === "latest" || dates.includes(currentVal))) {
+      select.value = currentVal;
+    }
+  } catch (err) {}
+}
+
+function initScanArchiveListeners() {
+  const select = document.getElementById("watchlistDateSelect");
+  const returnBtn = document.getElementById("returnToLatestScanBtn");
+  const banner = document.getElementById("archiveScanNoticeBanner");
+  const bannerText = document.getElementById("archiveNoticeText");
+
+  if (select) {
+    select.addEventListener("change", () => {
+      const val = select.value;
+      if (val === "latest" || !val) {
+        _isViewingArchive = false;
+        if (banner) banner.style.display = "none";
+        if (_liveScanData) {
+          renderNearBuy(_liveScanData, _cachedOpenPositions);
+        }
+      } else {
+        try {
+          const archive = JSON.parse(localStorage.getItem("midcap_scan_archive") || "{}");
+          const archivedScan = archive[val];
+          if (archivedScan) {
+            _isViewingArchive = true;
+            if (bannerText) {
+              bannerText.innerHTML = `Viewing <strong>Historical Scan Archive: ${escapeHtml(val)}</strong> (${archivedScan.watchlist ? archivedScan.watchlist.length : 0} setups recorded)`;
+            }
+            if (banner) banner.style.display = "flex";
+            renderNearBuy(archivedScan, _cachedOpenPositions);
+            showToast(`Loaded historical scan for ${val}`, "🕒");
+          }
+        } catch (err) {
+          console.error("Failed to load archived scan:", err);
+        }
+      }
+    });
+  }
+
+  if (returnBtn) {
+    returnBtn.addEventListener("click", () => {
+      if (select) select.value = "latest";
+      _isViewingArchive = false;
+      if (banner) banner.style.display = "none";
+      if (_liveScanData) {
+        renderNearBuy(_liveScanData, _cachedOpenPositions);
+        showToast("Returned to live scan", "🟢");
+      }
+    });
+  }
+}
+
+// =====================================================================
+// PHASE 3: TRADE POST-MORTEM & REFLECTION NOTES (Item #9)
+// =====================================================================
+function getTradePostMortem(symbol, entryDate) {
+  if (!symbol) return null;
+  const key = `midcap_pm_${String(symbol).replace(/\.NS$/i, "").toUpperCase()}_${String(entryDate).substring(0, 10)}`;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveTradePostMortem(symbol, entryDate, data) {
+  if (!symbol) return;
+  const key = `midcap_pm_${String(symbol).replace(/\.NS$/i, "").toUpperCase()}_${String(entryDate).substring(0, 10)}`;
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.warn("Could not save post-mortem:", e);
+  }
+}
+
+let _activePostMortemTrade = null;
+
+function openPostMortemModal(trade) {
+  _activePostMortemTrade = trade;
+  const modal = document.getElementById("postMortemModal");
+  const title = document.getElementById("postMortemTitle");
+  const summaryStrip = document.getElementById("postMortemTradeSummary");
+  const notesInput = document.getElementById("postMortemNotesInput");
+  const chipContainer = document.getElementById("postMortemTagChips");
+
+  if (!modal) return;
+
+  const sym = (trade.symbol || "").replace(/\.NS$/i, "").toUpperCase();
+  if (title) title.textContent = `Trade Post-Mortem: ${sym}`;
+
+  const pnl = parseFloat(trade.pnl) || 0;
+  const pnlSign = pnl >= 0 ? "+" : "";
+  const rVal = trade.r !== undefined && trade.r !== null ? (typeof trade.r === "number" ? trade.r.toFixed(1) + "R" : trade.r) : "N/A";
+
+  if (summaryStrip) {
+    summaryStrip.innerHTML = `
+      <div class="pm-sum-item">
+        <span class="pm-sum-label">Dates:</span>
+        <span class="pm-sum-val">${formatDate(trade.entryDate)} &rarr; ${formatDate(trade.exitDate)}</span>
+      </div>
+      <div class="pm-sum-item">
+        <span class="pm-sum-label">PnL:</span>
+        <span class="pm-sum-val ${pnl >= 0 ? 'text-success' : 'text-danger'}">${pnlSign}${formatINR(pnl)}</span>
+      </div>
+      <div class="pm-sum-item">
+        <span class="pm-sum-label">R-Multiple:</span>
+        <span class="pm-sum-val ${pnl >= 0 ? 'text-success' : 'text-danger'}">${rVal}</span>
+      </div>
+    `;
+  }
+
+  const saved = getTradePostMortem(sym, trade.entryDate) || { tags: [], notes: "" };
+  if (notesInput) notesInput.value = saved.notes || "";
+
+  if (chipContainer) {
+    const buttons = chipContainer.querySelectorAll(".pm-tag-btn");
+    buttons.forEach(btn => {
+      const tag = btn.getAttribute("data-tag");
+      if (saved.tags && saved.tags.includes(tag)) {
+        btn.classList.add("active");
+      } else {
+        btn.classList.remove("active");
+      }
+    });
+  }
+
+  modal.style.display = "flex";
+  document.body.style.overflow = "hidden";
+}
+
+function closePostMortemModal() {
+  const modal = document.getElementById("postMortemModal");
+  if (modal) modal.style.display = "none";
+  document.body.style.overflow = "";
+  _activePostMortemTrade = null;
+}
+
+function initPostMortemListeners() {
+  const modal = document.getElementById("postMortemModal");
+  const backdrop = document.getElementById("postMortemBackdrop");
+  const closeBtn = document.getElementById("postMortemCloseBtn");
+  const cancelBtn = document.getElementById("postMortemCancelBtn");
+  const saveBtn = document.getElementById("postMortemSaveBtn");
+  const chipContainer = document.getElementById("postMortemTagChips");
+  const notesInput = document.getElementById("postMortemNotesInput");
+
+  if (closeBtn) closeBtn.addEventListener("click", closePostMortemModal);
+  if (backdrop) backdrop.addEventListener("click", closePostMortemModal);
+  if (cancelBtn) cancelBtn.addEventListener("click", closePostMortemModal);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal && modal.style.display === "flex") {
+      closePostMortemModal();
+    }
+  });
+
+  if (chipContainer) {
+    chipContainer.addEventListener("click", (e) => {
+      const btn = e.target.closest(".pm-tag-btn");
+      if (btn) {
+        btn.classList.toggle("active");
+      }
+    });
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener("click", () => {
+      if (!_activePostMortemTrade) return;
+      const sym = _activePostMortemTrade.symbol;
+      const entryDate = _activePostMortemTrade.entryDate;
+
+      const activeTags = [];
+      if (chipContainer) {
+        chipContainer.querySelectorAll(".pm-tag-btn.active").forEach(btn => {
+          activeTags.push(btn.getAttribute("data-tag"));
+        });
+      }
+
+      const notes = notesInput ? notesInput.value.trim() : "";
+
+      saveTradePostMortem(sym, entryDate, {
+        tags: activeTags,
+        notes: notes,
+        updated_at: new Date().toISOString()
+      });
+
+      closePostMortemModal();
+      showToast(`Saved reflection for ${sym}`, "💾");
+
+      if (_cachedTradesData) {
+        renderHistory(_cachedTradesData);
+        renderStats(_cachedTradesData);
+      }
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".pm-edit-btn");
+    if (btn) {
+      e.stopPropagation();
+      openPostMortemModal({
+        symbol: btn.getAttribute("data-symbol"),
+        entryDate: btn.getAttribute("data-entry-date"),
+        exitDate: btn.getAttribute("data-exit-date"),
+        pnl: btn.getAttribute("data-pnl"),
+        r: btn.getAttribute("data-r")
+      });
+    }
+  });
+}
+
+// =====================================================================
+// PHASE 3: ONE-CLICK JOURNAL BACKUP & CSV EXPORT (Item #10)
+// =====================================================================
+function exportTradesToCsv() {
+  if (!_cachedTradesData || _cachedTradesData.length === 0) {
+    showToast("No closed trades to export", "⚠️");
+    return;
+  }
+
+  const headers = [
+    "Trade No",
+    "Symbol",
+    "Entry Date",
+    "Entry Price (INR)",
+    "Qty",
+    "Capital Deployed (INR)",
+    "Exit Date",
+    "Exit Price (INR)",
+    "Realized PnL (INR)",
+    "Return (%)",
+    "R-Multiple",
+    "System Mistake Flag",
+    "Execution Tags",
+    "Trade Notes & Reflections"
+  ];
+
+  const rows = _cachedTradesData.map((t, idx) => {
+    const localPm = getTradePostMortem(t.symbol, t.entry_date) || {};
+    const mergedTags = [...(t.tags || []), ...(localPm.tags || [])];
+    const uniqueTags = [...new Set(mergedTags)].join("; ");
+    const mergedNotes = [t.note, localPm.notes].filter(Boolean).join(" | ");
+    const pnl = parseFloat(t.pnl) || 0;
+    const pnlPct = parseFloat(t.pnl_pct) || 0;
+    const entryPrice = parseFloat(t.entry_price) || 0;
+    const qty = parseInt(t.qty, 10) || 1;
+    const capital = entryPrice * qty;
+
+    const escapeCsv = (str) => `"${String(str || "").replace(/"/g, '""')}"`;
+
+    return [
+      idx + 1,
+      escapeCsv(t.symbol || ""),
+      escapeCsv(t.entry_date || ""),
+      entryPrice.toFixed(2),
+      qty,
+      capital.toFixed(2),
+      escapeCsv(t.exit_date || ""),
+      (parseFloat(t.exit_price) || 0).toFixed(2),
+      pnl.toFixed(2),
+      pnlPct.toFixed(2),
+      escapeCsv(t.r_multiple !== null && t.r_multiple !== undefined ? `${t.r_multiple}R` : "N/A"),
+      escapeCsv(t.mistake || "none"),
+      escapeCsv(uniqueTags),
+      escapeCsv(mergedNotes)
+    ].join(",");
+  });
+
+  const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const dateStr = new Date().toISOString().substring(0, 10);
+  link.setAttribute("href", url);
+  link.setAttribute("download", `midcap_swing_trade_journal_${dateStr}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  showToast(`Exported ${rows.length} trades to CSV`, "📥");
+}
+
+function initCsvExportListeners() {
+  const exportHistoryBtn = document.getElementById("exportTradesCsvBtn");
+  const exportStatsBtn = document.getElementById("exportStatsCsvBtn");
+
+  if (exportHistoryBtn) {
+    exportHistoryBtn.addEventListener("click", exportTradesToCsv);
+  }
+  if (exportStatsBtn) {
+    exportStatsBtn.addEventListener("click", exportTradesToCsv);
+  }
+}
+
 
 
