@@ -164,6 +164,7 @@ python audit.py
 ```
 
 Expected output:
+
 ```text
 ============================================================
 AUDIT SCOREBOARD
