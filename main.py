@@ -1911,8 +1911,11 @@ def git_commit_and_push(files: List[str], commit_message: str) -> bool:
         staged_any = False
         for f in files:
             if os.path.exists(f):
-                subprocess.run(["git", "add", f], check=True, capture_output=True, text=True)
-                staged_any = True
+                add_res = subprocess.run(["git", "add", f], check=False, capture_output=True, text=True)
+                if add_res.returncode == 0:
+                    staged_any = True
+                else:
+                    print(f"Warning: git add {f} returned code {add_res.returncode}: {add_res.stderr.strip()}")
 
         if not staged_any:
             return True
@@ -1926,8 +1929,11 @@ def git_commit_and_push(files: List[str], commit_message: str) -> bool:
             ["git", "commit", "-m", commit_message],
             capture_output=True,
             text=True,
-            check=True,
+            check=False,
         )
+        if commit_proc.returncode != 0:
+            print(f"Git commit failed (code {commit_proc.returncode}): {commit_proc.stderr.strip()}")
+            return False
         print(f"Git committed: {commit_proc.stdout.strip()}")
 
         # Pull with rebase before pushing
@@ -1937,7 +1943,7 @@ def git_commit_and_push(files: List[str], commit_message: str) -> bool:
             text=True,
         )
         if pull_proc.returncode != 0:
-            print(f"Warning: git pull --rebase failed: {pull_proc.stderr.strip()}. Aborting rebase if in progress.")
+            print(f"Warning: git pull --rebase failed (code {pull_proc.returncode}): {pull_proc.stderr.strip()}. Aborting rebase if in progress.")
             subprocess.run(["git", "rebase", "--abort"], capture_output=True)
 
         push_proc = subprocess.run(
@@ -1950,7 +1956,7 @@ def git_commit_and_push(files: List[str], commit_message: str) -> bool:
             return True
 
         # Push failed, retry once with pull --rebase
-        print(f"Git push failed ({push_proc.stderr.strip()}), retrying push once...")
+        print(f"Git push failed (code {push_proc.returncode}: {push_proc.stderr.strip()}), retrying push once...")
         pull_retry = subprocess.run(
             ["git", "pull", "--rebase", "origin", "main"],
             capture_output=True,
@@ -1968,7 +1974,7 @@ def git_commit_and_push(files: List[str], commit_message: str) -> bool:
             print("Git pushed updates to origin main on retry.")
             return True
         else:
-            print(f"Git push retry failed: {push_retry.stderr.strip()}")
+            print(f"Git push retry failed (code {push_retry.returncode}): {push_retry.stderr.strip()}")
             return False
 
     except Exception as exc:
