@@ -55,9 +55,31 @@ jobs:
 
       - name: Commit and push trade journal updates
         run: |
-          git add trades.json open_positions.json tg_offset.txt alert_settings.json
-          if ! git diff --staged --quiet; then
+          staged=0
+          for f in trades.json open_positions.json alert_settings.json tg_offset.txt; do
+            if [ -f "$f" ]; then
+              git add "$f"
+              staged=1
+            fi
+          done
+
+          if [ "$staged" -eq 0 ]; then
+            echo "No state files present to stage; nothing to commit."
+            exit 0
+          fi
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: sync listener state [skip ci]"
+
+          git pull --rebase origin main || echo "Warning: git pull --rebase failed, continuing to push"
+
+          if ! git push origin main; then
+            echo "Initial push failed, retrying after 3 seconds..."
+            sleep 3
             git pull --rebase origin main || true
-            git commit -m "Auto-update journal positions [skip ci]"
-            git push || (git pull --rebase origin main && git push) || true
+            git push origin main
           fi
