@@ -653,9 +653,9 @@ def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
     # Moving averages of Close
-    df["SMA50"] = df["Close"].rolling(50).mean()
-    df["SMA150"] = df["Close"].rolling(150).mean()
-    df["SMA200"] = df["Close"].rolling(200).mean()
+    df["SMA50"] = df["Close"].rolling(50, min_periods=1).mean()
+    df["SMA150"] = df["Close"].rolling(150, min_periods=1).mean()
+    df["SMA200"] = df["Close"].rolling(200, min_periods=1).mean()
 
     # Moving averages of Volume
     df["VOL5"] = df["Volume"].rolling(5).mean()
@@ -699,11 +699,13 @@ def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
     df["HIGH20"] = df["High"].rolling(20).max().shift(1)
 
     # Trend Filter (Minervini / O'Neil style)
+    sma_cross = (df["SMA150"] > df["SMA200"]) if len(df) >= 150 else True
+    sma200_slope = (df["SMA200"] > df["SMA200"].shift(50)) if len(df) >= 200 else True
     df["TREND_OK"] = (
         (df["Close"] > df["SMA150"])
         & (df["Close"] > df["SMA200"])
-        & (df["SMA150"] > df["SMA200"])
-        & (df["SMA200"] > df["SMA200"].shift(50))
+        & sma_cross
+        & sma200_slope
         & (df["SMA50"] > df["SMA150"])
         & (df["SMA50"] > df["SMA200"])
         & (df["Close"] > df["SMA50"])
@@ -718,6 +720,7 @@ def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
 
     # Squeeze condition: Bollinger Bands inside Keltner Channels
     sma20 = df["Close"].rolling(20).mean()
+    df["EMA20"] = df["Close"].ewm(span=20, adjust=False).mean()
     std20 = df["Close"].rolling(20).std()
     bb_upper = sma20 + 2 * std20
     bb_lower = sma20 - 2 * std20
@@ -1333,6 +1336,152 @@ def sector_ok(symbol: str) -> bool:
         return True  # Strictly fail-open on any unexpected error
 
 
+def compute_risk_parameters(
+    entry: float,
+    atr: float,
+    capital: float = CAPITAL,
+    risk_pct: float = RISK_PCT,
+    atr_multiplier: float = ATR_STOP_MULTIPLIER,
+    target_multiple: float = TARGET_R_MULTIPLE,
+    max_stop_pct: float = MAX_STOP_LOSS_PCT,
+) -> Optional[Dict[str, Any]]:
+    """
+    Compute initial stop loss, 2R target, risk per unit, and position sizing
+    according to live discipline rules. Returns None if inputs are invalid or resulting qty is 0.
+    """
+    if pd.isna(entry) or pd.isna(atr) or atr <= 0 or entry <= 0 or capital <= 0 or risk_pct <= 0:
+        return None
+
+    stop = entry - (atr_multiplier * atr)
+    # Floor stop loss at max_stop_pct (e.g. 7% max risk from entry)
+    stop = max(stop, entry * (1.0 - max_stop_pct))
+    if stop >= entry:
+        return None
+
+    risk_per_unit = entry - stop
+    if risk_per_unit <= 0:
+        return None
+
+    target = entry + (target_multiple * risk_per_unit)
+    qty = math.floor((capital * risk_pct) / risk_per_unit)
+    if qty <= 0:
+        return None
+
+    risk_amount = qty * risk_per_unit
+
+    return {
+        "entry": round(entry, 2),
+        "stop": round(stop, 2),
+        "target": round(target, 2),
+        "qty": int(qty),
+        "risk_per_unit": round(risk_per_unit, 2),
+        "risk_amount": round(risk_amount, 2),
+    }
+
+
+def evaluate_trade_exit(
+    position: Dict[str, Any],
+    current_bar: pd.Series,
+    holding_days: int,
+) -> Optional[Dict[str, Any]]:
+    """
+    Mechanical exit rule evaluator for open positions (S2/S3 live rules).
+    Applies:
+    1) Stop loss breach (initial or ratcheted)
+    2) 2R target hit (triggers 50% partial or full exit)
+    3) Trailing stop (20-EMA close cross for runner after 2R or while in profit)
+    4) Breakeven ratchet (if high reaches +8% or 2R, ratchet stop to entry)
+    5) Per-type time stop (e.g. 5 days if gain < 3%)
+
+    Returns an exit event dictionary if an exit or partial exit occurs, else None.
+    """
+    open_p = float(current_bar["Open"])
+    high_p = float(current_bar["High"])
+    low_p = float(current_bar["Low"])
+    close_p = float(current_bar["Close"])
+    ema20 = current_bar.get("EMA20")
+    if ema20 is not None and not pd.isna(ema20):
+        ema20 = float(ema20)
+    else:
+        ema20 = None
+
+    entry_price = float(position["entry_price"])
+    current_stop = float(position["current_stop"])
+    target = float(position["target"])
+    remaining_qty = int(position.get("remaining_qty", position["qty"]))
+    partial_taken = bool(position.get("partial_taken", False))
+    signal_type = str(position.get("signal_type", "BREAKOUT")).upper()
+
+    # Track highest price achieved
+    highest_price = max(float(position.get("highest_price", entry_price)), high_p)
+    position["highest_price"] = highest_price
+
+    # 1) Breakeven ratchet: move stop to entry when price reaches +8%
+    if highest_price >= entry_price * 1.08:
+        current_stop = max(current_stop, entry_price)
+        position["current_stop"] = current_stop
+
+    # 2) Stop loss hit check
+    if low_p <= current_stop:
+        # Gap-down protection: if opened below stop, exit at open; otherwise exit at stop
+        exit_price = min(open_p, current_stop) if open_p < current_stop else current_stop
+        return {
+            "action": "STOP_LOSS",
+            "exit_price": round(exit_price, 2),
+            "qty": remaining_qty,
+            "reason": "Stop Loss Hit",
+        }
+
+    # 3) 2R Target & Partial Exit check
+    if not partial_taken and high_p >= target:
+        exit_price = target
+        partial_qty = position["qty"] // 2
+        if partial_qty <= 0 or remaining_qty <= 1 or position["qty"] <= 1:
+            return {
+                "action": "TARGET_FULL",
+                "exit_price": round(exit_price, 2),
+                "qty": remaining_qty,
+                "reason": "2R Target Reached",
+            }
+        else:
+            position["partial_taken"] = True
+            position["partial_qty"] = partial_qty
+            position["remaining_qty"] = remaining_qty - partial_qty
+            position["current_stop"] = max(current_stop, entry_price)
+            return {
+                "action": "PARTIAL_TARGET",
+                "exit_price": round(exit_price, 2),
+                "qty": partial_qty,
+                "reason": "2R Target Partial",
+            }
+
+    # 4) Trailing stop on runner with 20-EMA (when partial taken or in profit)
+    if partial_taken and ema20 is not None:
+        if close_p < ema20:
+            return {
+                "action": "TRAIL_EXIT",
+                "exit_price": round(close_p, 2),
+                "qty": remaining_qty,
+                "reason": "20-EMA Trail Exit",
+            }
+
+    # 5) Per-type time stop:
+    # Pullback setups: 4 days without momentum
+    # Breakout / Spring setups: 5 days without momentum (< +3% gain)
+    time_limit = 4 if signal_type == "PULLBACK" else 5
+    if holding_days >= time_limit and not partial_taken:
+        gain_pct = (highest_price - entry_price) / entry_price if entry_price > 0 else 0.0
+        if gain_pct < 0.03:
+            return {
+                "action": "TIME_STOP",
+                "exit_price": round(close_p, 2),
+                "qty": remaining_qty,
+                "reason": "Time Stop (<3% gain)",
+            }
+
+    return None
+
+
 # =====================================================================
 # 7) SINGLE SYMBOL SCANNER & POSITION SIZER
 # =====================================================================
@@ -1376,26 +1525,24 @@ def scan_symbol(symbol: str) -> Optional[Dict[str, Any]]:
     else:
         return None
 
-    # 5) Entry and Stop Loss
+    # 5) Entry, Stop Loss, Sizing and Target (via live rule function)
     entry = float(last_row["Close"])
     atr = float(last_row["ATR14"])
-    if pd.isna(entry) or pd.isna(atr) or atr <= 0 or entry <= 0:
+    risk_params = compute_risk_parameters(
+        entry=entry,
+        atr=atr,
+        capital=CAPITAL,
+        risk_pct=RISK_PCT,
+    )
+    if risk_params is None:
         return None
 
-    stop = entry - (ATR_STOP_MULTIPLIER * atr)
-    # Floor stop loss at 7% (max 7% risk from entry)
-    stop = max(stop, entry * 0.93)
-    if stop >= entry:
-        return None
-
-    # 6) Sizing and target
-    risk_per_unit = entry - stop
-    target = entry + (TARGET_R_MULTIPLE * risk_per_unit)
-    qty = math.floor((CAPITAL * RISK_PCT) / risk_per_unit)
-    if qty <= 0:
-        return None
-
-    risk_amount = qty * risk_per_unit
+    entry = risk_params["entry"]
+    stop = risk_params["stop"]
+    target = risk_params["target"]
+    qty = risk_params["qty"]
+    risk_per_unit = risk_params["risk_per_unit"]
+    risk_amount = risk_params["risk_amount"]
     sector_sym = SECTOR_MAP.get(symbol, INDEX_SYMBOL)
     base_mat, days_base = compute_base_maturity(df)
     rs_val = _RS_RATINGS.get(symbol)
@@ -1685,15 +1832,15 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
 # =====================================================================
 # 9) WATCHLIST GENERATOR
 # =====================================================================
-def diagnose(symbol: str) -> Optional[Dict[str, Any]]:
+def diagnose_from_dataframe(df: pd.DataFrame, symbol: str) -> Optional[Dict[str, Any]]:
     """
-    Diagnose a symbol's trend, coiling status, and breakout proximity.
+    Diagnose a symbol's trend, coiling status, and breakout proximity from an existing DataFrame.
     """
-    df = get_history(symbol)
     if df is None or len(df) < 50:
         return None
 
-    df = add_indicators(df)
+    if "HIGH20" not in df.columns or "TREND_OK" not in df.columns:
+        df = add_indicators(df)
     last_row = df.iloc[-1]
 
     close_val = float(last_row["Close"])
@@ -1793,6 +1940,16 @@ def diagnose(symbol: str) -> Optional[Dict[str, Any]]:
         "next_event": next_ev,
         "event_blocked_reason": ev_blocked_reason,
     }
+
+
+def diagnose(symbol: str) -> Optional[Dict[str, Any]]:
+    """
+    Diagnose a symbol's trend, coiling status, and breakout proximity.
+    """
+    df = get_history(symbol)
+    if df is None or len(df) < 50:
+        return None
+    return diagnose_from_dataframe(df, symbol)
 
 
 def get_watchlist_candidates() -> List[Dict[str, Any]]:

@@ -83,6 +83,21 @@ EXPECTED_POSITION_KEYS = {
     "next_event",
 }
 
+EXPECTED_BACKTEST_TOP_LEVEL_KEYS = {
+    "period",
+    "trades",
+    "equity_curve",
+    "win_rate",
+    "avg_win_R",
+    "avg_loss_R",
+    "expectancy_R",
+    "profit_factor",
+    "max_drawdown_pct",
+    "by_grade",
+    "by_signal_type",
+    "tail_capture",
+}
+
 
 def test_schema_keys_exact_match(tmp_cwd: Any, monkeypatch: pytest.MonkeyPatch):
     """
@@ -124,3 +139,33 @@ def test_schema_keys_exact_match(tmp_cwd: Any, monkeypatch: pytest.MonkeyPatch):
             f"Missing: {EXPECTED_WATCHLIST_KEYS - actual_wl_keys}\n"
             f"Unexpected: {actual_wl_keys - EXPECTED_WATCHLIST_KEYS}"
         )
+
+
+def test_backtest_schema_drift_tolerant(tmp_cwd: Any):
+    """
+    Guards backtest_results.json top-level schema contract.
+    Asserts exact allowed top-level keys when present, and proves that
+    an absent file (no archive yet) is cleanly tolerated without crashing.
+    """
+    # 1. Tolerant when absent
+    assert not os.path.exists("backtest_results.json")
+    # Absent file must be tolerated by frontend/backend when no archive exists
+
+    # 2. Exact contract match when generated
+    from backtest import backtest
+    empty_res = backtest(archive_dir="non_existent_archive")
+    assert set(empty_res.keys()) == EXPECTED_BACKTEST_TOP_LEVEL_KEYS
+
+    with open("backtest_results.json", "w", encoding="utf-8") as f:
+        json.dump(empty_res, f, indent=2)
+
+    with open("backtest_results.json", "r", encoding="utf-8") as f:
+        loaded = json.load(f)
+
+    actual_bt_keys = set(loaded.keys())
+    assert actual_bt_keys == EXPECTED_BACKTEST_TOP_LEVEL_KEYS, (
+        f"backtest_results.json schema drift detected!\n"
+        f"Missing: {EXPECTED_BACKTEST_TOP_LEVEL_KEYS - actual_bt_keys}\n"
+        f"Unexpected: {actual_bt_keys - EXPECTED_BACKTEST_TOP_LEVEL_KEYS}"
+    )
+

@@ -48,6 +48,11 @@ jobs:
         run: |
           python main.py
 
+      - name: Append daily OHLCV snapshot
+        continue-on-error: true
+        run: |
+          python archive_writer.py
+
       - name: Fetch NSE bulk/block + delivery
         run: |
           python fetch_deals.py

@@ -4170,4 +4170,38 @@ th .term-lookup {
   }
 }
 
+/* =====================================================================
+   P4: RULES-REPLAY BACKTEST TAB & TAIL CAPTURE STYLES
+   ===================================================================== */
+.tail-capture-card {
+  position: relative;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 20px -2px rgba(56, 189, 248, 0.12);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tail-capture-card:hover {
+  box-shadow: 0 6px 24px -2px rgba(56, 189, 248, 0.2);
+}
+
+.tail-capture-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  gap: 16px;
+}
+
+#backtestEquityChart {
+  width: 100% !important;
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .tail-capture-grid {
+    grid-template-columns: 1fr;
+  }
+  #tabBacktest .card {
+    padding: 14px 12px;
+  }
+}
+
 

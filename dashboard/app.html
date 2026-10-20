@@ -55,6 +55,7 @@
       <button class="tab-btn" data-tab="tabOpen">💼 Open Positions (<span id="openCountBadge">0</span>)</button>
       <button class="tab-btn" data-tab="tabHistory">📜 Trade History</button>
       <button class="tab-btn" data-tab="tabStats">📈 Performance Stats</button>
+      <button class="tab-btn" data-tab="tabBacktest">🧪 Backtest</button>
       <button class="tab-btn" data-tab="tabHelp" id="helpTabBtn">📖 Help & Guide</button>
     </div>
   </nav>
@@ -531,7 +532,204 @@
       </div>
     </section>
 
-    <!-- TAB 5: HELP CENTER & HANDBOOK -->
+    <!-- TAB 5: RULES-REPLAY BACKTEST -->
+    <section id="tabBacktest" class="tab-content">
+      <!-- Tab Guide Banner -->
+      <div class="tab-guide-banner" id="bannerBacktest" data-tab-banner="backtest">
+        <div class="tab-guide-content">
+          <span class="tab-guide-icon">🧪</span>
+          <span class="tab-guide-text">
+            Rules-replay simulation engine. Imports the exact live execution rules (add_indicators, diagnose, risk sizing, and S2/S3 exits) from <code>main.py</code> to test strategy edge across nightly OHLCV archives.
+          </span>
+        </div>
+        <button class="tab-guide-dismiss" title="Dismiss banner" aria-label="Dismiss">×</button>
+      </div>
+
+      <!-- Controls & Filter Strip -->
+      <div class="card" style="margin-bottom: 20px; padding: 14px 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label for="btStartDate" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">From:</label>
+              <input type="date" id="btStartDate" class="date-input" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); color: #fff; padding: 6px 10px; font-size: 12px;" />
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label for="btEndDate" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">To:</label>
+              <input type="date" id="btEndDate" class="date-input" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); color: #fff; padding: 6px 10px; font-size: 12px;" />
+            </div>
+            <button id="btFilterBtn" class="btn btn-xs btn-primary">Apply Filter</button>
+            <button id="btResetFilterBtn" class="btn btn-xs btn-outline-neutral">Reset</button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span id="btSimulationPeriodBadge" class="badge badge-neutral" style="font-size: 11px;">Simulation Period: All Archive</span>
+            <span id="btSimulationStatusBadge" class="badge badge-success" style="font-size: 11px;">🟢 Engine Ready</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Friendly Empty State (shown when no archive or 0 trades) -->
+      <div id="btEmptyState" class="empty-state" style="display: none; padding: 48px 20px; text-align: center; background: var(--bg-card); border: 1px dashed var(--border); border-radius: var(--radius); margin-bottom: 24px;">
+        <div style="font-size: 42px; margin-bottom: 12px;">📭</div>
+        <h3 style="font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 8px;">No archive yet — runs after first daily scan</h3>
+        <p style="font-size: 13.5px; color: var(--text-muted); max-width: 520px; margin: 0 auto 16px auto;">
+          The nightly OHLCV snapshot job records daily price bars in <code>archive/</code> after each market session.
+          Once snapshots accumulate, the rules-replay engine will simulate historical setups here.
+        </p>
+      </div>
+
+      <!-- Backtest Content Container -->
+      <div id="btContentWrapper">
+        <!-- Headline Stats Grid -->
+        <div class="summary-strip" style="grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr)); gap: 14px; margin-bottom: 20px;">
+          <div class="stat-card">
+            <div class="stat-label">Win Rate</div>
+            <div id="btWinRate" class="stat-value positive">0.0%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label"><span class="term-lookup" data-term="Expectancy">Expectancy</span></div>
+            <div id="btExpectancy" class="stat-value positive">+0.00 R</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label"><span class="term-lookup" data-term="Profit Factor">Profit Factor</span></div>
+            <div id="btProfitFactor" class="stat-value">0.00</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label"><span class="term-lookup" data-term="Max Drawdown">Max Drawdown</span></div>
+            <div id="btMaxDD" class="stat-value negative">0.0%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Realized PnL</div>
+            <div id="btTotalPnl" class="stat-value">₹0.00</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Simulated Trades</div>
+            <div id="btTotalTrades" class="stat-value">0</div>
+          </div>
+        </div>
+
+        <!-- Equity Curve Chart with Drawdown Overlay -->
+        <div class="card" style="margin-bottom: 24px; padding: 18px 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <h3 style="font-size: 16px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px;">
+                <span>📈</span> Equity Curve & Drawdown Overlay
+              </h3>
+              <span style="font-size: 12px; color: var(--text-muted);">Replay simulation equity (green) with underwater drawdown % (red area)</span>
+            </div>
+            <div id="btChartLegendInfo" style="display: flex; gap: 12px; font-size: 11px;">
+              <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; background: #10b981; border-radius: 2px;"></span> Equity (₹)</span>
+              <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; background: rgba(239, 68, 68, 0.4); border-radius: 2px;"></span> Drawdown (%)</span>
+            </div>
+          </div>
+          <div class="chart-container" style="position: relative; width: 100%; height: 350px;">
+            <canvas id="backtestEquityChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Tail Capture Panel -->
+        <div class="card tail-capture-card" style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(56, 189, 248, 0.25);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 22px;">🚀</span>
+                <h3 style="font-size: 17px; font-weight: 700; color: #38bdf8; margin: 0;">
+                  <span class="term-lookup" data-term="Tail Capture">Tail Capture Analysis</span>
+                </h3>
+                <span class="badge badge-accent" style="font-size: 10px;">Small-Cap Thesis</span>
+              </div>
+              <p style="font-size: 12.5px; color: var(--text-muted); margin: 4px 0 0 0;">
+                Validates the momentum edge: letting winners run past a flat 2R target with a 20-EMA trailing stop captures the fat right tails of midcap outliers.
+              </p>
+            </div>
+            <div id="btTailDeltaBadge" class="badge badge-success" style="font-size: 13px; font-weight: 700; padding: 6px 12px;">
+              +0.00 R Surplus Edge
+            </div>
+          </div>
+          <div class="tail-capture-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+            <div class="stat-card" style="background: rgba(15, 23, 42, 0.6);">
+              <div class="stat-label">Winners Running Past 2R</div>
+              <div id="btPctPast2R" class="stat-value" style="color: #38bdf8;">0.0%</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Share of winning trades held past 2R</div>
+            </div>
+            <div class="stat-card" style="background: rgba(15, 23, 42, 0.6);">
+              <div class="stat-label">Average R of Runners</div>
+              <div id="btAvgTailR" class="stat-value positive">+0.00 R</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Average reward multiple of trailed runners</div>
+            </div>
+            <div class="stat-card" style="background: rgba(15, 23, 42, 0.6);">
+              <div class="stat-label">Capped vs Trailed Delta</div>
+              <div id="btTrailedDelta" class="stat-value" style="color: var(--accent);">+0.00 R</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Extra R captured vs a flat 2R target cap</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Breakdown Panels: By Grade & By Signal Type -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 18px; margin-bottom: 24px;">
+          <div class="card" style="padding: 16px 18px;">
+            <h4 style="font-size: 15px; font-weight: 700; margin: 0 0 12px 0;">🎯 Performance by Setup Grade</h4>
+            <div class="table-scroll" tabindex="0">
+              <table id="btGradeTable">
+                <thead>
+                  <tr>
+                    <th>Grade</th>
+                    <th>Trades</th>
+                    <th>Win Rate</th>
+                    <th>Expectancy</th>
+                    <th>Total PnL</th>
+                  </tr>
+                </thead>
+                <tbody id="btGradeTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card" style="padding: 16px 18px;">
+            <h4 style="font-size: 15px; font-weight: 700; margin: 0 0 12px 0;">⚡ Performance by Signal Type</h4>
+            <div class="table-scroll" tabindex="0">
+              <table id="btSignalTypeTable">
+                <thead>
+                  <tr>
+                    <th>Signal Type</th>
+                    <th>Trades</th>
+                    <th>Win Rate</th>
+                    <th>Expectancy</th>
+                    <th>Total PnL</th>
+                  </tr>
+                </thead>
+                <tbody id="btSignalTypeTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Simulated Trades Journal -->
+        <div class="card" style="padding: 16px 18px; margin-bottom: 24px;">
+          <h4 style="font-size: 15px; font-weight: 700; margin: 0 0 12px 0;">📜 Simulated Trades Journal (<span id="btTradeCount">0</span>)</h4>
+          <div class="table-scroll" tabindex="0">
+            <table id="btTradesTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Symbol</th>
+                  <th>Type</th>
+                  <th>Grade</th>
+                  <th>Entry</th>
+                  <th>Exit</th>
+                  <th>Holding</th>
+                  <th>Exit Reason</th>
+                  <th>PnL (₹)</th>
+                  <th>Return</th>
+                  <th>R-Mult</th>
+                </tr>
+              </thead>
+              <tbody id="btTradesTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: HELP CENTER & HANDBOOK -->
     <section id="tabHelp" class="tab-content">
       <div class="help-layout">
         <!-- Sticky Table of Contents -->
@@ -1161,6 +1359,22 @@
                 <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Allows exceptional market leaders to turn into 3R, 4R, or 5R multi-week trend runners.</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Exit if daily Close &lt; EMA10 once past initial target</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">Stock runs from ₹500 to ₹650 without a single daily close under its rising 10 EMA line.</span></div>
+              </div>
+
+              <div class="glossary-card" id="glossary-rules-replay-backtest">
+                <div class="glossary-card-header"><span class="glossary-term">Rules-Replay Backtest</span><span class="glossary-category">Simulation Engine</span></div>
+                <p class="glossary-meaning">A day-by-day historical replay simulator that directly imports the exact live production rules (add_indicators, diagnose, compute_risk_parameters, and evaluate_trade_exit) from main.py without reimplementation.</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Guarantees that historical testing precisely reflects real-world scanner behavior by construction. If live execution rules change, the drift guard immediately catches any discrepancy.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Imports live sizing, 1.5x ATR stop, 7% floor cap, 2R target, and S2/S3 exit functions</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">Walks through daily bars from archive/ohlcv_YYYY-MM.csv.gz, mechanically firing setups and tracking equity curves.</span></div>
+              </div>
+
+              <div class="glossary-card" id="glossary-tail-capture">
+                <div class="glossary-card-header"><span class="glossary-term">Tail Capture</span><span class="glossary-category">Edge Optimization</span></div>
+                <p class="glossary-meaning">The metric measuring how much additional R-multiple profit is generated by trailing winning runners with a 20-EMA versus cutting trades at a flat 2R target cap.</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Proves the core small-cap/midcap thesis: momentum leaders produce asymmetric right tails (3R to 8R+ winners) that generate the bulk of long-term trading expectancy.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Delta = sum(trailed_r - capped_r) on winning trades</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">If a stock runs to +4.5R before breaching the 20-day EMA, tail capture records +2.5R of surplus profit over a flat 2R target.</span></div>
               </div>
             </div>
           </article>

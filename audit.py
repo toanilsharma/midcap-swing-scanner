@@ -21,6 +21,7 @@ TEST_LAYERS = [
     ("tests/test_hermetic_scan.py", "HERMETIC SCAN"),
     ("tests/test_schema_drift.py", "SCHEMA DRIFT"),
     ("tests/test_thresholds_locked.py", "THRESHOLDS LOCKED"),
+    ("tests/test_backtest_replay.py", "BACKTEST REPLAY"),
 ]
 
 
