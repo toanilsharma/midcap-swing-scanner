@@ -1,0 +1,56 @@
+{
+  "2026-10-17": {
+    "FEDERALBNK": {
+      "delivery_pct": 52.1,
+      "block_print": false,
+      "bulk_print": false,
+      "inst_name": null
+    },
+    "LAURUSLABS": {
+      "delivery_pct": 55.0,
+      "block_print": false,
+      "bulk_print": false,
+      "inst_name": null
+    }
+  },
+  "2026-10-18": {
+    "FEDERALBNK": {
+      "delivery_pct": 56.4,
+      "block_print": false,
+      "bulk_print": false,
+      "inst_name": null
+    },
+    "LAURUSLABS": {
+      "delivery_pct": 58.2,
+      "block_print": false,
+      "bulk_print": true,
+      "inst_name": "KOTAK MAHINDRA MF"
+    }
+  },
+  "2026-10-19": {
+    "FEDERALBNK": {
+      "delivery_pct": 61.8,
+      "block_print": true,
+      "bulk_print": false,
+      "inst_name": "MORGAN STANLEY ASIA"
+    },
+    "LAURUSLABS": {
+      "delivery_pct": 63.4,
+      "block_print": false,
+      "bulk_print": true,
+      "inst_name": "KOTAK MAHINDRA MF"
+    },
+    "NYKAA": {
+      "delivery_pct": 21.0,
+      "block_print": false,
+      "bulk_print": false,
+      "inst_name": null
+    },
+    "COFORGE": {
+      "delivery_pct": 41.5,
+      "block_print": false,
+      "bulk_print": false,
+      "inst_name": null
+    }
+  }
+}

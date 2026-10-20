@@ -3898,3 +3898,42 @@ th .term-lookup {
     display: block;
   }
 }
+
+/* Institutional Footprint Badges & Deals Stale Ribbon */
+.deals-stale-ribbon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  padding: 10px 16px;
+  border-radius: var(--radius, 8px);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.badge-inst-acc {
+  background: rgba(16, 185, 129, 0.16) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-inst-churn {
+  background: rgba(245, 158, 11, 0.16) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.4) !important;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-inst-unknown {
+  background: rgba(148, 163, 184, 0.1) !important;
+  color: #94a3b8 !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+  font-weight: 500;
+  white-space: nowrap;
+}
+

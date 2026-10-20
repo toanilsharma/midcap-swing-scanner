@@ -44,6 +44,17 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          SKIP_GIT_PUSH: "0"
+          SKIP_GIT_PUSH: "1"
         run: |
           python main.py
+
+      - name: Fetch NSE bulk/block + delivery
+        run: |
+          python fetch_deals.py
+
+      - name: Auto-commit scan results and deals
+        env:
+          SKIP_GIT_PUSH: "0"
+        run: |
+          python -c "import main; main.git_commit_scan_results()"
+

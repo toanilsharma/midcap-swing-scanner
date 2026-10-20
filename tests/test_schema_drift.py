@@ -19,6 +19,8 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "on_deck",
     "scanned_count",
     "leaders_board",
+    "inst_summary",
+    "deals_stale",
 }
 
 EXPECTED_SIGNAL_KEYS = {
@@ -38,6 +40,7 @@ EXPECTED_SIGNAL_KEYS = {
     "rs_rating",
     "base_maturity",
     "days_in_base",
+    "inst_footprint",
 }
 
 EXPECTED_WATCHLIST_KEYS = {
@@ -59,6 +62,7 @@ EXPECTED_WATCHLIST_KEYS = {
     "rs_rating",
     "base_maturity",
     "days_in_base",
+    "inst_footprint",
 }
 
 

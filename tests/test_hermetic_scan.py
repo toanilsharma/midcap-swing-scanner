@@ -61,6 +61,8 @@ def execute_full_scan_pipeline() -> Tuple[List[Dict[str, Any]], List[Dict[str, A
         "on_deck": getattr(main, "_LAST_ON_DECK", []),
         "scanned_count": scanned_count,
         "leaders_board": getattr(main, "_LEADERS_BOARD", []),
+        "inst_summary": getattr(main, "_INST_SUMMARY", {"accumulation": 0, "churn": 0, "unknown": scanned_count}),
+        "deals_stale": getattr(main, "_DEALS_STALE", True),
     }
     with open(main.SCAN_RESULTS_FILE, "w", encoding="utf-8") as f:
         json.dump(scan_data, f, indent=2, ensure_ascii=False)
@@ -91,11 +93,17 @@ def test_hermetic_scan_unmuted(tmp_cwd: Any, spy_posts: list, pin_ist_time: Any,
     with open(main.SCAN_RESULTS_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    assert set(data.keys()) == {"updated_at", "market_ok", "signals", "watchlist", "on_deck", "scanned_count", "leaders_board"}
+    assert set(data.keys()) == {
+        "updated_at", "market_ok", "signals", "watchlist", "on_deck",
+        "scanned_count", "leaders_board", "inst_summary", "deals_stale"
+    }
     assert "on_deck" in data
     assert isinstance(data["on_deck"], list)
     assert "leaders_board" in data
     assert isinstance(data["leaders_board"], list)
+    assert "inst_summary" in data
+    assert isinstance(data["inst_summary"], dict)
+    assert "deals_stale" in data
     assert data["market_ok"] is True
     assert data["scanned_count"] == 2
 
@@ -109,18 +117,20 @@ def test_hermetic_scan_unmuted(tmp_cwd: Any, spy_posts: list, pin_ist_time: Any,
     expected_fields = {
         "Signal Date", "Symbol", "Sector", "Type", "Close", "Entry",
         "Stop", "Target", "Qty", "Risk Per Unit", "Risk Amount", "ATR14", "RSI14",
-        "rs_rating", "base_maturity", "days_in_base"
+        "rs_rating", "base_maturity", "days_in_base", "inst_footprint"
     }
     assert expected_fields.issubset(sig.keys()), f"Signal missing expected fields: {expected_fields - set(sig.keys())}"
     assert "rs_rating" in sig
     assert isinstance(sig["base_maturity"], int)
     assert isinstance(sig["days_in_base"], int)
+    assert "inst_footprint" in sig
 
     if data["watchlist"]:
         wl0 = data["watchlist"][0]
         assert "rs_rating" in wl0
         assert isinstance(wl0["base_maturity"], int)
         assert isinstance(wl0["days_in_base"], int)
+        assert "inst_footprint" in wl0
 
     # Telegram sends should have fired
     assert len(spy_posts) >= 1, "Expected at least 1 proactive Telegram alert when unmuted"
@@ -210,4 +220,38 @@ def test_rs_graceful_small_universe(tmp_cwd: Any, monkeypatch: pytest.MonkeyPatc
     # 2. leaders_board is empty list
     assert "leaders_board" in data
     assert data["leaders_board"] == []
+
+
+def test_inst_footprint_failopen_unknown(tmp_cwd: Any, monkeypatch: pytest.MonkeyPatch):
+    """
+    Hermetic test: with NO deals.json present in tmp_cwd:
+    - Every symbol => inst_footprint 'unknown'.
+    - inst_summary => {'accumulation': 0, 'churn': 0, 'unknown': N}.
+    - deals_stale => True.
+    - scan still writes JSON, no crash.
+    """
+    monkeypatch.setenv("QUIET", "1")
+    monkeypatch.setenv("SKIP_GIT_PUSH", "1")
+
+    # Confirm deals.json is absent in hermetic test sandbox
+    assert not os.path.exists("deals.json")
+
+    signals, watchlist, count, mkt_ok = execute_full_scan_pipeline()
+
+    assert os.path.exists(main.SCAN_RESULTS_FILE)
+    with open(main.SCAN_RESULTS_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    assert data["deals_stale"] is True
+    assert data["inst_summary"] == {"accumulation": 0, "churn": 0, "unknown": count}
+
+    for sig in data["signals"]:
+        assert sig["inst_footprint"] == "unknown"
+
+    for wl in data["watchlist"]:
+        assert wl["inst_footprint"] == "unknown"
+
+    for od in data.get("on_deck", []):
+        assert od["inst_footprint"] == "unknown"
+
 

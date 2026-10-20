@@ -35,6 +35,31 @@ const TERMS = {
     where_used: "Near Buy (On Deck Radar), Help Guide",
     anchor: "glossary-ondeck"
   },
+  // Institutional Footprint (Informational Lens)
+  "Institutional Footprint": {
+    short: "Informational classification of institutional activity: accumulation (green), churn (amber), or unknown (gray).",
+    long: "A diagnostic lens on who is behind the volume based on NSE bulk/block deal prints and delivery volume percentages. Accumulation = rising delivery% vs 5d-avg with flat/up price OR block/bulk prints in last 3 sessions. Churn = volume >= 1.5x avg with delivery < 25% and no prints. Informational only: never alters trade signals, scores, or risk parameters.",
+    where_used: "Near Buy, Open Positions, Help Glossary",
+    anchor: "glossary-instfootprint"
+  },
+  "Inst": {
+    short: "Institutional Footprint: accumulation (green), churn (amber), or unknown (gray).",
+    long: "A diagnostic lens on who is behind the volume based on NSE bulk/block deal prints and delivery volume percentages.",
+    where_used: "Near Buy, Open Positions, Help Glossary",
+    anchor: "glossary-instfootprint"
+  },
+  "Accumulation": {
+    short: "Rising delivery % with flat/higher prices or recent NSE block/bulk institutional prints.",
+    long: "Indicates institutional accumulation: either delivery percentage is expanding above its 5-day average while price holds flat/up, or an institutional block/bulk deal occurred in the last 3 trading sessions.",
+    where_used: "Near Buy, Open Positions, Help Glossary",
+    anchor: "glossary-instfootprint"
+  },
+  "Churn": {
+    short: "High volume (>=1.5x avg) with low delivery (<25%) and no institutional prints.",
+    long: "Heavy trading volume driven by intraday turnover rather than institutional delivery absorption.",
+    where_used: "Near Buy, Open Positions, Help Glossary",
+    anchor: "glossary-instfootprint"
+  },
   // Moving Averages & Trend
   "SMA50": {
     short: "50-day Simple Moving Average representing 10 weeks of institutional price trend.",
@@ -613,6 +638,36 @@ function renderTodaysPlan(scanData, openPositions) {
   `).join("");
 }
 
+// Institutional Footprint badge helper
+function getInstFootprintBadge(fp) {
+  const norm = (fp || "unknown").toLowerCase();
+  if (norm === "accumulation") {
+    return `<span class="badge badge-inst-acc term-lookup" data-term="Institutional Footprint" title="Accumulation: delivery rising vs 5d-avg with flat/up price, or bulk/block prints in last 3 sessions">🏦 Accumulation</span>`;
+  } else if (norm === "churn") {
+    return `<span class="badge badge-inst-churn term-lookup" data-term="Institutional Footprint" title="Churn: Volume >= 1.5x avg and delivery < 25% with no inst prints">⚠️ Churn</span>`;
+  } else {
+    return `<span class="badge badge-inst-unknown term-lookup" data-term="Institutional Footprint" title="Unknown / Insufficient institutional deal data">Unknown</span>`;
+  }
+}
+
+function getInstFootprintForSymbol(sym) {
+  if (!sym || !_cachedScanData) return "unknown";
+  const clean = sym.replace(".NS", "");
+  if (_cachedScanData.signals) {
+    const s = _cachedScanData.signals.find(x => (x.Symbol || "").replace(".NS", "") === clean);
+    if (s && s.inst_footprint) return s.inst_footprint;
+  }
+  if (_cachedScanData.watchlist) {
+    const w = _cachedScanData.watchlist.find(x => (x.Symbol || "").replace(".NS", "") === clean);
+    if (w && w.inst_footprint) return w.inst_footprint;
+  }
+  if (_cachedScanData.on_deck) {
+    const o = _cachedScanData.on_deck.find(x => (x.symbol || "").replace(".NS", "") === clean);
+    if (o && o.inst_footprint) return o.inst_footprint;
+  }
+  return "unknown";
+}
+
 // 1. Render Tab: Near Buy (Watchlist & Active Signals)
 function renderNearBuy(scanData, openPositions) {
   const marketBadge = document.getElementById("marketBadge");
@@ -620,6 +675,11 @@ function renderNearBuy(scanData, openPositions) {
   const regimeText = document.getElementById("regimeText");
   const scannedMeta = document.getElementById("scannedMeta");
   const lastUpdated = document.getElementById("lastUpdatedText");
+  const staleRibbon = document.getElementById("dealsStaleRibbon");
+
+  if (staleRibbon) {
+    staleRibbon.style.display = (scanData && scanData.deals_stale) ? "flex" : "none";
+  }
 
   // Render Today's Plan box
   renderTodaysPlan(scanData, openPositions);
@@ -1383,6 +1443,9 @@ function applyWatchlistFiltering(watchlist, scanData) {
     }
     const rsBadge = `<span class="badge ${rsBadgeClass} term-lookup" data-term="RS Rating">${rsText}</span>`;
 
+    const instFp = item.inst_footprint || "unknown";
+    const instBadge = getInstFootprintBadge(instFp);
+
     return `
       <tr class="watchlist-row ${rowClass}" data-symbol="${item.Symbol}" title="Click to view 6-month chart & checklist">
         <td data-label="Symbol">
@@ -1394,6 +1457,7 @@ function applyWatchlistFiltering(watchlist, scanData) {
         <td data-label="Score">${scoreBadge}</td>
         <td data-label="Grade">${gradeBadge}</td>
         <td data-label="RS">${rsBadge}</td>
+        <td data-label="Inst">${instBadge}</td>
         <td data-label="Close">${formatINR(item.Close)}</td>
         <td data-label="Dist to Breakout"><strong>${dist.toFixed(2)}%</strong> away</td>
         <td data-label="Coiling">${coilingBadge}</td>
@@ -2592,9 +2656,13 @@ async function renderOpenPositions(positions) {
     const pnlSign = unrealized >= 0 ? "+" : "";
     const pnlClass = unrealized > 0 ? "style='color: var(--success); font-weight:600;'" : unrealized < 0 ? "style='color: var(--danger); font-weight:600;'" : "";
 
+    const posInstFp = pos.inst_footprint || getInstFootprintForSymbol(pos.symbol);
+    const posInstBadge = getInstFootprintBadge(posInstFp);
+
     rows.push(`
       <tr class="${rowClass}">
         <td data-label="Symbol"><strong>${pos.symbol}</strong></td>
+        <td data-label="Inst">${posInstBadge}</td>
         <td data-label="Entry Date">${formatDate(pos.entry_date)}</td>
         <td data-label="Entry Price">${formatINR(entry)}</td>
         <td data-label="Qty">${qty}</td>

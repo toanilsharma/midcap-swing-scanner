@@ -58,6 +58,11 @@ OPEN_POSITIONS_FILE = "open_positions.json"
 TG_OFFSET_FILE = "tg_offset.txt"
 ALERT_SETTINGS_FILE = "alert_settings.json"
 SCAN_RESULTS_FILE = "scan_results.json"
+DEALS_FILE = "deals.json"
+
+_DEALS: Dict[str, Any] = {}
+_DEALS_STALE: bool = False
+_INST_SUMMARY: Dict[str, int] = {"accumulation": 0, "churn": 0, "unknown": 0}
 
 IST_TZ = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 
@@ -901,6 +906,128 @@ def build_leaders_board(symbols: List[str], rs_ratings: Dict[str, Optional[int]]
 
 
 # =====================================================================
+# 5b) INSTITUTIONAL FOOTPRINT (BULK/BLOCK + DELIVERY LENS)
+# =====================================================================
+def load_deals() -> Tuple[Dict[str, Any], bool]:
+    """
+    Load deals archive from deals.json.
+    FAIL-OPEN HARD: Missing, corrupt, or unreadable file returns ({}, True).
+    """
+    if not os.path.exists(DEALS_FILE):
+        return {}, True
+    try:
+        with open(DEALS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, dict):
+                return data, False
+    except Exception as exc:
+        print(f"Warning: Failed to load {DEALS_FILE} ({exc}). Marking deals stale.")
+    return {}, True
+
+
+def get_deal_record(deals: Dict[str, Any], date_str: str, sym: str) -> Optional[Dict[str, Any]]:
+    """Retrieve deal record for symbol on a given date, supporting .NS normalization."""
+    day = deals.get(date_str)
+    if not isinstance(day, dict):
+        return None
+    if sym in day:
+        return day[sym]
+    clean_sym = sym[:-3] if sym.endswith(".NS") else sym
+    if clean_sym in day:
+        return day[clean_sym]
+    ns_sym = f"{sym}.NS" if not sym.endswith(".NS") else sym
+    if ns_sym in day:
+        return day[ns_sym]
+    return None
+
+
+def classify_inst_footprint(
+    symbol: str,
+    df: Optional[pd.DataFrame] = None,
+    deals: Optional[Dict[str, Any]] = None,
+    is_stale: bool = False,
+) -> str:
+    """
+    Classify institutional footprint into {"accumulation", "churn", "unknown"}.
+    - accumulation: (delivery_pct rising vs 5d-avg AND price flat/up) OR block_print/bulk_print True in last 3 sessions.
+    - churn: volume >= 1.5x avg AND delivery_pct < 25% AND no inst print.
+    - unknown: no data / stale.
+    INFORMATIONAL ONLY: Must NOT alter score, grade, SIGNAL, or risk math.
+    """
+    if is_stale or not deals:
+        return "unknown"
+
+    sorted_dates = sorted(deals.keys())
+    if not sorted_dates:
+        return "unknown"
+
+    last_3_dates = sorted_dates[-3:]
+    last_5_dates = sorted_dates[-5:]
+    latest_date = sorted_dates[-1]
+
+    # Check for block_print/bulk_print in last 3 sessions
+    has_inst_print_last3 = False
+    for d in last_3_dates:
+        rec = get_deal_record(deals, d, symbol)
+        if rec and (rec.get("block_print") is True or rec.get("bulk_print") is True):
+            has_inst_print_last3 = True
+            break
+
+    # Delivery % history over last 5 sessions
+    deliv_history = []
+    for d in last_5_dates:
+        rec = get_deal_record(deals, d, symbol)
+        if rec and rec.get("delivery_pct") is not None:
+            try:
+                deliv_history.append(float(rec["delivery_pct"]))
+            except (ValueError, TypeError):
+                pass
+
+    latest_rec = get_deal_record(deals, latest_date, symbol)
+    latest_deliv = None
+    if latest_rec and latest_rec.get("delivery_pct") is not None:
+        try:
+            latest_deliv = float(latest_rec["delivery_pct"])
+        except (ValueError, TypeError):
+            pass
+
+    # Delivery rising vs 5d-avg
+    deliv_rising = False
+    if latest_deliv is not None and len(deliv_history) >= 2:
+        avg_5d = sum(deliv_history) / len(deliv_history)
+        deliv_rising = latest_deliv > avg_5d
+
+    # Price flat / up: close_today >= close_prev * 0.998 (-0.2% tolerance)
+    price_flat_up = False
+    vol_spike = False
+    if df is not None and len(df) >= 2:
+        c_today = float(df["Close"].iloc[-1])
+        c_prev = float(df["Close"].iloc[-2])
+        if c_prev > 0:
+            price_flat_up = c_today >= (c_prev * 0.998)
+
+        if len(df) >= 50:
+            vol_today = float(df["Volume"].iloc[-1])
+            if "VOL50" in df.columns and not pd.isna(df["VOL50"].iloc[-1]):
+                vol_avg = float(df["VOL50"].iloc[-1])
+            else:
+                vol_avg = float(df["Volume"].iloc[-50:].mean())
+            if vol_avg > 0 and vol_today >= 1.5 * vol_avg:
+                vol_spike = True
+
+    # 1. Accumulation
+    if has_inst_print_last3 or (deliv_rising and price_flat_up):
+        return "accumulation"
+
+    # 2. Churn
+    if vol_spike and (latest_deliv is not None and latest_deliv < 25.0) and not has_inst_print_last3:
+        return "churn"
+
+    # 3. Unknown
+    return "unknown"
+
+
+# =====================================================================
 # 6) MARKET REGIME FILTER
 # =====================================================================
 def get_cached_index_df() -> Optional[pd.DataFrame]:
@@ -1065,6 +1192,11 @@ def scan_symbol(symbol: str) -> Optional[Dict[str, Any]]:
         else:
             rs_val = _RS_RATINGS.get(symbol[:-3])
 
+    global _DEALS, _DEALS_STALE
+    if not _DEALS and not _DEALS_STALE:
+        _DEALS, _DEALS_STALE = load_deals()
+    inst_fp = classify_inst_footprint(symbol, df, _DEALS, _DEALS_STALE)
+
     return {
         "Signal Date": pd.to_datetime(last_row["Date"]).strftime("%Y-%m-%d"),
         "Symbol": symbol,
@@ -1082,6 +1214,7 @@ def scan_symbol(symbol: str) -> Optional[Dict[str, Any]]:
         "rs_rating": rs_val,
         "base_maturity": base_mat,
         "days_in_base": days_base,
+        "inst_footprint": inst_fp,
     }
 
 
@@ -1148,10 +1281,12 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
     Execute the scan across all candidate symbols.
     Returns (signals, scanned_count, is_market_ok).
     """
-    global _LAST_ON_DECK, _RS_RATINGS, _LEADERS_BOARD
+    global _LAST_ON_DECK, _RS_RATINGS, _LEADERS_BOARD, _INST_SUMMARY, _DEALS, _DEALS_STALE
     _LAST_ON_DECK = []
     _RS_RATINGS = {}
     _LEADERS_BOARD = []
+    _DEALS, _DEALS_STALE = load_deals()
+    _INST_SUMMARY = {"accumulation": 0, "churn": 0, "unknown": 0}
     on_deck: List[Dict[str, Any]] = []
 
     print("Checking market regime filter...")
@@ -1204,6 +1339,7 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
                             a_val = round(float(last_row["ATR14"]), 2) if ("ATR14" in last_row and not pd.isna(last_row["ATR14"])) else None
                             r_val = round(float(last_row["RSI14"]), 1) if ("RSI14" in last_row and not pd.isna(last_row["RSI14"])) else None
                             base_mat, days_base = compute_base_maturity(df_sym)
+                            inst_fp = classify_inst_footprint(sym, df_sym, _DEALS, _DEALS_STALE)
                             on_deck.append({
                                 "symbol": sym,
                                 "close": round(l_close, 2),
@@ -1215,6 +1351,7 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
                                 "rs_rating": None,
                                 "base_maturity": base_mat,
                                 "days_in_base": days_base,
+                                "inst_footprint": inst_fp,
                             })
         except Exception as exc:
             print(f"Diagnostic on_deck check error for {sym}: {exc}")
@@ -1247,9 +1384,36 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
     # 3. Build top-level leaders board
     _LEADERS_BOARD = build_leaders_board(symbols, _RS_RATINGS)
 
+    # 4. Compute universe institutional footprint summary
+    summary_counts = {"accumulation": 0, "churn": 0, "unknown": 0}
+    for sym in symbols:
+        df_sym = get_history(sym)
+        fp = classify_inst_footprint(sym, df_sym, _DEALS, _DEALS_STALE)
+        summary_counts[fp] = summary_counts.get(fp, 0) + 1
+    _INST_SUMMARY = summary_counts
+
     on_deck.sort(key=lambda x: x["dist_pct"])
     on_deck = on_deck[:5]
     _LAST_ON_DECK = on_deck
+
+    # Identify accumulation symbols among signals and on-deck
+    acc_syms = []
+    for sig in signals:
+        if sig.get("inst_footprint") == "accumulation":
+            s_name = sig.get("Symbol", "")
+            clean_s = s_name[:-3] if s_name.endswith(".NS") else s_name
+            if clean_s not in acc_syms:
+                acc_syms.append(clean_s)
+    for od in on_deck:
+        if od.get("inst_footprint") == "accumulation":
+            s_name = od.get("symbol", "")
+            clean_s = s_name[:-3] if s_name.endswith(".NS") else s_name
+            if clean_s not in acc_syms:
+                acc_syms.append(clean_s)
+
+    inst_line = ""
+    if acc_syms:
+        inst_line = f"🏦 Institutional: {len(acc_syms)} accumulation among signals/on-deck (e.g. {', '.join(acc_syms[:2])})."
 
     if messages:
         joined_message = "\n\n----\n\n".join(messages)
@@ -1259,21 +1423,24 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
                 joined_message += f"\n\n🎯 Near Misses:\n{od_summary}."
             else:
                 joined_message += f"\n\n----\n\n🎯 On Deck (near misses): {od_summary}."
+        if inst_line:
+            joined_message += f"\n\n{inst_line}"
         if is_digest:
             _DIGEST_MESSAGES.append(("scan", joined_message))
         else:
             send_telegram(joined_message, kind="proactive", msg_type="scan")
     elif len(signals) == 0:
+        extra_inst = f"\n\n{inst_line}" if inst_line else ""
         if len(on_deck) > 0:
             od_summary = format_on_deck_summary(on_deck, 3)
             if is_digest:
-                digest_msg = f"No new midcap swing signals today.\n\n🎯 Near Misses:\n{od_summary}."
+                digest_msg = f"No new midcap swing signals today.\n\n🎯 Near Misses:\n{od_summary}.{extra_inst}"
                 _DIGEST_MESSAGES.append(("scan", digest_msg))
             else:
-                evening_msg = f"No new midcap swing signals today.\n\n🎯 On Deck (near misses): {od_summary}."
+                evening_msg = f"No new midcap swing signals today.\n\n🎯 On Deck (near misses): {od_summary}.{extra_inst}"
                 send_telegram(evening_msg, kind="proactive", msg_type="scan")
         elif SEND_NO_SIGNAL_MESSAGE:
-            no_sig_msg = "No new midcap swing signals today."
+            no_sig_msg = f"No new midcap swing signals today.{extra_inst}"
             if is_digest:
                 _DIGEST_MESSAGES.append(("scan", no_sig_msg))
             else:
@@ -1364,6 +1531,11 @@ def diagnose(symbol: str) -> Optional[Dict[str, Any]]:
         else:
             rs_val = _RS_RATINGS.get(symbol[:-3])
 
+    global _DEALS, _DEALS_STALE
+    if not _DEALS and not _DEALS_STALE:
+        _DEALS, _DEALS_STALE = load_deals()
+    inst_fp = classify_inst_footprint(symbol, df, _DEALS, _DEALS_STALE)
+
     return {
         "Symbol": sym_name,
         "Sector": sec_sym,
@@ -1383,6 +1555,7 @@ def diagnose(symbol: str) -> Optional[Dict[str, Any]]:
         "rs_rating": rs_val,
         "base_maturity": base_mat,
         "days_in_base": days_base,
+        "inst_footprint": inst_fp,
     }
 
 
@@ -2261,11 +2434,14 @@ def git_commit_and_push(files: List[str], commit_message: str) -> bool:
 
 def git_commit_scan_results() -> None:
     """
-    Commit and push scan_results.json to origin main.
+    Commit and push scan_results.json and deals.json to origin main.
     Skips if SKIP_GIT_PUSH environment variable is set to '1'.
     Fails safely so git errors never break the scanner.
     """
-    git_commit_and_push([SCAN_RESULTS_FILE], "update scan results [skip ci]")
+    files_to_commit = [SCAN_RESULTS_FILE]
+    if os.path.exists(DEALS_FILE):
+        files_to_commit.append(DEALS_FILE)
+    git_commit_and_push(files_to_commit, "update scan results and deals [skip ci]")
 
 
 def git_commit_listener_updates(commit_message: str = "Auto-update Telegram offset and journal [skip ci]") -> None:
@@ -2326,6 +2502,8 @@ if __name__ == "__main__":
             "on_deck": _LAST_ON_DECK,
             "scanned_count": total_scanned,
             "leaders_board": _LEADERS_BOARD,
+            "inst_summary": _INST_SUMMARY,
+            "deals_stale": _DEALS_STALE,
         }
 
         with open(SCAN_RESULTS_FILE, "w", encoding="utf-8") as f:

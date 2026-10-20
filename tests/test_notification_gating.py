@@ -164,7 +164,43 @@ def test_critical_invariant_gating_never_blocks_data_pipeline(
     assert saved["scanned_count"] == 2
     assert len(saved["signals"]) == 1
     assert saved["signals"][0]["Symbol"] == "AAA.NS"
+    assert "inst_summary" in saved, "inst_summary MUST be present even when QUIET=1"
+    assert isinstance(saved["inst_summary"], dict)
+    assert "deals_stale" in saved
 
-    # Assert ZERO proactive alerts dispatched
-    proactive_calls = [p for p in spy_posts if "breakout" in str(p).lower() or "signal" in str(p).lower()]
+    # Assert ZERO proactive alerts dispatched (including 🏦 institutional alert)
+    proactive_calls = [p for p in spy_posts if "breakout" in str(p).lower() or "signal" in str(p).lower() or "🏦" in str(p)]
     assert len(proactive_calls) == 0, "Zero proactive alerts should have been sent to Telegram under QUIET=1"
+    assert len(spy_posts) == 0, "No proactive alerts dispatched when QUIET=1"
+
+
+def test_institutional_line_gated_by_quiet_window(
+    tmp_cwd: Any,
+    spy_posts: list,
+    pin_ist_time: Any,
+    monkeypatch: pytest.MonkeyPatch
+):
+    """
+    Test 10 requirement:
+    The new 🏦 line is suppressed when QUIET=1 and inside quiet window,
+    but scan_results.json STILL contains inst_summary.
+    """
+    monkeypatch.setenv("QUIET", "1")
+    monkeypatch.setenv("SKIP_GIT_PUSH", "1")
+    pin_ist_time("2026-10-18 23:00")  # Inside quiet window (21:00-08:00)
+
+    from tests.test_hermetic_scan import execute_full_scan_pipeline
+    signals, watchlist, count, mkt_ok = execute_full_scan_pipeline()
+
+    # Verify JSON retains inst_summary
+    assert os.path.exists(main.SCAN_RESULTS_FILE)
+    with open(main.SCAN_RESULTS_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    assert "inst_summary" in data
+    assert isinstance(data["inst_summary"], dict)
+    assert data["inst_summary"] == {"accumulation": 0, "churn": 0, "unknown": count}
+
+    # Verify Telegram send was suppressed
+    assert len(spy_posts) == 0
+
