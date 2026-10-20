@@ -3,28 +3,87 @@
    ===================================================================== */
 
 :root {
-  --bg-main: #0a0d14;
-  --bg-card: #121824;
-  --bg-card-hover: #172033;
-  --card-bg: #121824;
-  --border: #1f293d;
-  --border-light: #2d3b55;
-  --text-main: #f1f5f9;
-  --text-muted: #94a3b8;
-  --text-dim: #64748b;
-  --muted: #94a3b8;
-  --accent: #38bdf8;
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
-  --success: #10b981;
-  --success-bg: rgba(16, 185, 129, 0.12);
-  --warning: #f59e0b;
-  --warning-bg: rgba(245, 158, 11, 0.12);
-  --danger: #ef4444;
-  --danger-bg: rgba(239, 68, 68, 0.12);
+  /* Spacing System (A4) */
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+
+  /* Typography Scale (A4) */
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-md: 15px;
+  --font-size-lg: 18px;
+  --font-size-xl: 22px;
+  --font-size-2xl: 26px;
+
+  /* Color System - Dark Mode Optimization (A5) */
+  --color-bg: #121212;
+  --color-bg-surface: #1E1E1E;
+  --color-bg-surface-elevated: #262626;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-hover: rgba(255, 255, 255, 0.2);
+
+  /* Text: Off-white #E0E0E0 to reduce glare (A5) */
+  --color-text: #E0E0E0;
+  --color-text-light: #F5F5F5;
+  --color-text-muted: #9E9E9E;
+  --color-text-dim: #757575;
+
+  /* Signals & Status Colors (WCAG AA Compliant) (B6) */
+  --color-success: #10B981;
+  --color-success-bg: rgba(16, 185, 129, 0.16);
+  --color-success-text: #34D399;
+  --color-success-border: rgba(16, 185, 129, 0.35);
+
+  --color-danger: #EF4444;
+  --color-danger-bg: rgba(239, 68, 68, 0.16);
+  --color-danger-text: #F87171;
+  --color-danger-border: rgba(239, 68, 68, 0.35);
+
+  --color-warning: #F59E0B;
+  --color-warning-bg: rgba(245, 158, 11, 0.16);
+  --color-warning-text: #FBBF24;
+  --color-warning-border: rgba(245, 158, 11, 0.35);
+
+  --color-neutral: #94A3B8;
+  --color-neutral-bg: rgba(148, 163, 184, 0.12);
+  --color-neutral-text: #CBD5E1;
+  --color-neutral-border: rgba(148, 163, 184, 0.25);
+
+  --color-primary: #6366F1;
+  --color-primary-hover: #4F46E5;
+  --color-accent: #38BDF8;
+
+  /* Legacy variable mappings for backward-compatibility */
+  --bg-main: var(--color-bg);
+  --bg-card: var(--color-bg-surface);
+  --bg-card-hover: var(--color-bg-surface-elevated);
+  --card-bg: var(--color-bg-surface);
+  --border: var(--color-border);
+  --border-light: var(--color-border-hover);
+  --text-main: var(--color-text);
+  --text-muted: var(--color-text-muted);
+  --text-dim: var(--color-text-dim);
+  --muted: var(--color-text-muted);
+  --accent: var(--color-accent);
+  --primary: var(--color-primary);
+  --primary-hover: var(--color-primary-hover);
+  --success: var(--color-success);
+  --success-bg: var(--color-success-bg);
+  --warning: var(--color-warning);
+  --warning-bg: var(--color-warning-bg);
+  --danger: var(--color-danger);
+  --danger-bg: var(--color-danger-bg);
+
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --radius: 12px;
   --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.45);
 }
 
 /* 1. GLOBAL RESETS */
@@ -59,6 +118,7 @@ body {
   line-height: 1.55;
   word-break: break-word;
   overflow-wrap: anywhere;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -68,12 +128,12 @@ body {
   outline-offset: 2px;
 }
 
-/* 3. SINGLE UNIFIED PAGE CONTAINER */
+/* 3. SINGLE UNIFIED PAGE CONTAINER - MAX 1400PX CENTERED (A1) */
 .page-container {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1400px;
   margin-inline: auto;
-  padding-inline: clamp(12px, 3vw, 24px);
+  padding-inline: clamp(16px, 2.5vw, 32px);
 }
 
 /* LOGIN PAGE */
@@ -509,7 +569,164 @@ body {
   flex: 1;
 }
 
-/* 6. GRIDS & CARDS */
+/* 6. CARD COMPONENTS & VISUAL ZONES (A2, B4) */
+.card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  border-color: var(--color-border-hover);
+}
+
+/* Three Distinct Visual Zones */
+.zone-card {
+  margin-bottom: var(--space-xl);
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+}
+
+.zone-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.02);
+  flex-wrap: wrap;
+}
+
+.zone-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.zone-title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-text-light);
+  letter-spacing: -0.01em;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.zone-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.16);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+
+.zone-badge-amber {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border: 1px solid var(--color-warning-border);
+}
+
+.zone-badge-blue {
+  background: rgba(56, 189, 248, 0.16);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.zone-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.zone-body {
+  padding: var(--space-md) var(--space-lg);
+}
+
+/* Zone 1: Market Overview (Prominent / Sticky-Top styling) */
+.zone-market-overview {
+  border-color: rgba(56, 189, 248, 0.3);
+  background: linear-gradient(180deg, #1e1e1e 0%, #161616 100%);
+  position: relative;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(56, 189, 248, 0.15);
+}
+
+.zone-market-overview .sector-strip-card {
+  margin-bottom: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Zone 2: Action Intelligence (Amber / Warning accent styling) */
+.zone-action-intel {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: linear-gradient(180deg, #1e1e1e 0%, #1b1710 100%);
+}
+
+.zone-action-intel .zone-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.zone-action-intel .todays-plan-card {
+  margin-bottom: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 4px solid var(--color-accent);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: none;
+}
+
+.zone-action-intel .landmines-card {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.06);
+  margin-bottom: 0;
+}
+
+/* Zone 3: Watchlist Table (Generous padding section) */
+.zone-watchlist {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.zone-watchlist .zone-body {
+  padding: clamp(20px, 2.5vw, 32px);
+}
+
+.zone-watchlist .watchlist-controls-card {
+  margin-bottom: var(--space-md);
+}
+
+/* SKELETON LOADERS TO PREVENT CLS (Cumulative Layout Shift) (D10) */
+@keyframes skeletonShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-anim {
+  background: linear-gradient(90deg, #262626 25%, #333333 37%, #262626 63%);
+  background-size: 400% 100%;
+  animation: skeletonShimmer 1.4s ease infinite;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.skeleton-row td {
+  padding: 16px 14px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+}
+
+.skeleton-item {
+  padding: 6px 0;
+}
+
+/* STAT STRIP */
 .summary-strip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
@@ -525,6 +742,12 @@ body {
   padding: clamp(12px, 2.5vw, 20px);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
   width: 100%;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-border-hover);
 }
 
 .stat-label {
@@ -536,11 +759,11 @@ body {
   margin-bottom: 6px;
 }
 
-/* 7. BIG NUMBERS IN STAT CARDS */
+/* BIG NUMBERS IN STAT CARDS */
 .stat-value {
   font-size: clamp(20px, 4vw, 30px);
   font-weight: 700;
-  color: #fff;
+  color: var(--color-text-light);
   letter-spacing: -0.02em;
   white-space: nowrap;
 }
@@ -549,7 +772,7 @@ body {
 .stat-value.negative { color: var(--danger); }
 .stat-value.neutral { color: var(--warning); }
 
-/* 9. TABLES & SCROLL CONTAINER */
+/* 9. TABLES & SCROLL CONTAINER (A3, C7) */
 .table-scroll {
   width: 100%;
   overflow-x: auto;
@@ -572,10 +795,10 @@ body {
 .table-scroll thead th {
   position: sticky;
   top: 0;
-  background: #161e2e;
+  background: #181818;
   z-index: 2;
   padding: 14px 16px;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -585,8 +808,8 @@ body {
 }
 
 .table-scroll td {
-  padding: 14px 16px;
-  border-bottom: 1px solid rgba(31, 41, 61, 0.6);
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   color: var(--text-main);
   white-space: nowrap;
 }
@@ -595,46 +818,141 @@ body {
   border-bottom: none;
 }
 
-.table-scroll tbody tr:hover {
-  background: var(--bg-card-hover);
+/* ROW HIGHLIGHTS & HOVER (D9) */
+.watchlist-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* ROW HIGHLIGHTS */
+.watchlist-row:hover {
+  background-color: var(--color-bg-surface-elevated) !important;
+  filter: brightness(1.06);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
 .row-green {
-  background-color: rgba(16, 185, 129, 0.05);
+  background-color: rgba(16, 185, 129, 0.04);
 }
 
 .row-yellow {
-  background-color: rgba(245, 158, 11, 0.04);
+  background-color: rgba(245, 158, 11, 0.03);
 }
 
 .row-danger {
-  background-color: rgba(239, 68, 68, 0.06);
+  background-color: rgba(239, 68, 68, 0.05);
 }
 
 .row-mistake {
   border-left: 3px solid var(--danger) !important;
 }
 
-/* 11. BADGES, PILLS & HIT TARGETS */
+/* EXPANDABLE DETAIL ACCORDION SMOOTH ANIMATION (C7) */
+.detail-row {
+  animation: accordionFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  background-color: #161616;
+}
+
+@keyframes accordionFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stock-detail-panel {
+  transition: max-height 0.3s ease-in-out;
+}
+
+/* 11. COLORED PILL BADGES - WCAG AA COMPLIANT (B6) */
 .badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 10px;
+  padding: 3px 10px;
   border-radius: 9999px;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
-  min-height: 28px;
+  min-height: 26px;
   line-height: 1;
+  white-space: nowrap;
+  border: 1px solid transparent;
 }
 
-.badge-success { background: var(--success-bg); color: #34d399; }
-.badge-warning { background: var(--warning-bg); color: #fbbf24; }
-.badge-danger { background: var(--danger-bg); color: #f87171; }
-.badge-neutral { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); }
+.badge-success {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  border-color: var(--color-success-border);
+}
 
-/* Score and Grade pills, chevrons, and buttons maintain accessible hit areas */
+.badge-warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border-color: var(--color-warning-border);
+}
+
+.badge-danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border-color: var(--color-danger-border);
+}
+
+.badge-neutral {
+  background: var(--color-neutral-bg);
+  color: var(--color-neutral-text);
+  border-color: var(--color-neutral-border);
+}
+
+.badge-primary {
+  background: rgba(99, 102, 241, 0.16);
+  color: #a5b4fc;
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+.badge-info {
+  background: rgba(56, 189, 248, 0.16);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+/* Status Indicators (Accumulation, Churn, Unknown) as colored pill badges (B6) */
+.badge-inst-acc {
+  background: rgba(16, 185, 129, 0.16) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+  border-radius: 9999px !important;
+  font-weight: 600;
+  padding: 3px 10px !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-inst-churn {
+  background: rgba(239, 68, 68, 0.16) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.4) !important;
+  border-radius: 9999px !important;
+  font-weight: 600;
+  padding: 3px 10px !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-inst-unknown {
+  background: rgba(148, 163, 184, 0.12) !important;
+  color: #cbd5e1 !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+  border-radius: 9999px !important;
+  font-weight: 500;
+  padding: 3px 10px !important;
+}
+
+/* Accessible Interactive Hit Targets (min 44px on key mobile elements) (C8) */
 .badge.term-lookup,
 .watchlist-row .chevron,
 .size-trade-btn {
@@ -663,6 +981,34 @@ body {
 .tag-plan { background: rgba(79, 70, 229, 0.2); color: #a5b4fc; }
 .tag-fomo { background: rgba(239, 68, 68, 0.18); color: #fca5a5; }
 
+/* MICRO-INTERACTIONS: BUTTON & CHIP HOVER ELEVATIONS (D9) */
+.btn:hover,
+.search-trigger-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.sector-chip {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, filter 0.2s ease;
+}
+
+.sector-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  filter: brightness(1.12);
+  border-color: rgba(56, 189, 248, 0.5) !important;
+}
+
+.wl-filter-chip {
+  transition: transform 0.15s ease, filter 0.15s ease, background-color 0.15s ease;
+}
+
+.wl-filter-chip:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.12);
+}
+
 /* EMPTY STATE */
 .empty-state {
   text-align: center;
@@ -671,8 +1017,8 @@ body {
   font-size: 14px;
 }
 
-/* 10. CRITICAL MOBILE REFLOW (@media max-width: 640px) */
-@media (max-width: 640px) {
+/* 10. CRITICAL MOBILE REFLOW & STACKED ACCORDIONS (<768px) (C8) */
+@media (max-width: 767px) {
   .table-scroll {
     border: none;
     background: transparent;
@@ -696,15 +1042,16 @@ body {
     width: 100%;
   }
 
+  /* Table row transformed into vertical card */
   .table-scroll table tr {
     display: block;
     width: 100%;
     border: 1px solid var(--border);
-    border-radius: 12px;
-    margin-bottom: 12px;
-    padding: 10px 14px;
+    border-radius: var(--radius);
+    margin-bottom: var(--space-md);
+    padding: var(--space-md);
     background: var(--bg-card);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-card);
   }
 
   .table-scroll table td {
@@ -714,9 +1061,10 @@ body {
     gap: 12px;
     padding: 8px 0;
     border: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     white-space: normal;
     text-align: right;
+    min-height: 44px; /* Touch target standard >= 44px */
   }
 
   .table-scroll table td:last-child {
@@ -726,10 +1074,36 @@ body {
   .table-scroll table td::before {
     content: attr(data-label);
     font-weight: 600;
-    color: var(--muted);
+    color: var(--text-muted);
     font-size: 12px;
     text-align: left;
     flex-shrink: 0;
+  }
+
+  /* Emphasize essential columns & hide non-critical on collapsed card to prevent bloat (C7, C8) */
+  .watchlist-row td[data-label="Symbol"] {
+    padding-top: 0;
+    font-size: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 4px;
+  }
+
+  .watchlist-row td[data-label="Action"] {
+    padding-top: 10px;
+    border-bottom: none;
+  }
+
+  .watchlist-row td[data-label="Action"] .size-trade-btn {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+    font-size: 13px;
+  }
+
+  .watchlist-row:not(.expanded) td[data-label="Sector Bullish"],
+  .watchlist-row:not(.expanded) td[data-label="Coiling"],
+  .watchlist-row:not(.expanded) td[data-label="Sector"] {
+    display: none;
   }
 
   /* Reset for expandable detail-row and empty state */
@@ -3917,23 +4291,29 @@ th .term-lookup {
   background: rgba(16, 185, 129, 0.16) !important;
   color: #34d399 !important;
   border: 1px solid rgba(16, 185, 129, 0.4) !important;
-  font-weight: 600;
+  border-radius: 9999px !important;
+  font-weight: 600 !important;
+  padding: 3px 10px !important;
   white-space: nowrap;
 }
 
 .badge-inst-churn {
-  background: rgba(245, 158, 11, 0.16) !important;
-  color: #fbbf24 !important;
-  border: 1px solid rgba(245, 158, 11, 0.4) !important;
-  font-weight: 600;
+  background: rgba(239, 68, 68, 0.16) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.4) !important;
+  border-radius: 9999px !important;
+  font-weight: 600 !important;
+  padding: 3px 10px !important;
   white-space: nowrap;
 }
 
 .badge-inst-unknown {
-  background: rgba(148, 163, 184, 0.1) !important;
-  color: #94a3b8 !important;
+  background: rgba(148, 163, 184, 0.12) !important;
+  color: #cbd5e1 !important;
   border: 1px solid rgba(148, 163, 184, 0.25) !important;
-  font-weight: 500;
+  border-radius: 9999px !important;
+  font-weight: 500 !important;
+  padding: 3px 10px !important;
   white-space: nowrap;
 }
 

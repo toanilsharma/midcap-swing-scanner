@@ -83,162 +83,221 @@
         <button class="tab-guide-dismiss" title="Dismiss banner" aria-label="Dismiss">×</button>
       </div>
 
-      <!-- TODAY'S PLAN CARD -->
-      <div id="todaysPlanCard" class="todays-plan-card">
-        <div class="todays-plan-header">
-          <div class="todays-plan-title-group">
-            <span class="todays-plan-icon">📋</span>
-            <div>
-              <h3 class="todays-plan-title">Today's Action Plan</h3>
-              <span id="planMetaTime" class="todays-plan-meta">Updated: Today</span>
+      <!-- ZONE 1: MARKET OVERVIEW -->
+      <section class="card zone-card zone-market-overview" id="zoneMarketOverview" aria-label="Zone 1: Market Overview">
+        <div class="zone-header">
+          <div class="zone-title-group">
+            <span class="zone-badge">Zone 1</span>
+            <h2 class="zone-title">Market Overview &amp; Breadth</h2>
+          </div>
+          <span class="zone-subtitle">Regime diagnostics, moving-average breadth &amp; sector rotation</span>
+        </div>
+        <div class="zone-body">
+          <div id="regimeBanner" class="regime-banner" style="display: none;">
+            <span id="regimeText">Market Regime: Checking...</span>
+            <span id="scannedMeta">100 constituents scanned</span>
+          </div>
+
+          <div id="dealsStaleRibbon" class="deals-stale-ribbon" style="display: none;">
+            <span>⚠️ <strong>Deals Data Stale:</strong> Latest NSE bulk/block and delivery prints were delayed or unavailable. Footprints reflect previous archive or unknown.</span>
+          </div>
+
+          <!-- SECTOR LEADERSHIP STRIP (Item #2) -->
+          <div id="sectorLeadershipStrip" class="sector-strip-card" style="display: none;">
+            <div class="sector-strip-header">
+              <div class="sector-strip-title-group">
+                <span style="font-size: 16px;">🧭</span>
+                <span class="sector-strip-title">Sector Leadership &amp; Rotation</span>
+                <span id="sectorActiveFilterBadge" class="badge badge-primary sector-filter-badge" style="display: none; cursor: pointer;" title="Click to clear sector filter">
+                  Filtered: <strong id="sectorFilterName"></strong> &times;
+                </span>
+              </div>
+              <span class="sector-strip-hint">Click a sector chip to filter setups</span>
+            </div>
+            <div id="sectorChipsContainer" class="sector-chips-row"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ZONE 2: ACTION INTELLIGENCE -->
+      <section class="card zone-card zone-action-intel" id="zoneActionIntel" aria-label="Zone 2: Action Intelligence">
+        <div class="zone-header">
+          <div class="zone-title-group">
+            <span class="zone-badge zone-badge-amber">Zone 2</span>
+            <h2 class="zone-title">Action Intelligence</h2>
+          </div>
+          <span class="zone-subtitle">Session action plan, gate rules &amp; event radar landmines</span>
+        </div>
+        <div class="zone-body">
+          <!-- TODAY'S PLAN CARD -->
+          <div id="todaysPlanCard" class="todays-plan-card">
+            <div class="todays-plan-header">
+              <div class="todays-plan-title-group">
+                <span class="todays-plan-icon">📋</span>
+                <div>
+                  <h3 class="todays-plan-title">Today's Action Plan</h3>
+                  <span id="planMetaTime" class="todays-plan-meta">Updated: Today</span>
+                </div>
+              </div>
+              <span id="planStatusPill" class="badge badge-success">Active Strategy</span>
+            </div>
+            <ul id="todaysPlanBullets" class="todays-plan-list">
+              <li class="todays-plan-item skeleton-item">
+                <span class="todays-plan-bullet-icon">•</span>
+                <span class="todays-plan-bullet-text">Analyzing market regime and watchlist setups...</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- GLOBAL LANDMINES PANEL (Event Radar) -->
+          <div id="landminesPanel" class="landmines-card" style="display: none;">
+            <div class="landmines-header" id="landminesToggle" style="cursor: pointer;">
+              <div class="landmines-title-group">
+                <span style="font-size: 16px;">⚠️</span>
+                <span class="landmines-title"><span class="term-lookup" data-term="Event Radar / Gap Risk">This Week's Landmines</span></span>
+                <span id="landminesCountBadge" class="badge badge-warning" style="margin-left: 6px;">0 Events</span>
+              </div>
+              <span id="landminesChevron" class="chevron" style="font-size: 11px; color: var(--text-dim);">▼</span>
+            </div>
+            <div id="landminesBody" class="landmines-body" style="display: block;">
+              <div id="landminesGrid" class="landmines-grid"></div>
             </div>
           </div>
-          <span id="planStatusPill" class="badge badge-success">Active Strategy</span>
         </div>
-        <ul id="todaysPlanBullets" class="todays-plan-list">
-          <li class="todays-plan-item">
-            <span class="todays-plan-bullet-icon">•</span>
-            <span class="todays-plan-bullet-text">Analyzing market regime and watchlist setups...</span>
-          </li>
-        </ul>
-      </div>
+      </section>
 
-      <div id="regimeBanner" class="regime-banner" style="display: none;">
-        <span id="regimeText">Market Regime: Checking...</span>
-        <span id="scannedMeta">100 constituents scanned</span>
-      </div>
-
-      <div id="dealsStaleRibbon" class="deals-stale-ribbon" style="display: none;">
-        <span>⚠️ <strong>Deals Data Stale:</strong> Latest NSE bulk/block and delivery prints were delayed or unavailable. Footprints reflect previous archive or unknown.</span>
-      </div>
-
-      <!-- GLOBAL LANDMINES PANEL (Event Radar) -->
-      <div id="landminesPanel" class="landmines-card" style="display: none;">
-        <div class="landmines-header" id="landminesToggle" style="cursor: pointer;">
-          <div class="landmines-title-group">
-            <span style="font-size: 16px;">⚠️</span>
-            <span class="landmines-title"><span class="term-lookup" data-term="Event Radar / Gap Risk">This Week's Landmines</span></span>
-            <span id="landminesCountBadge" class="badge badge-warning" style="margin-left: 6px;">0 Events</span>
+      <!-- ZONE 3: WATCHLIST TABLE -->
+      <section class="card zone-card zone-watchlist" id="zoneWatchlist" aria-label="Zone 3: Watchlist Table">
+        <div class="zone-header">
+          <div class="zone-title-group">
+            <span class="zone-badge zone-badge-blue">Zone 3</span>
+            <h2 class="zone-title">Watchlist Setups</h2>
           </div>
-          <span id="landminesChevron" class="chevron" style="font-size: 11px; color: var(--text-dim);">▼</span>
+          <span class="zone-subtitle">Stage-2 breakouts, contraction setups &amp; candidate diagnostic blueprints</span>
         </div>
-        <div id="landminesBody" class="landmines-body" style="display: block;">
-          <div id="landminesGrid" class="landmines-grid"></div>
-        </div>
-      </div>
-
-      <!-- SECTOR LEADERSHIP STRIP (Item #2) -->
-      <div id="sectorLeadershipStrip" class="sector-strip-card" style="display: none;">
-        <div class="sector-strip-header">
-          <div class="sector-strip-title-group">
-            <span style="font-size: 16px;">🧭</span>
-            <span class="sector-strip-title">Sector Leadership & Rotation</span>
-            <span id="sectorActiveFilterBadge" class="badge badge-primary sector-filter-badge" style="display: none; cursor: pointer;" title="Click to clear sector filter">
-              Filtered: <strong id="sectorFilterName"></strong> &times;
-            </span>
+        <div class="zone-body">
+          <div id="signalsContainer" style="margin-bottom: 24px; display: none;">
+            <h2 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 12px;">🟢 Active Today's Signals</h2>
+            <div class="table-scroll" tabindex="0">
+              <table id="signalsTable">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Symbol</th>
+                    <th>Entry</th>
+                    <th><span class="term-lookup" data-term="Stop loss">Stop</span></th>
+                    <th><span class="term-lookup" data-term="Target">Target</span></th>
+                    <th><span class="term-lookup" data-term="Position size">Qty</span></th>
+                    <th>Risk Amount</th>
+                    <th><span class="term-lookup" data-term="Sector filter">Sector</span></th>
+                  </tr>
+                </thead>
+                <tbody id="signalsBody"></tbody>
+              </table>
+            </div>
           </div>
-          <span class="sector-strip-hint">Click a sector chip to filter setups</span>
-        </div>
-        <div id="sectorChipsContainer" class="sector-chips-row"></div>
-      </div>
 
-      <div id="signalsContainer" style="margin-bottom: 24px; display: none;">
-        <h2 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 12px;">🟢 Active Today's Signals</h2>
-        <div class="table-scroll" tabindex="0">
-          <table id="signalsTable">
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th>Symbol</th>
-                <th>Entry</th>
-                <th><span class="term-lookup" data-term="Stop loss">Stop</span></th>
-                <th><span class="term-lookup" data-term="Target">Target</span></th>
-                <th><span class="term-lookup" data-term="Position size">Qty</span></th>
-                <th>Risk Amount</th>
-                <th><span class="term-lookup" data-term="Sector filter">Sector</span></th>
-              </tr>
-            </thead>
-            <tbody id="signalsBody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- SCAN ARCHIVE RETROSPECTIVE BANNER (Item #8) -->
-      <div id="archiveScanNoticeBanner" class="archive-notice-banner" style="display: none;">
-        <div class="archive-notice-content">
-          <span class="archive-notice-icon">🕒</span>
-          <span id="archiveNoticeText" class="archive-notice-text">Viewing Historical Scan Archive</span>
-        </div>
-        <button id="returnToLatestScanBtn" class="btn btn-xs btn-primary">Return to Latest (Live)</button>
-      </div>
-
-      <!-- WATCHLIST FILTER & SORT TOOLBAR (Item #1) -->
-      <div class="watchlist-controls-card">
-        <div class="watchlist-controls-top">
-          <div class="watchlist-search-box">
-            <span class="search-box-icon">🔍</span>
-            <input type="text" id="watchlistSearchInput" placeholder="Filter by symbol or sector (e.g. TRENT, Auto)..." autocomplete="off" />
-            <button id="clearWatchlistSearchBtn" class="search-clear-btn" style="display: none;" title="Clear search">&times;</button>
+          <!-- SCAN ARCHIVE RETROSPECTIVE BANNER (Item #8) -->
+          <div id="archiveScanNoticeBanner" class="archive-notice-banner" style="display: none;">
+            <div class="archive-notice-content">
+              <span class="archive-notice-icon">🕒</span>
+              <span id="archiveNoticeText" class="archive-notice-text">Viewing Historical Scan Archive</span>
+            </div>
+            <button id="returnToLatestScanBtn" class="btn btn-xs btn-primary">Return to Latest (Live)</button>
           </div>
-          <div class="watchlist-sort-group">
-            <label for="watchlistSortSelect">Sort:</label>
-            <select id="watchlistSortSelect" class="form-select-sm">
-              <option value="score_desc">Setup Score (High &rarr; Low)</option>
-              <option value="dist_asc">Dist to Breakout (Closest)</option>
-              <option value="price_desc">Price (High &rarr; Low)</option>
-              <option value="price_asc">Price (Low &rarr; High)</option>
-              <option value="symbol_asc">Symbol (A &rarr; Z)</option>
-            </select>
-          </div>
-          <div class="watchlist-archive-group">
-            <label for="watchlistDateSelect">📅 Scan:</label>
-            <select id="watchlistDateSelect" class="form-select-sm" title="Select today's live scan or view past cached daily scans">
-              <option value="latest">Latest (Live)</option>
-            </select>
-          </div>
-        </div>
-        <div class="watchlist-filter-chips">
-          <button class="wl-filter-chip active" data-filter="all">All Setups (<span id="countAll">0</span>)</button>
-          <button class="wl-filter-chip" data-filter="grade_a">Grade A+ / A (<span id="countGradeA">0</span>)</button>
-          <button class="wl-filter-chip" data-filter="near_breakout">&le; 2% to Breakout (<span id="countNearBreakout">0</span>)</button>
-          <button class="wl-filter-chip" data-filter="coiling">Coiling Vol (<span id="countCoiling">0</span>)</button>
-          <button class="wl-filter-chip" data-filter="sector_bullish">Sector Bullish (<span id="countSectorBullish">0</span>)</button>
-        </div>
-        <div class="watchlist-status-bar">
-          <span id="watchlistCountStatus">Showing all setups</span>
-          <button id="resetWatchlistFiltersBtn" class="btn-link-sm" style="display: none;">Reset all filters</button>
-        </div>
-      </div>
 
-      <!-- LEADERS BOARD STRIP (collapsible, above table) -->
-      <div id="leadersBoardContainer" class="leaders-board-container"></div>
+          <!-- WATCHLIST FILTER & SORT TOOLBAR (Item #1) -->
+          <div class="watchlist-controls-card">
+            <div class="watchlist-controls-top">
+              <div class="watchlist-search-box">
+                <span class="search-box-icon">🔍</span>
+                <input type="text" id="watchlistSearchInput" placeholder="Filter by symbol or sector (e.g. TRENT, Auto)..." autocomplete="off" />
+                <button id="clearWatchlistSearchBtn" class="search-clear-btn" style="display: none;" title="Clear search">&times;</button>
+              </div>
+              <div class="watchlist-sort-group">
+                <label for="watchlistSortSelect">Sort:</label>
+                <select id="watchlistSortSelect" class="form-select-sm">
+                  <option value="score_desc">Setup Score (High &rarr; Low)</option>
+                  <option value="dist_asc">Dist to Breakout (Closest)</option>
+                  <option value="price_desc">Price (High &rarr; Low)</option>
+                  <option value="price_asc">Price (Low &rarr; High)</option>
+                  <option value="symbol_asc">Symbol (A &rarr; Z)</option>
+                </select>
+              </div>
+              <div class="watchlist-archive-group">
+                <label for="watchlistDateSelect">📅 Scan:</label>
+                <select id="watchlistDateSelect" class="form-select-sm" title="Select today's live scan or view past cached daily scans">
+                  <option value="latest">Latest (Live)</option>
+                </select>
+              </div>
+            </div>
+            <div class="watchlist-filter-chips">
+              <button class="wl-filter-chip active" data-filter="all">All Setups (<span id="countAll">0</span>)</button>
+              <button class="wl-filter-chip" data-filter="grade_a">Grade A+ / A (<span id="countGradeA">0</span>)</button>
+              <button class="wl-filter-chip" data-filter="near_breakout">&le; 2% to Breakout (<span id="countNearBreakout">0</span>)</button>
+              <button class="wl-filter-chip" data-filter="coiling">Coiling Vol (<span id="countCoiling">0</span>)</button>
+              <button class="wl-filter-chip" data-filter="sector_bullish">Sector Bullish (<span id="countSectorBullish">0</span>)</button>
+            </div>
+            <div class="watchlist-status-bar">
+              <span id="watchlistCountStatus">Showing all setups</span>
+              <button id="resetWatchlistFiltersBtn" class="btn-link-sm" style="display: none;">Reset all filters</button>
+            </div>
+          </div>
 
-      <div class="table-scroll" tabindex="0">
-        <table id="watchlistTable">
-          <thead>
-            <tr>
-              <th>Symbol</th>
-              <th><span class="term-lookup" data-term="Setup score">Score</span></th>
-              <th><span class="term-lookup" data-term="Grade">Grade</span></th>
-              <th><span class="term-lookup" data-term="RS Rating">RS</span></th>
-              <th><span class="term-lookup" data-term="Institutional Footprint">Inst</span></th>
-              <th>Close</th>
-              <th><span class="term-lookup" data-term="Dist to Breakout">Dist to Breakout</span></th>
-              <th><span class="term-lookup" data-term="Coiling">Coiling</span></th>
-              <th>Sector</th>
-              <th><span class="term-lookup" data-term="Sector Bullish">Sector Bullish</span></th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="watchlistBody">
-            <tr>
-              <td colspan="11" class="empty-state">Loading scan results from GitHub...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <!-- ON DECK (NEAR MISSES) COLLAPSIBLE SECTION -->
-      <div id="onDeckContainer" class="on-deck-container"></div>
+          <!-- LEADERS BOARD STRIP (collapsible, above table) -->
+          <div id="leadersBoardContainer" class="leaders-board-container"></div>
+
+          <div class="table-scroll" tabindex="0">
+            <table id="watchlistTable">
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th><span class="term-lookup" data-term="Setup score">Score</span></th>
+                  <th><span class="term-lookup" data-term="Grade">Grade</span></th>
+                  <th><span class="term-lookup" data-term="RS Rating">RS</span></th>
+                  <th><span class="term-lookup" data-term="Institutional Footprint">Inst</span></th>
+                  <th>Close</th>
+                  <th><span class="term-lookup" data-term="Dist to Breakout">Dist to Breakout</span></th>
+                  <th><span class="term-lookup" data-term="Coiling">Coiling</span></th>
+                  <th>Sector</th>
+                  <th><span class="term-lookup" data-term="Sector Bullish">Sector Bullish</span></th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="watchlistBody">
+                <tr class="skeleton-row">
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 80px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 40px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 32px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 36px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 90px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 65px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 75px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 48px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 85px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 42px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 96px; height: 30px;"></div></td>
+                </tr>
+                <tr class="skeleton-row">
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 70px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 40px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 32px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 36px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 90px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 65px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 75px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 48px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 85px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 42px; height: 22px;"></div></td>
+                  <td><div class="skeleton-pill skeleton-anim" style="width: 96px; height: 30px;"></div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- ON DECK (NEAR MISSES) COLLAPSIBLE SECTION -->
+          <div id="onDeckContainer" class="on-deck-container"></div>
+        </div>
+      </section>
     </section>
 
     <!-- TAB 2: OPEN POSITIONS -->
