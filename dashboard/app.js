@@ -41,6 +41,37 @@ let _isViewingArchive = false;
 // SITE-WIDE TERMS & DEFINITIONS DICTIONARY
 // =====================================================================
 const TERMS = {
+  // Market Pulse & Header Metrics
+  "Market Pulse": {
+    short: "Real-time diagnostic summary of benchmark index performance (^NSEI), market breadth, and advancers vs decliners.",
+    long: "Real-time diagnostic overview displayed in the terminal header summarizing benchmark index performance (^NSEI last price and percentage change), market breadth (stocks trading above their 50-day and 200-day moving averages), market session status, and daily advancers/decliners across the scanned universe.",
+    where_used: "Header Strip, Help Glossary",
+    anchor: "glossary-market-pulse"
+  },
+  "Breadth (above 50-DMA)": {
+    short: "Count and proportion of universe midcap stocks currently trading above their intermediate 50-day moving average.",
+    long: "Internal health diagnostic tracking how many constituents in the midcap universe are trading above their 50-day moving average. A rising breadth count indicates broad-based institutional participation, whereas deteriorating breadth warns of negative divergence even if the index appears stable.",
+    where_used: "Header Strip, Help Glossary",
+    anchor: "glossary-breadth-50dma"
+  },
+  "Breadth": {
+    short: "Proportion of stocks in the universe trading above key moving averages (50-DMA and 200-DMA).",
+    long: "Internal health diagnostic tracking how many constituents in the midcap universe are trading above their 50-day moving average.",
+    where_used: "Header Strip, Help Glossary",
+    anchor: "glossary-breadth-50dma"
+  },
+  "Market hours (IST)": {
+    short: "NSE India regular trading session: Monday through Friday, 09:15 AM to 03:30 PM IST.",
+    long: "The regular equity cash market trading session on the National Stock Exchange of India (NSE) runs Monday through Friday from 09:15 AM to 03:30 PM Indian Standard Time (IST). The terminal displays a live market status chip that dynamically calculates open/closed state from the client clock.",
+    where_used: "Header Strip, Help Glossary",
+    anchor: "glossary-market-hours"
+  },
+  "Market hours": {
+    short: "NSE India regular trading session: Monday through Friday, 09:15 AM to 03:30 PM IST.",
+    long: "The regular equity cash market trading session on the National Stock Exchange of India (NSE) runs Monday through Friday from 09:15 AM to 03:30 PM Indian Standard Time (IST).",
+    where_used: "Header Strip, Help Glossary",
+    anchor: "glossary-market-hours"
+  },
   // P5 Garnish Features (Item #5)
   "Multi-Timeframe Confluence": {
     short: "Dual-timeframe confirmation requiring daily Stage-2 trend AND weekly Stage-2 structure (Weekly Close > SMA 30, rising).",
@@ -787,6 +818,183 @@ function getInstFootprintForSymbol(sym) {
   return "unknown";
 }
 
+// =====================================================================
+// MARKET PULSE HEADER STRIP
+// =====================================================================
+function renderMarketPulse(scanData) {
+  const pulseStrip = document.getElementById("marketPulseStrip");
+  const marketBadge = document.getElementById("marketBadge");
+  const indexSpan = document.getElementById("pulseIndexSpan");
+  const lastCloseSpan = document.getElementById("pulseLastCloseSpan");
+  const breadthSpan = document.getElementById("pulseBreadthSpan");
+  const staleChip = document.getElementById("pulseStaleChip");
+  const lastUpdated = document.getElementById("lastUpdatedText");
+
+  // Always keep live market session status chip ticking
+  updateLiveMarketStatusChip();
+
+  if (!pulseStrip) return;
+
+  if (!scanData) {
+    if (indexSpan) indexSpan.style.display = "none";
+    if (lastCloseSpan) lastCloseSpan.style.display = "none";
+    if (breadthSpan) breadthSpan.style.display = "none";
+    if (staleChip) staleChip.style.display = "none";
+    return;
+  }
+
+  // Regime Badge
+  if (marketBadge) {
+    if (scanData.market_ok) {
+      marketBadge.className = "badge badge-success term-lookup";
+      marketBadge.setAttribute("data-term", "Market regime");
+      marketBadge.textContent = "Market: Uptrend";
+    } else {
+      marketBadge.className = "badge badge-danger term-lookup";
+      marketBadge.setAttribute("data-term", "Market regime");
+      marketBadge.textContent = "Market: Defensive";
+    }
+  }
+
+  const summary = scanData.market_summary;
+  // If market_summary is absent (older JSON cached), hide pulse metrics gracefully without crashing
+  if (!summary) {
+    if (indexSpan) indexSpan.style.display = "none";
+    if (lastCloseSpan) lastCloseSpan.style.display = "none";
+    if (breadthSpan) breadthSpan.style.display = "none";
+    if (staleChip) staleChip.style.display = "none";
+    if (lastUpdated) {
+      lastUpdated.style.display = "inline";
+      lastUpdated.textContent = `Updated: ${formatDateTime(scanData.updated_at)}`;
+    }
+    return;
+  }
+
+  // 1. "<source> last: Rs <last_close> (<chg_pct>%)" colored green/red
+  if (indexSpan && summary.last_close !== undefined) {
+    const isUp = (summary.chg_pct || 0) >= 0;
+    const sign = isUp ? "+" : "";
+    const colorStyle = isUp ? "var(--success)" : "var(--danger)";
+    const formattedPrice = Number(summary.last_close).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    indexSpan.innerHTML = `<strong>${escapeHtml(summary.source || "^NSEI")}</strong> last: <span style="font-weight: 700; color: ${colorStyle};">₹${formattedPrice} (${sign}${summary.chg_pct || 0}%)</span>`;
+    indexSpan.style.display = "inline-flex";
+  }
+
+  // 2. "Last close: <last_bar_date as e.g. Mon 20 Oct 2026> - 3:30 PM IST"
+  if (lastCloseSpan) {
+    const formattedDate = formatLastCloseDate(summary.last_bar_date);
+    lastCloseSpan.textContent = `Last close: ${formattedDate} - 3:30 PM IST`;
+    lastCloseSpan.style.display = "inline-flex";
+  }
+
+  // 3. Breadth line: "Breadth: <breadth_above_sma50>/<universe_size> above 50-DMA - <advancers> adv / <decliners> dec"
+  if (breadthSpan) {
+    const b50 = summary.breadth_above_sma50 || 0;
+    const uSize = summary.universe_size || 0;
+    const adv = summary.advancers || 0;
+    const dec = summary.decliners || 0;
+    breadthSpan.innerHTML = `Breadth: <strong>${b50}/${uSize}</strong> above 50-DMA — <span style="color: var(--success); font-weight: 600;">${adv} adv</span> / <span style="color: var(--danger); font-weight: 600;">${dec} dec</span>`;
+    breadthSpan.style.display = "inline-flex";
+  }
+
+  // 4. Staleness: if as_of_ist is older than 36h on a trading day, amber chip "DATA STALE"
+  if (staleChip) {
+    const stale = isMarketSummaryStale(summary.as_of_ist);
+    staleChip.style.display = stale ? "inline-flex" : "none";
+  }
+}
+
+// Compute client-side IST market open/closed status
+function updateLiveMarketStatusChip() {
+  const chip = document.getElementById("pulseLiveStatusChip");
+  if (!chip) return;
+
+  const now = new Date();
+  const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const istTime = new Date(utcMs + (5.5 * 3600000));
+
+  const day = istTime.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+  const hours = istTime.getHours();
+  const mins = istTime.getMinutes();
+  const timeInMins = hours * 60 + mins;
+
+  // Trading window: Mon-Fri (1-5), 09:15 (555 min) to 15:30 (930 min)
+  const isTradingDay = day >= 1 && day <= 5;
+  const isMarketOpen = isTradingDay && (timeInMins >= 555 && timeInMins < 930);
+
+  if (isMarketOpen) {
+    chip.className = "badge badge-success pulse-live-chip pulse-open term-lookup";
+    chip.setAttribute("data-term", "Market hours (IST)");
+    chip.textContent = "MARKET OPEN";
+    return;
+  }
+
+  const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  let nextDay = "Monday";
+
+  if (day >= 1 && day <= 4) {
+    if (timeInMins < 555) {
+      nextDay = weekdays[day];
+    } else {
+      nextDay = weekdays[day + 1];
+    }
+  } else if (day === 5) {
+    if (timeInMins < 555) {
+      nextDay = "Friday";
+    } else {
+      nextDay = "Monday";
+    }
+  } else {
+    // Sat (6) or Sun (0)
+    nextDay = "Monday";
+  }
+
+  chip.className = "badge badge-neutral pulse-live-chip term-lookup";
+  chip.setAttribute("data-term", "Market hours (IST)");
+  chip.textContent = `MARKET CLOSED - next open ${nextDay} 9:15 AM`;
+}
+
+// Format date into Mon 20 Oct 2026 format
+function formatLastCloseDate(dateStr) {
+  if (!dateStr || dateStr === "n/a") return "n/a";
+  try {
+    const parts = dateStr.split("-");
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      const dateObj = new Date(y, m, d);
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      return `${days[dateObj.getDay()]} ${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+    }
+  } catch (e) {}
+  return dateStr;
+}
+
+// Check if as_of_ist is older than 36h on a trading day
+function isMarketSummaryStale(asOfIstStr) {
+  if (!asOfIstStr) return false;
+  try {
+    const asOfTime = new Date(asOfIstStr).getTime();
+    const nowTime = Date.now();
+    const diffHours = (nowTime - asOfTime) / (1000 * 3600);
+
+    const now = new Date();
+    const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const istTime = new Date(utcMs + (5.5 * 3600000));
+    const day = istTime.getDay();
+    const isTradingDay = day >= 1 && day <= 5;
+
+    return isTradingDay && diffHours > 36;
+  } catch (e) {
+    return false;
+  }
+}
+
 // 1. Render Tab: Near Buy (Watchlist & Active Signals)
 function renderNearBuy(scanData, openPositions) {
   const marketBadge = document.getElementById("marketBadge");
@@ -795,6 +1003,9 @@ function renderNearBuy(scanData, openPositions) {
   const scannedMeta = document.getElementById("scannedMeta");
   const lastUpdated = document.getElementById("lastUpdatedText");
   const staleRibbon = document.getElementById("dealsStaleRibbon");
+
+  // Render Market Pulse strip in header
+  renderMarketPulse(scanData);
 
   if (staleRibbon) {
     staleRibbon.style.display = (scanData && scanData.deals_stale) ? "flex" : "none";
@@ -4574,6 +4785,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initial load if on app page
   if (document.getElementById("watchlistTable")) {
     initPositionSizer();
+    updateLiveMarketStatusChip();
+    setInterval(updateLiveMarketStatusChip, 60000);
     loadAllData();
 
     // Auto-refresh every 5 minutes (300,000 ms)

@@ -1512,6 +1512,125 @@ def index_return_50() -> Optional[float]:
     return float((last_close / close_50) - 1.0)
 
 
+def compute_market_summary(symbols: Optional[List[str]] = None) -> Dict[str, Any]:
+    """
+    Diagnostic market pulse summary computed exclusively from already-cached data.
+    Does NOT make any new network calls.
+    Returns:
+    {
+      "source": INDEX_SYMBOL,
+      "last_close": float,
+      "prev_close": float,
+      "chg_pct": float,
+      "last_bar_date": str,
+      "as_of_ist": str,
+      "breadth_above_sma50": int,
+      "breadth_above_sma200": int,
+      "universe_size": int,
+      "advancers": int,
+      "decliners": int,
+      "unchanged": int
+    }
+    """
+    now_ist = datetime.datetime.now(IST_TZ).isoformat()
+
+    source = INDEX_SYMBOL
+    last_close = 0.0
+    prev_close = 0.0
+    chg_pct = 0.0
+    last_bar_date = "n/a"
+
+    idx_df = get_cached_index_df()
+    if idx_df is not None and not idx_df.empty:
+        try:
+            if len(idx_df) >= 2:
+                last_close = float(idx_df["Close"].iloc[-1])
+                prev_close = float(idx_df["Close"].iloc[-2])
+                if prev_close > 0:
+                    chg_pct = round(((last_close - prev_close) / prev_close) * 100.0, 2)
+            elif len(idx_df) == 1:
+                last_close = float(idx_df["Close"].iloc[-1])
+                prev_close = last_close
+                chg_pct = 0.0
+
+            if "Date" in idx_df.columns:
+                last_bar_date = pd.to_datetime(idx_df["Date"].iloc[-1]).strftime("%Y-%m-%d")
+            elif hasattr(idx_df.index, "strftime"):
+                last_bar_date = idx_df.index[-1].strftime("%Y-%m-%d")
+            else:
+                last_bar_date = str(idx_df.index[-1])[:10]
+        except Exception as e:
+            print(f"Warning computing index in market_summary: {e}")
+
+    if symbols is None:
+        try:
+            symbols = get_symbols()
+        except Exception:
+            symbols = []
+
+    universe_size = len(symbols) if symbols else 0
+    breadth_above_sma50 = 0
+    breadth_above_sma200 = 0
+    advancers = 0
+    decliners = 0
+    unchanged = 0
+
+    for sym in symbols:
+        df_sym = _HISTORY_CACHE.get(sym)
+        if df_sym is None:
+            alt_sym = sym[:-3] if sym.endswith(".NS") else f"{sym}.NS"
+            df_sym = _HISTORY_CACHE.get(alt_sym)
+
+        if df_sym is not None and len(df_sym) >= 1:
+            try:
+                c_last = float(df_sym["Close"].iloc[-1])
+                if len(df_sym) >= 2:
+                    c_prev = float(df_sym["Close"].iloc[-2])
+                    if c_last > c_prev:
+                        advancers += 1
+                    elif c_last < c_prev:
+                        decliners += 1
+                    else:
+                        unchanged += 1
+                else:
+                    unchanged += 1
+
+                # SMA50 breadth
+                sma50 = None
+                if "SMA50" in df_sym.columns:
+                    sma50 = df_sym["SMA50"].iloc[-1]
+                elif len(df_sym) >= 50:
+                    sma50 = df_sym["Close"].rolling(50).mean().iloc[-1]
+                if sma50 is not None and not pd.isna(sma50) and c_last > sma50:
+                    breadth_above_sma50 += 1
+
+                # SMA200 breadth
+                sma200 = None
+                if "SMA200" in df_sym.columns:
+                    sma200 = df_sym["SMA200"].iloc[-1]
+                elif len(df_sym) >= 200:
+                    sma200 = df_sym["Close"].rolling(200).mean().iloc[-1]
+                if sma200 is not None and not pd.isna(sma200) and c_last > sma200:
+                    breadth_above_sma200 += 1
+            except Exception:
+                continue
+
+    return {
+        "source": source,
+        "last_close": round(last_close, 2),
+        "prev_close": round(prev_close, 2),
+        "chg_pct": chg_pct,
+        "last_bar_date": last_bar_date,
+        "as_of_ist": now_ist,
+        "breadth_above_sma50": breadth_above_sma50,
+        "breadth_above_sma200": breadth_above_sma200,
+        "universe_size": universe_size,
+        "advancers": advancers,
+        "decliners": decliners,
+        "unchanged": unchanged,
+    }
+
+
 def get_sector_df(sector_symbol: str) -> Optional[pd.DataFrame]:
     """
     Retrieve and cache historical dataframe for a given sector index.
@@ -3142,6 +3261,7 @@ if __name__ == "__main__":
             "deals_stale": _DEALS_STALE,
             "landmines": _LANDMINES,
             "correlation": compute_open_positions_correlation(open_pos),
+            "market_summary": compute_market_summary(),
         }
 
         with open(SCAN_RESULTS_FILE, "w", encoding="utf-8") as f:

@@ -25,10 +25,14 @@
         <span style="font-size: 22px;">📊</span>
         <div>
           <h1 class="header-title">Midcap Swing Terminal</h1>
-          <div class="header-meta">
-            <span id="marketBadge" class="badge badge-neutral">Checking Market...</span>
-            <span class="meta-dot">•</span>
-            <span id="lastUpdatedText">Updated: Loading...</span>
+          <div class="header-meta market-pulse-strip" id="marketPulseStrip">
+            <span id="marketBadge" class="badge badge-neutral term-lookup" data-term="Market regime">Market: Checking...</span>
+            <span id="pulseLiveStatusChip" class="badge badge-neutral term-lookup pulse-live-chip" data-term="Market hours (IST)">MARKET CHECKING</span>
+            <span id="pulseIndexSpan" class="pulse-metric term-lookup" data-term="Market Pulse" style="display: none;"></span>
+            <span id="pulseLastCloseSpan" class="pulse-metric" style="display: none;"></span>
+            <span id="pulseBreadthSpan" class="pulse-metric term-lookup" data-term="Breadth (above 50-DMA)" style="display: none;"></span>
+            <span id="pulseStaleChip" class="badge badge-warning" style="display: none;">DATA STALE</span>
+            <span id="lastUpdatedText" style="display: none;">Updated: Loading...</span>
           </div>
         </div>
       </div>
@@ -1420,6 +1424,30 @@
                 <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Holding 4 stocks with correlation &gt;0.70 is essentially holding 1 oversized, levered position. Prevents disguised risk concentration where one sector or macro shock wipes out multiple trades.</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Concentration warning triggers if ANY pairwise corr &gt; 0.70 OR &gt;2 positions in the same sector</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">Displays a correlation heatmap matrix in Open Positions and flashes a red ⚠️ Concentration banner when risk limits are breached.</span></div>
+              </div>
+
+              <div class="glossary-card" id="glossary-market-pulse">
+                <div class="glossary-card-header"><span class="glossary-term">Market Pulse</span><span class="glossary-category">Macro &amp; Regime</span></div>
+                <p class="glossary-meaning">A real-time diagnostic summary in the terminal header tracking benchmark index performance (^NSEI last close &amp; % change), session status, market breadth (above 50/200 DMA), and daily advancers vs decliners.</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Ensures traders always know what the broad market did today even when zero individual breakout signals fire.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Cached from regime index history and universe scan loop into scan_results["market_summary"]</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">^NSEI last: ₹25,480 (+0.42%) • Breadth: 78/100 above 50-DMA • 64 adv / 34 dec</span></div>
+              </div>
+
+              <div class="glossary-card" id="glossary-breadth-50dma">
+                <div class="glossary-card-header"><span class="glossary-term">Breadth (above 50-DMA)</span><span class="glossary-category">Internal Health</span></div>
+                <p class="glossary-meaning">The count and proportion of stocks in the midcap universe currently trading above their intermediate 50-day moving average.</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Measures internal market participation. Healthy bull markets feature expanding breadth (&gt;60%); deteriorating breadth warns of distribution even if the index looks stable.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Count of universe symbols where Close &gt; SMA50 in market_summary["breadth_above_sma50"]</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">78/100 above 50-DMA indicates strong broad-based institutional support.</span></div>
+              </div>
+
+              <div class="glossary-card" id="glossary-market-hours">
+                <div class="glossary-card-header"><span class="glossary-term">Market hours (IST)</span><span class="glossary-category">Exchange Schedule</span></div>
+                <p class="glossary-meaning">The standard equity trading session on the National Stock Exchange of India (NSE), running Monday through Friday from 09:15 AM to 03:30 PM Indian Standard Time (IST).</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Swing entries and exits are strictly executed during liquid regular market hours to avoid overnight gap slippage.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Dashboard Chip:</span><span class="glossary-threshold">Live IST clock: MARKET OPEN (green pulse) or MARKET CLOSED - next open &lt;weekday&gt; 9:15 AM (neutral)</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">Evaluated client-side from the user's browser clock converted to Indian Standard Time (+05:30).</span></div>
               </div>
             </div>
           </article>

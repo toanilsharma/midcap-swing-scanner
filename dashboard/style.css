@@ -4316,5 +4316,59 @@ th .term-lookup {
   }
 }
 
+/* =====================================================================
+   MARKET PULSE HEADER STRIP
+   ===================================================================== */
+.market-pulse-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.pulse-metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.pulse-live-chip {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.pulse-open {
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0);
+  }
+}
+
+@media (max-width: 640px) {
+  .market-pulse-strip {
+    font-size: 11px;
+    gap: 6px 10px;
+    line-height: 1.5;
+  }
+  .pulse-metric {
+    white-space: normal;
+  }
+}
+
+
 
 

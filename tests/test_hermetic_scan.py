@@ -67,6 +67,7 @@ def execute_full_scan_pipeline() -> Tuple[List[Dict[str, Any]], List[Dict[str, A
         "deals_stale": getattr(main, "_DEALS_STALE", True),
         "landmines": getattr(main, "_LANDMINES", landmines),
         "correlation": main.compute_open_positions_correlation(open_pos),
+        "market_summary": main.compute_market_summary(getattr(main, "get_symbols", lambda: [])()),
     }
     with open(main.SCAN_RESULTS_FILE, "w", encoding="utf-8") as f:
         json.dump(scan_data, f, indent=2, ensure_ascii=False)
@@ -99,8 +100,12 @@ def test_hermetic_scan_unmuted(tmp_cwd: Any, spy_posts: list, pin_ist_time: Any,
 
     assert set(data.keys()) == {
         "updated_at", "market_ok", "signals", "watchlist", "on_deck",
-        "scanned_count", "leaders_board", "inst_summary", "deals_stale", "landmines", "correlation"
+        "scanned_count", "leaders_board", "inst_summary", "deals_stale", "landmines", "correlation",
+        "market_summary",
     }
+    assert "market_summary" in data
+    assert isinstance(data["market_summary"], dict)
+    assert data["market_summary"]["universe_size"] >= 0
     assert "on_deck" in data
     assert isinstance(data["on_deck"], list)
     assert "leaders_board" in data
@@ -466,6 +471,28 @@ def test_correlation_graceful_single_position():
     assert corr_single["pairs"] == []
     assert corr_single["concentration_warning"] is False
     assert corr_single["betas"].get("SINGLE_SYM") == 1.0
+
+
+def test_market_summary_hermetic_structure():
+    """
+    Assert market_summary exists, is a dict with universe_size >= 0,
+    and contains all required pulse fields without crashing on empty/missing cache.
+    """
+    summary = main.compute_market_summary([])
+    assert isinstance(summary, dict)
+    assert summary["universe_size"] >= 0
+    assert "source" in summary
+    assert "last_close" in summary
+    assert "prev_close" in summary
+    assert "chg_pct" in summary
+    assert "last_bar_date" in summary
+    assert "as_of_ist" in summary
+    assert "breadth_above_sma50" in summary
+    assert "breadth_above_sma200" in summary
+    assert "advancers" in summary
+    assert "decliners" in summary
+    assert "unchanged" in summary
+
 
 
 

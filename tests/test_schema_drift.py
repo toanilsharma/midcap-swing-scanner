@@ -23,6 +23,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "deals_stale",
     "landmines",
     "correlation",
+    "market_summary",
 }
 
 EXPECTED_SIGNAL_KEYS = {
