@@ -22,6 +22,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "inst_summary",
     "deals_stale",
     "landmines",
+    "correlation",
 }
 
 EXPECTED_SIGNAL_KEYS = {
@@ -44,6 +45,8 @@ EXPECTED_SIGNAL_KEYS = {
     "inst_footprint",
     "next_event",
     "event_blocked_reason",
+    "mtf_confluence",
+    "thesis_card",
 }
 
 EXPECTED_WATCHLIST_KEYS = {
@@ -68,6 +71,8 @@ EXPECTED_WATCHLIST_KEYS = {
     "inst_footprint",
     "next_event",
     "event_blocked_reason",
+    "mtf_confluence",
+    "thesis_card",
 }
 
 EXPECTED_POSITION_KEYS = {
@@ -81,6 +86,8 @@ EXPECTED_POSITION_KEYS = {
     "tags",
     "warn_event",
     "next_event",
+    "mtf_confluence",
+    "correlation",
 }
 
 EXPECTED_BACKTEST_TOP_LEVEL_KEYS = {

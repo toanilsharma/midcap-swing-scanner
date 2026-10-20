@@ -25,6 +25,43 @@ let _isViewingArchive = false;
 // SITE-WIDE TERMS & DEFINITIONS DICTIONARY
 // =====================================================================
 const TERMS = {
+  // P5 Garnish Features (Item #5)
+  "Multi-Timeframe Confluence": {
+    short: "Dual-timeframe confirmation requiring daily Stage-2 trend AND weekly Stage-2 structure (Weekly Close > SMA 30, rising).",
+    long: "Dual-timeframe alignment requiring both daily Stage-2 trend confirmation (Close > SMA 150/200, rising 200) AND weekly Stage-2 structure (Weekly Close > Weekly SMA 30, with Weekly SMA 30 rising). Filters out short-lived daily bounces inside broader weekly downtrends.",
+    where_used: "Near Buy, Open Positions, Help Glossary",
+    anchor: "glossary-mtf-confluence"
+  },
+  "MTF": {
+    short: "Multi-Timeframe Confluence: Daily Stage-2 + Weekly Stage-2 (Weekly Close > SMA 30, rising).",
+    long: "Dual-timeframe alignment requiring daily Stage-2 trend confirmation AND weekly Stage-2 structure (Weekly Close > Weekly SMA 30, with Weekly SMA 30 rising).",
+    where_used: "Near Buy, Open Positions, Help Glossary",
+    anchor: "glossary-mtf-confluence"
+  },
+  "Thesis Card": {
+    short: "4-line plain-English diagnostic snapshot of Grade, RS, Base maturity, Trend/Sector, Institutional footprint, Events, and Exit Plan.",
+    long: "A 4-line plain-English diagnostic snapshot summarizing setup grade, relative strength rating, base consolidation maturity, trend/sector health, institutional deal footprint, upcoming gap-events, and mechanical exit plan.",
+    where_used: "Near Buy (Expandable Row), Help Glossary",
+    anchor: "glossary-thesis-card"
+  },
+  "Correlation / Concentration": {
+    short: "Pairwise 60-day Pearson correlation analysis and beta to universe basket to detect hidden portfolio risk.",
+    long: "Pairwise 60-day daily return Pearson correlation analysis among active open holdings, combined with individual portfolio betas against the universe basket. Warns when any pairwise correlation exceeds 0.70 or more than 2 open positions concentrate in the same sector.",
+    where_used: "Open Positions, Help Glossary",
+    anchor: "glossary-correlation"
+  },
+  "Correlation": {
+    short: "60-day Pearson correlation between pairs of open positions. Values >0.70 indicate duplicate risk.",
+    long: "Pairwise 60-day daily return Pearson correlation analysis among active open holdings. Values above 0.70 indicate high co-movement and trigger concentration warnings.",
+    where_used: "Open Positions, Help Glossary",
+    anchor: "glossary-correlation"
+  },
+  "Concentration": {
+    short: "Portfolio risk warning triggered if any pairwise correlation exceeds 0.70 or >2 positions belong to the same sector.",
+    long: "Portfolio risk warning triggered if any pairwise correlation exceeds 0.70 or >2 positions belong to the same sector.",
+    where_used: "Open Positions, Help Glossary",
+    anchor: "glossary-correlation"
+  },
   // Rules-Replay Backtest & Tail Capture (P4)
   "Rules-Replay Backtest": {
     short: "Historical replay simulation engine running exact production live code (add_indicators, diagnose, risk sizing, and S2/S3 exits) from main.py.",
@@ -1578,7 +1615,10 @@ function applyWatchlistFiltering(watchlist, scanData) {
       <tr class="watchlist-row ${rowClass}" data-symbol="${item.Symbol}" title="Click to view 6-month chart & checklist">
         <td data-label="Symbol">
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;">
-            <strong>${item.Symbol}</strong>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <strong>${item.Symbol}</strong>
+              <span class="badge ${item.mtf_confluence ? 'badge-success' : 'badge-neutral'} term-lookup" data-term="Multi-Timeframe Confluence" style="font-size: 9.5px; padding: 2px 5px;" title="Multi-Timeframe Confluence (Daily Trend + Weekly Stage 2)">MTF ${item.mtf_confluence ? '✅' : '—'}</span>
+            </div>
             <span class="chevron" style="font-size: 10px; color: var(--text-dim); padding: 4px 8px;">▼</span>
           </div>
         </td>
@@ -2357,6 +2397,13 @@ async function toggleWatchlistDetail(row, item, scanData) {
             </div>
           </div>
 
+          <!-- P5 Thesis Card Block -->
+          ${item.thesis_card ? `
+          <div class="thesis-card-block" title="Thesis Card: Executive Diagnostic Blueprint">
+${item.thesis_card}
+          </div>
+          ` : ''}
+
           <!-- Chart Section -->
           <div class="detail-chart-section">
             <div class="chart-top-bar">
@@ -2866,7 +2913,13 @@ async function renderOpenPositions(positions) {
 
       rows.push(`
         <tr class="${rowClass}">
-          <td data-label="Symbol"><strong>${pos.symbol}</strong>${eventBadge}</td>
+          <td data-label="Symbol">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <strong>${pos.symbol}</strong>
+              <span class="badge ${pos.mtf_confluence ? 'badge-success' : 'badge-neutral'} term-lookup" data-term="Multi-Timeframe Confluence" style="font-size: 9.5px; padding: 2px 5px;" title="Multi-Timeframe Confluence (Daily Trend + Weekly Stage 2)">MTF ${pos.mtf_confluence ? '✅' : '—'}</span>
+              ${eventBadge}
+            </div>
+          </td>
         <td data-label="Inst">${posInstBadge}</td>
         <td data-label="Entry Date">${formatDate(pos.entry_date)}</td>
         <td data-label="Entry Price">${formatINR(entry)}</td>
@@ -2955,6 +3008,31 @@ async function renderOpenPositions(positions) {
     }
   }
 
+  // P5: Correlation Heatmap Card & Concentration Warning
+  const concentrationBanner = document.getElementById("openConcentrationBanner");
+  const corrCard = document.getElementById("openCorrelationCard");
+
+  let corrData = (_cachedScanData && _cachedScanData.correlation) ||
+                 (positions.length > 0 && positions[0].correlation) ||
+                 { pairs: [], betas: {}, concentration_warning: false };
+
+  if (concentrationBanner) {
+    if (corrData && corrData.concentration_warning) {
+      concentrationBanner.style.display = "block";
+    } else {
+      concentrationBanner.style.display = "none";
+    }
+  }
+
+  if (corrCard) {
+    if (positions.length < 2) {
+      corrCard.style.display = "none";
+    } else {
+      corrCard.style.display = "block";
+      renderCorrelationHeatmap(corrData, positions);
+    }
+  }
+
   tableBody.innerHTML = rows.join("");
 
   // Update Today's Plan with live open positions metrics
@@ -2962,6 +3040,92 @@ async function renderOpenPositions(positions) {
   if (_cachedScanData) {
     renderTodaysPlan(_cachedScanData, _cachedOpenPositions);
   }
+}
+
+// P5: Render Portfolio Correlation Heatmap & Mobile Chips
+function renderCorrelationHeatmap(corrData, positions) {
+  const container = document.getElementById("openCorrHeatmapContainer");
+  const badge = document.getElementById("openCorrStatusBadge");
+  if (!container) return;
+
+  const pairs = (corrData && corrData.pairs) || [];
+  const betas = (corrData && corrData.betas) || {};
+  const warning = corrData && corrData.concentration_warning;
+
+  if (badge) {
+    if (warning) {
+      badge.textContent = "⚠️ High Concentration";
+      badge.className = "badge badge-danger";
+    } else {
+      badge.textContent = "✅ Diversified";
+      badge.className = "badge badge-success";
+    }
+  }
+
+  const symbols = Array.from(new Set(positions.map(p => p.symbol)));
+  if (symbols.length < 2) {
+    container.innerHTML = `<div style="font-size: 12px; color: var(--text-dim); padding: 8px;">Single position open — zero cross-correlation risk.</div>`;
+    return;
+  }
+
+  // Helper to find corr between two symbols
+  function getCorr(s1, s2) {
+    if (s1 === s2) return 1.0;
+    const pair = pairs.find(p => (p.a === s1 && p.b === s2) || (p.a === s2 && p.b === s1));
+    return pair ? pair.corr : 0.0;
+  }
+
+  // 1. Desktop Matrix Table
+  let tableHtml = `<table class="corr-matrix-table"><thead><tr><th>Symbol</th>`;
+  symbols.forEach(s => {
+    const b = betas[s] !== undefined ? ` (β ${betas[s].toFixed(2)})` : "";
+    tableHtml += `<th>${escapeHtml(s)}<div style="font-size: 10px; font-weight: normal; color: var(--text-dim);">${b}</div></th>`;
+  });
+  tableHtml += `</tr></thead><tbody>`;
+
+  symbols.forEach(s1 => {
+    const b = betas[s1] !== undefined ? `β: ${betas[s1].toFixed(2)}` : "";
+    tableHtml += `<tr><th><strong>${escapeHtml(s1)}</strong><div style="font-size: 10px; font-weight: normal; color: var(--text-dim);">${b}</div></th>`;
+    symbols.forEach(s2 => {
+      if (s1 === s2) {
+        tableHtml += `<td class="corr-cell corr-diag">1.00</td>`;
+      } else {
+        const val = getCorr(s1, s2);
+        let cls = "corr-low";
+        if (val >= 0.70) cls = "corr-high";
+        else if (val >= 0.40) cls = "corr-med";
+        tableHtml += `<td class="corr-cell ${cls}" title="${s1} ↔ ${s2}: r = ${val.toFixed(2)}">${val.toFixed(2)}</td>`;
+      }
+    });
+    tableHtml += `</tr>`;
+  });
+  tableHtml += `</tbody></table>`;
+
+  // 2. Mobile Chip List
+  let chipHtml = `<div class="corr-chip-list">`;
+  if (pairs.length === 0) {
+    chipHtml += `<span style="font-size: 11px; color: var(--text-dim);">No correlation pairs calculated.</span>`;
+  } else {
+    pairs.forEach(p => {
+      let cls = "corr-low";
+      let dot = "🟢";
+      if (p.corr >= 0.70) {
+        cls = "corr-high";
+        dot = "🔴";
+      } else if (p.corr >= 0.40) {
+        cls = "corr-med";
+        dot = "🟡";
+      }
+      chipHtml += `
+        <div class="corr-pair-chip ${cls}" title="Correlation between ${p.a} and ${p.b}">
+          <span>${dot} <strong>${escapeHtml(p.a)} / ${escapeHtml(p.b)}</strong>: ${p.corr.toFixed(2)}</span>
+        </div>
+      `;
+    });
+  }
+  chipHtml += `</div>`;
+
+  container.innerHTML = tableHtml + chipHtml;
 }
 
 // 3. Render Tab: Trade History & Equity Curve

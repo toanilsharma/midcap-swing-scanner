@@ -66,6 +66,7 @@ def execute_full_scan_pipeline() -> Tuple[List[Dict[str, Any]], List[Dict[str, A
         "inst_summary": getattr(main, "_INST_SUMMARY", {"accumulation": 0, "churn": 0, "unknown": scanned_count}),
         "deals_stale": getattr(main, "_DEALS_STALE", True),
         "landmines": getattr(main, "_LANDMINES", landmines),
+        "correlation": main.compute_open_positions_correlation(open_pos),
     }
     with open(main.SCAN_RESULTS_FILE, "w", encoding="utf-8") as f:
         json.dump(scan_data, f, indent=2, ensure_ascii=False)
@@ -98,7 +99,7 @@ def test_hermetic_scan_unmuted(tmp_cwd: Any, spy_posts: list, pin_ist_time: Any,
 
     assert set(data.keys()) == {
         "updated_at", "market_ok", "signals", "watchlist", "on_deck",
-        "scanned_count", "leaders_board", "inst_summary", "deals_stale", "landmines"
+        "scanned_count", "leaders_board", "inst_summary", "deals_stale", "landmines", "correlation"
     }
     assert "on_deck" in data
     assert isinstance(data["on_deck"], list)
@@ -395,6 +396,77 @@ def test_hermetic_empty_events_no_crash(tmp_cwd: Any, monkeypatch: pytest.Monkey
     for wl in data["watchlist"]:
         assert wl["next_event"] is None
         assert wl["event_blocked_reason"] is None
+
+
+def test_p5_hermetic_garnish_fields(tmp_cwd: Any, monkeypatch: pytest.MonkeyPatch):
+    """
+    Hermetic test validating P5 garnish fields:
+    - 2-symbol fixture => correlation pairs has 0 or 1 entry without crashing
+    - thesis_card is always a non-empty string across signals, watchlist, and on-deck
+    - mtf_confluence is strictly boolean
+    """
+    monkeypatch.setenv("QUIET", "1")
+    monkeypatch.setenv("SKIP_GIT_PUSH", "1")
+
+    # Add 2 open positions to exercise pairwise correlation
+    open_positions = [
+        {"symbol": "TEXTBOOK", "entry_date": "2026-10-01", "entry_price": 200.0, "qty": 10},
+        {"symbol": "DOWNTREND", "entry_date": "2026-10-01", "entry_price": 200.0, "qty": 10},
+    ]
+    with open("open_positions.json", "w", encoding="utf-8") as f:
+        json.dump(open_positions, f)
+
+    signals, watchlist, count, mkt_ok = execute_full_scan_pipeline()
+
+    with open(main.SCAN_RESULTS_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # 1. Correlation checks
+    assert "correlation" in data
+    corr = data["correlation"]
+    assert "pairs" in corr
+    assert "betas" in corr
+    assert "concentration_warning" in corr
+    assert len(corr["pairs"]) in [0, 1], "2-symbol fixture should have 0 or 1 pair entry"
+    assert isinstance(corr["concentration_warning"], bool)
+
+    # 2. Signals garnish checks
+    assert len(data["signals"]) > 0
+    for sig in data["signals"]:
+        assert isinstance(sig["thesis_card"], str)
+        assert len(sig["thesis_card"].strip()) > 0
+        assert isinstance(sig["mtf_confluence"], bool)
+
+    # 3. Watchlist garnish checks
+    assert len(data["watchlist"]) > 0
+    for wl in data["watchlist"]:
+        assert isinstance(wl["thesis_card"], str)
+        assert len(wl["thesis_card"].strip()) > 0
+        assert isinstance(wl["mtf_confluence"], bool)
+
+
+def test_correlation_graceful_single_position():
+    """
+    1 open position => pairs [], warning False (no divide-by-zero).
+    Also checks 0 open positions.
+    """
+    # 0 positions
+    corr_empty = main.compute_open_positions_correlation([])
+    assert corr_empty["pairs"] == []
+    assert corr_empty["concentration_warning"] is False
+
+    # 1 position
+    single_pos = [{
+        "symbol": "SINGLE_SYM",
+        "entry_date": "2026-10-15",
+        "entry_price": 500.0,
+        "qty": 20,
+    }]
+    corr_single = main.compute_open_positions_correlation(single_pos)
+    assert corr_single["pairs"] == []
+    assert corr_single["concentration_warning"] is False
+    assert corr_single["betas"].get("SINGLE_SYM") == 1.0
+
 
 
 

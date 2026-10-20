@@ -336,6 +336,21 @@
       <!-- SECTOR CONCENTRATION ALERT BANNER (Item #6) -->
       <div id="openPositionsSectorAlert" class="positions-alert-banner" style="display: none;"></div>
 
+      <!-- P5 CORRELATION & CONCENTRATION WARNING (Item #4) -->
+      <div id="openConcentrationBanner" class="alert-banner alert-danger" style="display: none; margin-bottom: 16px; padding: 12px 18px; border-radius: var(--radius); background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; font-size: 13px;">
+        <strong>⚠️ Concentration Warning:</strong> High portfolio correlation (&gt;0.70) or more than 2 positions in the same sector. Consider staggering stops or deferring new correlated entries.
+      </div>
+
+      <div id="openCorrelationCard" class="card" style="display: none; margin-bottom: 20px; padding: 16px 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <h4 style="font-size: 15px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px;">
+            <span>🧮</span> <span class="term-lookup" data-term="Correlation / Concentration">Portfolio Correlation &amp; Beta Heatmap</span>
+          </h4>
+          <span id="openCorrStatusBadge" class="badge badge-success" style="font-size: 11px;">Diversified</span>
+        </div>
+        <div id="openCorrHeatmapContainer" class="corr-heatmap-container"></div>
+      </div>
+
       <div class="table-scroll" tabindex="0">
         <table id="openPositionsTable">
           <thead>
@@ -1375,6 +1390,30 @@
                 <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Proves the core small-cap/midcap thesis: momentum leaders produce asymmetric right tails (3R to 8R+ winners) that generate the bulk of long-term trading expectancy.</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Delta = sum(trailed_r - capped_r) on winning trades</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">If a stock runs to +4.5R before breaching the 20-day EMA, tail capture records +2.5R of surplus profit over a flat 2R target.</span></div>
+              </div>
+
+              <div class="glossary-card" id="glossary-mtf-confluence">
+                <div class="glossary-card-header"><span class="glossary-term">Multi-Timeframe Confluence</span><span class="glossary-category">Trend Quality</span></div>
+                <p class="glossary-meaning">Dual-timeframe alignment requiring both daily Stage-2 trend confirmation (Close &gt; SMA 150/200, rising 200) AND weekly Stage-2 structure (Weekly Close &gt; Weekly SMA 30, with Weekly SMA 30 rising).</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Filters out daily counter-trend rallies occurring inside larger weekly markdown trends. Guarantees the big institutional weekly money flow is at our back.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">daily TREND_OK == True AND w_Close &gt; w_SMA30 AND w_SMA30[-1] &gt;= w_SMA30[-2]</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">Displays an MTF ✅ badge on Watchlist and Open Positions when both daily and weekly trend criteria align.</span></div>
+              </div>
+
+              <div class="glossary-card" id="glossary-thesis-card">
+                <div class="glossary-card-header"><span class="glossary-term">Thesis Card</span><span class="glossary-category">Trade Diagnostics</span></div>
+                <p class="glossary-meaning">A plain-English 4-line diagnostic snapshot summarizing setup grade, relative strength rating, base consolidation maturity, trend/sector health, institutional deal footprint, upcoming gap-events, and mechanical exit plan.</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Provides an instant, zero-interpretation executive summary above candidate charts so traders know exactly why a stock qualifies without checking raw numerical tables.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Deterministic formatting of Grade, RS, Base, Inst, Event, and S2/S3 exit plan</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">Rendered as a pre-formatted monospace card block above 6-month daily mini charts when expanding a watchlist row.</span></div>
+              </div>
+
+              <div class="glossary-card" id="glossary-correlation">
+                <div class="glossary-card-header"><span class="glossary-term">Correlation / Concentration</span><span class="glossary-category">Portfolio Risk</span></div>
+                <p class="glossary-meaning">Pairwise 60-day daily return Pearson correlation analysis among active open holdings, combined with individual portfolio betas against the universe basket and sector crowding checks.</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Holding 4 stocks with correlation &gt;0.70 is essentially holding 1 oversized, levered position. Prevents disguised risk concentration where one sector or macro shock wipes out multiple trades.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Concentration warning triggers if ANY pairwise corr &gt; 0.70 OR &gt;2 positions in the same sector</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">Displays a correlation heatmap matrix in Open Positions and flashes a red ⚠️ Concentration banner when risk limits are breached.</span></div>
               </div>
             </div>
           </article>
