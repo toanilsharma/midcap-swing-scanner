@@ -1,0 +1,30 @@
+{
+  "COFORGE": [
+    {
+      "type": "RECORD",
+      "date": "2026-10-25",
+      "note": "Interim Dividend Record Date"
+    }
+  ],
+  "FEDERALBNK": [
+    {
+      "type": "AGM",
+      "date": "2026-11-15",
+      "note": "Annual General Meeting"
+    }
+  ],
+  "LAURUSLABS": [
+    {
+      "type": "DIVIDEND",
+      "date": "2026-11-20",
+      "note": "Dividend Payout Date"
+    }
+  ],
+  "NYKAA": [
+    {
+      "type": "LOCKIN",
+      "date": "2026-11-10",
+      "note": "Shareholder Lock-in Expiry"
+    }
+  ]
+}

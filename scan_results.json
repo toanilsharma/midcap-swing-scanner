@@ -22,7 +22,13 @@
       "rs_rating": null,
       "base_maturity": 4,
       "days_in_base": 59,
-      "inst_footprint": "accumulation"
+      "inst_footprint": "accumulation",
+      "next_event": {
+        "type": "DIVIDEND",
+        "date": "2026-11-20",
+        "days_to_event": 31
+      },
+      "event_blocked_reason": null
     },
     {
       "Symbol": "FEDERALBNK",
@@ -43,7 +49,13 @@
       "rs_rating": null,
       "base_maturity": 1,
       "days_in_base": 11,
-      "inst_footprint": "accumulation"
+      "inst_footprint": "accumulation",
+      "next_event": {
+        "type": "AGM",
+        "date": "2026-11-15",
+        "days_to_event": 26
+      },
+      "event_blocked_reason": null
     },
     {
       "Symbol": "NYKAA",
@@ -64,7 +76,13 @@
       "rs_rating": null,
       "base_maturity": 1,
       "days_in_base": 11,
-      "inst_footprint": "unknown"
+      "inst_footprint": "unknown",
+      "next_event": {
+        "type": "LOCKIN",
+        "date": "2026-11-10",
+        "days_to_event": 21
+      },
+      "event_blocked_reason": null
     },
     {
       "Symbol": "COFORGE",
@@ -85,7 +103,13 @@
       "rs_rating": null,
       "base_maturity": 4,
       "days_in_base": 59,
-      "inst_footprint": "unknown"
+      "inst_footprint": "unknown",
+      "next_event": {
+        "type": "RECORD",
+        "date": "2026-10-25",
+        "days_to_event": 5
+      },
+      "event_blocked_reason": "Upcoming RECORD in 5d (2026-10-25)"
     }
   ],
   "on_deck": [],
@@ -96,5 +120,13 @@
     "churn": 0,
     "unknown": 0
   },
-  "deals_stale": false
+  "deals_stale": false,
+  "landmines": [
+    {
+      "symbol": "COFORGE",
+      "type": "RECORD",
+      "date": "2026-10-25",
+      "days_to_event": 5
+    }
+  ]
 }

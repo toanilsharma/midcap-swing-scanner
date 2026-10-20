@@ -59,10 +59,14 @@ TG_OFFSET_FILE = "tg_offset.txt"
 ALERT_SETTINGS_FILE = "alert_settings.json"
 SCAN_RESULTS_FILE = "scan_results.json"
 DEALS_FILE = "deals.json"
+EVENTS_FILE = "events.json"
+EARNINGS_BLACKOUT_DAYS = 7
 
 _DEALS: Dict[str, Any] = {}
 _DEALS_STALE: bool = False
 _INST_SUMMARY: Dict[str, int] = {"accumulation": 0, "churn": 0, "unknown": 0}
+_LANDMINES: List[Dict[str, Any]] = []
+_EARNINGS_CACHE: Dict[str, Optional[str]] = {}
 
 IST_TZ = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 
@@ -1028,6 +1032,215 @@ def classify_inst_footprint(
 
 
 # =====================================================================
+# 5c) EVENT RADAR & GAP RISK
+# =====================================================================
+def load_events() -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Load manual corporate events from events.json.
+    FAIL-OPEN HARD: Missing, corrupt, or unreadable file returns {}.
+    """
+    if not os.path.exists(EVENTS_FILE):
+        return {}
+    try:
+        with open(EVENTS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, dict):
+                return data
+    except Exception as exc:
+        print(f"Warning: Failed to load {EVENTS_FILE} ({exc})")
+    return {}
+
+
+def fetch_next_earnings_date(symbol: str) -> Optional[str]:
+    """
+    Attempt auto-fetch of next earnings date from Yahoo Finance calendar.
+    FAIL-OPEN: returns None on any network, rate-limit, or parsing error.
+    """
+    global _EARNINGS_CACHE
+    if symbol in _EARNINGS_CACHE:
+        return _EARNINGS_CACHE[symbol]
+
+    try:
+        ticker = yf.Ticker(symbol)
+        cal = ticker.calendar
+        if cal is not None:
+            if isinstance(cal, dict):
+                ed = cal.get("Earnings Date")
+                if ed:
+                    if isinstance(ed, list) and len(ed) > 0:
+                        first_ed = ed[0]
+                        val = first_ed.strftime("%Y-%m-%d") if hasattr(first_ed, "strftime") else str(first_ed)[:10]
+                        _EARNINGS_CACHE[symbol] = val
+                        return val
+                    val = ed.strftime("%Y-%m-%d") if hasattr(ed, "strftime") else str(ed)[:10]
+                    _EARNINGS_CACHE[symbol] = val
+                    return val
+            elif isinstance(cal, pd.DataFrame) and not cal.empty:
+                if "Earnings Date" in cal.index:
+                    vals = cal.loc["Earnings Date"].dropna().tolist()
+                    if vals:
+                        first_ed = vals[0]
+                        val = first_ed.strftime("%Y-%m-%d") if hasattr(first_ed, "strftime") else str(first_ed)[:10]
+                        _EARNINGS_CACHE[symbol] = val
+                        return val
+    except Exception:
+        pass
+
+    _EARNINGS_CACHE[symbol] = None
+    return None
+
+
+def get_symbol_events(symbol: str) -> List[Dict[str, Any]]:
+    """
+    Merge manual events from events.json and auto-fetched earnings into one list.
+    Returns list of event dicts: {"type": str, "date": "YYYY-MM-DD", "note": str}.
+    """
+    clean_sym = symbol[:-3] if symbol.endswith(".NS") else symbol
+    all_manual = load_events()
+    sym_events: List[Dict[str, Any]] = []
+
+    # Check clean_sym, symbol with .NS, and raw symbol
+    raw_list = all_manual.get(clean_sym) or all_manual.get(f"{clean_sym}.NS") or all_manual.get(symbol) or []
+    for ev in raw_list:
+        if isinstance(ev, dict) and "date" in ev and "type" in ev:
+            sym_events.append({
+                "type": str(ev.get("type", "OTHER")).upper(),
+                "date": str(ev["date"]),
+                "note": str(ev.get("note", ""))
+            })
+
+    # Auto earnings from Yahoo
+    earnings_date = fetch_next_earnings_date(symbol)
+    if earnings_date:
+        has_earnings = any(e.get("type") == "EARNINGS" and e.get("date") == earnings_date for e in sym_events)
+        if not has_earnings:
+            sym_events.append({
+                "type": "EARNINGS",
+                "date": earnings_date,
+                "note": "Quarterly Financial Results"
+            })
+
+    return sym_events
+
+
+def compute_next_event(symbol: str, ref_date: Optional[datetime.date] = None) -> Optional[Dict[str, Any]]:
+    """
+    Per symbol compute next_event {type, date, days_to_event}
+    (nearest future event where days_to_event >= 0; None if none).
+    """
+    if ref_date is None:
+        ref_date = datetime.datetime.now(IST_TZ).date()
+
+    events = get_symbol_events(symbol)
+    future_events = []
+    for ev in events:
+        try:
+            ev_date = datetime.datetime.strptime(ev["date"], "%Y-%m-%d").date()
+            diff = (ev_date - ref_date).days
+            if diff >= 0:
+                future_events.append({
+                    "type": ev["type"],
+                    "date": ev["date"],
+                    "days_to_event": int(diff)
+                })
+        except Exception:
+            continue
+
+    if not future_events:
+        return None
+
+    future_events.sort(key=lambda x: (x["days_to_event"], x["date"]))
+    return future_events[0]
+
+
+def check_event_entry_blocked(symbol: str) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
+    """
+    ENTRY gate: if days_to_event <= EARNINGS_BLACKOUT_DAYS for ANY gap-event type
+    (earnings/lockin/AGM/record), BLOCK the entry.
+    Unknown event (None) => allowed (not blocked).
+    Returns (is_blocked, blocked_reason, next_event).
+    """
+    next_ev = compute_next_event(symbol)
+    if next_ev and next_ev.get("days_to_event") is not None:
+        days = next_ev["days_to_event"]
+        if 0 <= days <= EARNINGS_BLACKOUT_DAYS:
+            reason = f"Upcoming {next_ev['type']} in {days}d ({next_ev['date']})"
+            return True, reason, next_ev
+    return False, None, next_ev
+
+
+def evaluate_open_positions_events() -> Tuple[List[Dict[str, Any]], List[str]]:
+    """
+    OPEN-position WARN: if a held symbol has days_to_event <= 3,
+    set warn_event=True on the position record.
+    Returns (positions, warn_lines).
+    INFORMATIONAL ONLY: Never modifies exit math, stop, target, or time-stop.
+    """
+    positions = load_open_positions()
+    if not positions:
+        return [], []
+
+    warn_lines: List[str] = []
+    updated = False
+    for pos in positions:
+        sym = pos.get("symbol", "")
+        next_ev = compute_next_event(sym)
+        pos["next_event"] = next_ev
+        if next_ev and next_ev.get("days_to_event") is not None and 0 <= next_ev["days_to_event"] <= 3:
+            pos["warn_event"] = True
+            clean_sym = sym[:-3] if sym.endswith(".NS") else sym
+            warn_lines.append(f"🔔 {clean_sym} event ({next_ev['type']}) in {next_ev['days_to_event']} days — review hold")
+        else:
+            pos["warn_event"] = False
+        updated = True
+
+    if updated:
+        save_open_positions(positions)
+
+    return positions, warn_lines
+
+
+def compute_landmines(
+    watchlist: List[Dict[str, Any]],
+    on_deck: List[Dict[str, Any]],
+    open_positions: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """
+    Top-level landmines: list of {symbol, type, date, days_to_event}
+    for any watchlist, on_deck, or open position symbol with an event within 7 days,
+    sorted ascending by days_to_event.
+    """
+    candidate_symbols = set()
+    for w in watchlist:
+        s = w.get("Symbol") or w.get("symbol")
+        if s:
+            candidate_symbols.add(s)
+    for o in on_deck:
+        s = o.get("symbol") or o.get("Symbol")
+        if s:
+            candidate_symbols.add(s)
+    for p in open_positions:
+        s = p.get("symbol") or p.get("Symbol")
+        if s:
+            candidate_symbols.add(s)
+
+    landmines: List[Dict[str, Any]] = []
+    for sym in sorted(candidate_symbols):
+        next_ev = compute_next_event(sym)
+        if next_ev and next_ev.get("days_to_event") is not None and 0 <= next_ev["days_to_event"] <= 7:
+            clean_sym = sym[:-3] if sym.endswith(".NS") else sym
+            landmines.append({
+                "symbol": clean_sym,
+                "type": next_ev["type"],
+                "date": next_ev["date"],
+                "days_to_event": next_ev["days_to_event"],
+            })
+
+    landmines.sort(key=lambda x: (x["days_to_event"], x["symbol"]))
+    return landmines
+
+
+# =====================================================================
 # 6) MARKET REGIME FILTER
 # =====================================================================
 def get_cached_index_df() -> Optional[pd.DataFrame]:
@@ -1192,6 +1405,12 @@ def scan_symbol(symbol: str) -> Optional[Dict[str, Any]]:
         else:
             rs_val = _RS_RATINGS.get(symbol[:-3])
 
+    # 7) Event blackout filter: blocks new entry if known event within EARNINGS_BLACKOUT_DAYS
+    is_event_blocked, event_blocked_reason, next_ev = check_event_entry_blocked(symbol)
+    if is_event_blocked:
+        print(f"Entry blocked for {symbol}: {event_blocked_reason}")
+        return None
+
     global _DEALS, _DEALS_STALE
     if not _DEALS and not _DEALS_STALE:
         _DEALS, _DEALS_STALE = load_deals()
@@ -1215,6 +1434,8 @@ def scan_symbol(symbol: str) -> Optional[Dict[str, Any]]:
         "base_maturity": base_mat,
         "days_in_base": days_base,
         "inst_footprint": inst_fp,
+        "next_event": next_ev,
+        "event_blocked_reason": None,
     }
 
 
@@ -1281,10 +1502,11 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
     Execute the scan across all candidate symbols.
     Returns (signals, scanned_count, is_market_ok).
     """
-    global _LAST_ON_DECK, _RS_RATINGS, _LEADERS_BOARD, _INST_SUMMARY, _DEALS, _DEALS_STALE
+    global _LAST_ON_DECK, _RS_RATINGS, _LEADERS_BOARD, _INST_SUMMARY, _DEALS, _DEALS_STALE, _LANDMINES
     _LAST_ON_DECK = []
     _RS_RATINGS = {}
     _LEADERS_BOARD = []
+    _LANDMINES = []
     _DEALS, _DEALS_STALE = load_deals()
     _INST_SUMMARY = {"accumulation": 0, "churn": 0, "unknown": 0}
     on_deck: List[Dict[str, Any]] = []
@@ -1340,6 +1562,7 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
                             r_val = round(float(last_row["RSI14"]), 1) if ("RSI14" in last_row and not pd.isna(last_row["RSI14"])) else None
                             base_mat, days_base = compute_base_maturity(df_sym)
                             inst_fp = classify_inst_footprint(sym, df_sym, _DEALS, _DEALS_STALE)
+                            is_ev_blocked, ev_blocked_reason, next_ev = check_event_entry_blocked(sym)
                             on_deck.append({
                                 "symbol": sym,
                                 "close": round(l_close, 2),
@@ -1352,6 +1575,8 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
                                 "base_maturity": base_mat,
                                 "days_in_base": days_base,
                                 "inst_footprint": inst_fp,
+                                "next_event": next_ev,
+                                "event_blocked_reason": ev_blocked_reason,
                             })
         except Exception as exc:
             print(f"Diagnostic on_deck check error for {sym}: {exc}")
@@ -1396,6 +1621,10 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
     on_deck = on_deck[:5]
     _LAST_ON_DECK = on_deck
 
+    # Evaluate open positions and compute landmines
+    open_pos, warn_lines = evaluate_open_positions_events()
+    _LANDMINES = compute_landmines([], on_deck, open_pos)
+
     # Identify accumulation symbols among signals and on-deck
     acc_syms = []
     for sig in signals:
@@ -1415,6 +1644,8 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
     if acc_syms:
         inst_line = f"🏦 Institutional: {len(acc_syms)} accumulation among signals/on-deck (e.g. {', '.join(acc_syms[:2])})."
 
+    warn_block = f"\n\n{chr(10).join(warn_lines)}" if warn_lines else ""
+
     if messages:
         joined_message = "\n\n----\n\n".join(messages)
         if len(on_deck) > 0:
@@ -1425,6 +1656,8 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
                 joined_message += f"\n\n----\n\n🎯 On Deck (near misses): {od_summary}."
         if inst_line:
             joined_message += f"\n\n{inst_line}"
+        if warn_lines:
+            joined_message += warn_block
         if is_digest:
             _DIGEST_MESSAGES.append(("scan", joined_message))
         else:
@@ -1434,13 +1667,13 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
         if len(on_deck) > 0:
             od_summary = format_on_deck_summary(on_deck, 3)
             if is_digest:
-                digest_msg = f"No new midcap swing signals today.\n\n🎯 Near Misses:\n{od_summary}.{extra_inst}"
+                digest_msg = f"No new midcap swing signals today.\n\n🎯 Near Misses:\n{od_summary}.{extra_inst}{warn_block}"
                 _DIGEST_MESSAGES.append(("scan", digest_msg))
             else:
-                evening_msg = f"No new midcap swing signals today.\n\n🎯 On Deck (near misses): {od_summary}.{extra_inst}"
+                evening_msg = f"No new midcap swing signals today.\n\n🎯 On Deck (near misses): {od_summary}.{extra_inst}{warn_block}"
                 send_telegram(evening_msg, kind="proactive", msg_type="scan")
         elif SEND_NO_SIGNAL_MESSAGE:
-            no_sig_msg = f"No new midcap swing signals today.{extra_inst}"
+            no_sig_msg = f"No new midcap swing signals today.{extra_inst}{warn_block}"
             if is_digest:
                 _DIGEST_MESSAGES.append(("scan", no_sig_msg))
             else:
@@ -1535,6 +1768,7 @@ def diagnose(symbol: str) -> Optional[Dict[str, Any]]:
     if not _DEALS and not _DEALS_STALE:
         _DEALS, _DEALS_STALE = load_deals()
     inst_fp = classify_inst_footprint(symbol, df, _DEALS, _DEALS_STALE)
+    is_ev_blocked, ev_blocked_reason, next_ev = check_event_entry_blocked(symbol)
 
     return {
         "Symbol": sym_name,
@@ -1556,6 +1790,8 @@ def diagnose(symbol: str) -> Optional[Dict[str, Any]]:
         "base_maturity": base_mat,
         "days_in_base": days_base,
         "inst_footprint": inst_fp,
+        "next_event": next_ev,
+        "event_blocked_reason": ev_blocked_reason,
     }
 
 
@@ -2434,14 +2670,18 @@ def git_commit_and_push(files: List[str], commit_message: str) -> bool:
 
 def git_commit_scan_results() -> None:
     """
-    Commit and push scan_results.json and deals.json to origin main.
+    Commit and push scan_results.json, deals.json, and events.json to origin main.
     Skips if SKIP_GIT_PUSH environment variable is set to '1'.
     Fails safely so git errors never break the scanner.
     """
     files_to_commit = [SCAN_RESULTS_FILE]
     if os.path.exists(DEALS_FILE):
         files_to_commit.append(DEALS_FILE)
-    git_commit_and_push(files_to_commit, "update scan results and deals [skip ci]")
+    if os.path.exists(EVENTS_FILE):
+        files_to_commit.append(EVENTS_FILE)
+    if os.path.exists(OPEN_POSITIONS_FILE):
+        files_to_commit.append(OPEN_POSITIONS_FILE)
+    git_commit_and_push(files_to_commit, "update scan results, deals, and events [skip ci]")
 
 
 def git_commit_listener_updates(commit_message: str = "Auto-update Telegram offset and journal [skip ci]") -> None:
@@ -2469,6 +2709,9 @@ if __name__ == "__main__":
 
         # 2. Build watchlist candidates & send Telegram alert
         watchlist_candidates = get_watchlist_candidates()
+        open_pos, warn_lines = evaluate_open_positions_events()
+        _LANDMINES = compute_landmines(watchlist_candidates, _LAST_ON_DECK, open_pos)
+
         if SEND_WATCHLIST:
             wl_text = build_watchlist_text(watchlist_candidates)
             if is_digest:
@@ -2504,6 +2747,7 @@ if __name__ == "__main__":
             "leaders_board": _LEADERS_BOARD,
             "inst_summary": _INST_SUMMARY,
             "deals_stale": _DEALS_STALE,
+            "landmines": _LANDMINES,
         }
 
         with open(SCAN_RESULTS_FILE, "w", encoding="utf-8") as f:

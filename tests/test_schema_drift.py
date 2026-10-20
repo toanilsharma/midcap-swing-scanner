@@ -21,6 +21,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "leaders_board",
     "inst_summary",
     "deals_stale",
+    "landmines",
 }
 
 EXPECTED_SIGNAL_KEYS = {
@@ -41,6 +42,8 @@ EXPECTED_SIGNAL_KEYS = {
     "base_maturity",
     "days_in_base",
     "inst_footprint",
+    "next_event",
+    "event_blocked_reason",
 }
 
 EXPECTED_WATCHLIST_KEYS = {
@@ -63,6 +66,21 @@ EXPECTED_WATCHLIST_KEYS = {
     "base_maturity",
     "days_in_base",
     "inst_footprint",
+    "next_event",
+    "event_blocked_reason",
+}
+
+EXPECTED_POSITION_KEYS = {
+    "symbol",
+    "entry_date",
+    "entry_price",
+    "qty",
+    "stop",
+    "planned_stop",
+    "target",
+    "tags",
+    "warn_event",
+    "next_event",
 }
 
 

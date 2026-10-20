@@ -22,6 +22,31 @@ let _isViewingArchive = false;
 // SITE-WIDE TERMS & DEFINITIONS DICTIONARY
 // =====================================================================
 const TERMS = {
+  // Event Radar & Gap Risk
+  "Event Radar / Gap Risk": {
+    short: "Pre-event entry blackout rule and holding warning to prevent catastrophic overnight gap-down risk from earnings, AGM, lock-in, and record dates.",
+    long: "The Event Radar tracks binary catalyst events (earnings releases, promoter lock-in expiries, AGMs, record dates, and dividend distributions). Rule-safe guardrail: an upcoming event within 7 days BLOCKS new trade entries (extending the Minervini S2 earnings blackout to all gap events). For existing open holdings, it warns when an event is within 3 days (🔔 alert) to review stop placement, but NEVER automatically exits a holding.",
+    where_used: "Near Buy, Open Positions, Landmines Panel, Help Glossary",
+    anchor: "glossary-eventradar"
+  },
+  "Event Radar": {
+    short: "Pre-event entry blackout and holding warning system for binary catalysts.",
+    long: "Tracks binary catalyst events (earnings releases, lock-in expiries, AGMs, and record dates). Blocks new entries within 7 days and warns on held positions within 3 days.",
+    where_used: "Near Buy, Open Positions, Landmines Panel, Help Glossary",
+    anchor: "glossary-eventradar"
+  },
+  "Landmines": {
+    short: "Upcoming binary gap-risk events within 7 days across watchlist and open holdings.",
+    long: "High-risk upcoming events within 7 days that block new entries or require defensive monitoring on existing open positions.",
+    where_used: "Near Buy (Landmines Panel), Help Glossary",
+    anchor: "glossary-eventradar"
+  },
+  "Gap Risk": {
+    short: "Overnight price discontinuity risk from binary corporate catalysts that skip stop losses.",
+    long: "The risk that a stock opens significantly lower than its previous close due to unexpected quarterly earnings, promoter share unlock, or corporate announcements, bypassing technical stop-loss triggers.",
+    where_used: "Help Glossary, Event Radar",
+    anchor: "glossary-eventradar"
+  },
   // On Deck Near Misses
   "On Deck / Near Miss": {
     short: "Stocks passing trend/setup/sector gates but failing volume or price-breakout confirmation. Not tradable yet, but prime candidates for next session's watch.",
@@ -607,8 +632,33 @@ function renderTodaysPlan(scanData, openPositions) {
     });
   }
 
+  // 3b. Event Radar warnings on open positions (hold review)
+  let eventWarnCount = 0;
+  if (Array.isArray(currentPositions) && currentPositions.length > 0) {
+    currentPositions.forEach(pos => {
+      const sym = (pos.symbol || pos.Symbol || "Position").replace(".NS", "");
+      if (pos.warn_event || (pos.next_event && pos.next_event.days_to_event <= 3)) {
+        const evType = (pos.next_event && pos.next_event.type) || "EVENT";
+        const evDays = pos.next_event ? pos.next_event.days_to_event : "≤3";
+        bullets.push(`🔔 ${sym} event (${evType}) in ${evDays} days — review hold.`);
+        positionActions++;
+        eventWarnCount++;
+      }
+    });
+  }
+
+  // 3c. Event Radar entry blocks on watchlist
+  const blockedEntries = (watchlist || []).filter(item => item.event_blocked_reason);
+  blockedEntries.forEach(item => {
+    const sym = (item.Symbol || "").replace(".NS", "");
+    const ev = item.next_event;
+    const evType = ev ? ev.type : "EVENT";
+    const evDays = ev ? ev.days_to_event : "≤7";
+    bullets.push(`⚠️ ${sym} event (${evType}) in ${evDays} days — entry blocked (gap risk).`);
+  });
+
   // 4. Fallback if nothing applies
-  if (topGradeItems.length === 0 && positionActions === 0) {
+  if (topGradeItems.length === 0 && positionActions === 0 && blockedEntries.length === 0) {
     bullets.push("No action needed. Review again after tomorrow's 4:15 PM scan.");
   }
 
@@ -738,8 +788,70 @@ function renderNearBuy(scanData, openPositions) {
   renderLeadersBoard(scanData.leaders_board || []);
   applyWatchlistFiltering(watchlist, scanData);
 
+  // Render Landmines (Event Radar)
+  renderLandmines(scanData);
+
   // Render On Deck (Near Misses) Section
   renderOnDeck(scanData);
+}
+
+// =====================================================================
+// GLOBAL LANDMINES PANEL (EVENT RADAR)
+// =====================================================================
+function renderLandmines(scanData) {
+  const panel = document.getElementById("landminesPanel");
+  const grid = document.getElementById("landminesGrid");
+  const badge = document.getElementById("landminesCountBadge");
+  const toggle = document.getElementById("landminesToggle");
+  const body = document.getElementById("landminesBody");
+  const chevron = document.getElementById("landminesChevron");
+
+  if (!panel || !grid) return;
+
+  const landmines = (scanData && scanData.landmines) || [];
+  if (landmines.length === 0) {
+    panel.style.display = "none";
+    return;
+  }
+
+  panel.style.display = "block";
+  if (badge) badge.textContent = `${landmines.length} Event${landmines.length === 1 ? "" : "s"}`;
+
+  grid.innerHTML = landmines.map(item => {
+    const cleanSym = (item.symbol || "").replace(".NS", "");
+    const isBlocked = item.days_to_event <= 7;
+    const isWarn = item.days_to_event <= 3;
+    const badgeClass = isWarn ? "badge-danger" : "badge-warning";
+    const dayText = item.days_to_event === 0 ? "TODAY" : `in ${item.days_to_event}d`;
+    const statusPill = isBlocked
+      ? `<span class="badge badge-danger">Entry Blocked</span>`
+      : `<span class="badge badge-neutral">Monitoring</span>`;
+
+    return `
+      <div class="landmine-item">
+        <div class="landmine-top">
+          <span class="landmine-symbol">${cleanSym}</span>
+          <span class="badge ${badgeClass}">${item.type || "EVENT"}</span>
+        </div>
+        <div class="landmine-mid">
+          <span class="landmine-timing">⚠️ ${dayText}</span>
+          <span class="landmine-date">${item.date || ""}</span>
+        </div>
+        <div class="landmine-bottom">
+          ${statusPill}
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  if (toggle && !toggle._hasListener) {
+    toggle._hasListener = true;
+    toggle.addEventListener("click", () => {
+      const isCollapsed = body.style.display === "none";
+      body.style.display = isCollapsed ? "block" : "none";
+      if (chevron) chevron.textContent = isCollapsed ? "▼" : "▶";
+    });
+  }
 }
 
 // =====================================================================
@@ -2025,6 +2137,69 @@ async function toggleWatchlistDetail(row, item, scanData) {
             <div id="earnings-warn-${symbol}"></div>
           </div>
 
+          <!-- Event Radar Timeline Strip (Item #7) -->
+          ${(() => {
+            const nextEv = item.next_event;
+            const isBlocked = Boolean(item.event_blocked_reason);
+            if (nextEv) {
+              const evDays = Math.max(0, parseInt(nextEv.days_to_event, 10) || 0);
+              const pinPct = Math.min(100, Math.max(0, (evDays / 30) * 100));
+              const evType = nextEv.type || "EVENT";
+              const evDate = nextEv.date || "";
+              const pinClass = isBlocked ? "marker-blocked" : (evDays <= 14 ? "marker-warn" : "marker-safe");
+              const statusBadge = isBlocked
+                ? `<span class="badge badge-danger">🚫 Entry Blocked (≤7d blackout)</span>`
+                : `<span class="badge badge-success">🟢 Safe Entry Window (>7d away)</span>`;
+
+              return `
+                <div class="event-timeline-card">
+                  <div class="event-timeline-header">
+                    <div class="event-timeline-title">
+                      <span>🗓️</span>
+                      <strong>Event Radar</strong>
+                      <span class="badge ${isBlocked ? 'badge-danger' : 'badge-neutral'}">${evType}</span>
+                      <span class="event-date-text">${evDate} (in <strong>${evDays} day${evDays === 1 ? '' : 's'}</strong>)</span>
+                    </div>
+                    <div>${statusBadge}</div>
+                  </div>
+                  <div class="event-timeline-track-wrap" title="30-day Event Horizon: 0-7d is the entry blackout zone.">
+                    <div class="event-timeline-track">
+                      <!-- 0-7d shaded blackout band (7/30 = ~23.3%) -->
+                      <div class="event-timeline-blackout" style="width: 23.3%;" title="S2 7-Day Blackout Window: New entries strictly blocked">
+                        <span class="blackout-label">🚫 7d Blackout</span>
+                      </div>
+                      <!-- Event marker pin -->
+                      <div class="event-timeline-marker ${pinClass}" style="left: ${pinPct}%;" title="${evType} on ${evDate} (${evDays}d)">
+                        <div class="marker-pin">📍</div>
+                        <div class="marker-tooltip">${evType} (${evDays}d)</div>
+                      </div>
+                    </div>
+                    <div class="event-timeline-axis">
+                      <span>Today (T+0)</span>
+                      <span style="left: 23.3%; position: absolute;">T+7d</span>
+                      <span style="left: 50%; position: absolute;">T+15d</span>
+                      <span style="right: 0; position: absolute;">T+30d</span>
+                    </div>
+                  </div>
+                </div>
+              `;
+            } else {
+              return `
+                <div class="event-timeline-card clean-runway">
+                  <div class="event-timeline-header">
+                    <div class="event-timeline-title">
+                      <span>🗓️</span>
+                      <strong>Event Radar</strong>
+                      <span class="badge badge-success">Clear Runway</span>
+                      <span class="event-date-text">No earnings, AGM, lock-in, or record date scheduled within 30 days</span>
+                    </div>
+                    <span class="badge badge-success">🟢 Safe Entry Window</span>
+                  </div>
+                </div>
+              `;
+            }
+          })()}
+
           <!-- Trade Execution Blueprint (Item #4) -->
           <div class="blueprint-card">
             <div class="blueprint-header">
@@ -2154,6 +2329,15 @@ async function toggleWatchlistDetail(row, item, scanData) {
                 <span class="check-desc">Momentum healthy, not overbought</span>
               </div>
               <span class="check-status">${rsiPassInit ? 'Passed (+10)' : 'Failed (0)'}</span>
+            </div>
+
+            <div class="check-item ${item.event_blocked_reason ? 'fail' : 'pass'}" id="event-check-${symbol}">
+              <span class="check-icon">${item.event_blocked_reason ? '❌' : '✅'}</span>
+              <div class="check-info">
+                <span class="check-label">Event Radar</span>
+                <span class="check-desc">${item.event_blocked_reason ? item.event_blocked_reason : (item.next_event ? `${item.next_event.type} in ${item.next_event.days_to_event}d (Clear >7d)` : 'Clear runway: no imminent corporate events')}</span>
+              </div>
+              <span class="check-status">${item.event_blocked_reason ? 'Blocked (Gap Risk)' : 'Passed (Runway Clear)'}</span>
             </div>
           </div>
 
@@ -2659,9 +2843,14 @@ async function renderOpenPositions(positions) {
     const posInstFp = pos.inst_footprint || getInstFootprintForSymbol(pos.symbol);
     const posInstBadge = getInstFootprintBadge(posInstFp);
 
-    rows.push(`
-      <tr class="${rowClass}">
-        <td data-label="Symbol"><strong>${pos.symbol}</strong></td>
+      const hasWarnEvent = Boolean(pos.warn_event || (pos.next_event && pos.next_event.days_to_event <= 3));
+      const eventBadge = hasWarnEvent
+        ? `<span class="badge badge-warning" style="margin-left: 6px; cursor: help;" title="🔔 ${pos.next_event ? `${pos.next_event.type} on ${pos.next_event.date} (${pos.next_event.days_to_event}d away)` : 'Upcoming Event'} — review hold">🔔 ${pos.next_event ? `${pos.next_event.type} ${pos.next_event.days_to_event}d` : 'Event'}</span>`
+        : '';
+
+      rows.push(`
+        <tr class="${rowClass}">
+          <td data-label="Symbol"><strong>${pos.symbol}</strong>${eventBadge}</td>
         <td data-label="Inst">${posInstBadge}</td>
         <td data-label="Entry Date">${formatDate(pos.entry_date)}</td>
         <td data-label="Entry Price">${formatINR(entry)}</td>

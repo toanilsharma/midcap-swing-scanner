@@ -101,6 +101,21 @@
         <span>⚠️ <strong>Deals Data Stale:</strong> Latest NSE bulk/block and delivery prints were delayed or unavailable. Footprints reflect previous archive or unknown.</span>
       </div>
 
+      <!-- GLOBAL LANDMINES PANEL (Event Radar) -->
+      <div id="landminesPanel" class="landmines-card" style="display: none;">
+        <div class="landmines-header" id="landminesToggle" style="cursor: pointer;">
+          <div class="landmines-title-group">
+            <span style="font-size: 16px;">⚠️</span>
+            <span class="landmines-title"><span class="term-lookup" data-term="Event Radar / Gap Risk">This Week's Landmines</span></span>
+            <span id="landminesCountBadge" class="badge badge-warning" style="margin-left: 6px;">0 Events</span>
+          </div>
+          <span id="landminesChevron" class="chevron" style="font-size: 11px; color: var(--text-dim);">▼</span>
+        </div>
+        <div id="landminesBody" class="landmines-body" style="display: block;">
+          <div id="landminesGrid" class="landmines-grid"></div>
+        </div>
+      </div>
+
       <!-- SECTOR LEADERSHIP STRIP (Item #2) -->
       <div id="sectorLeadershipStrip" class="sector-strip-card" style="display: none;">
         <div class="sector-strip-header">
@@ -1082,6 +1097,14 @@
                 <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Distinguishes genuine institutional accumulation from speculative intraday churn without affecting any trade signals or risk parameters.</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Accumulation: (delivery_pct rising vs 5d-avg AND price flat/up) OR block_print/bulk_print True in last 3 sessions. Churn: volume &ge; 1.5x avg AND delivery_pct &lt; 25% AND no inst print. Unknown: no data or stale deals.</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">Badges:</span><span class="glossary-example">🏦 green = accumulation, ⚠️ amber = churn, gray = unknown.</span></div>
+              </div>
+
+              <div class="glossary-card" id="glossary-eventradar">
+                <div class="glossary-card-header"><span class="glossary-term">Event Radar / Gap Risk</span><span class="glossary-category">Risk Gating</span></div>
+                <p class="glossary-meaning">Automated calendar tracking for corporate gap-events (quarterly earnings, promoter lock-in expiries, AGM, record dates, dividend payouts).</p>
+                <div class="glossary-section-row"><span class="glossary-label">Entry Rule:</span><span class="glossary-threshold">BLOCKS any new swing entry if an event is scheduled within 7 days (EARNINGS_BLACKOUT_DAYS).</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Open Position Rule:</span><span class="glossary-threshold">WARNS with a 🔔 badge if an event is within 3 days. Never auto-exits holdings (exit math, stop loss, and profit targets remain strictly unaltered).</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Protects capital against overnight gap-risk (10-20% drops that plunge through hard stops) while maintaining strict trading rule integrity.</span></div>
               </div>
 
               <div class="glossary-card" id="glossary-rmultiple">
