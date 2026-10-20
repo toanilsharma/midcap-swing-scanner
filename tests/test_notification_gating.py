@@ -36,6 +36,11 @@ def test_quiet_env_blocks_proactive_but_allows_reply(tmp_cwd: Any, spy_posts: li
     assert res_pro is True, "Proactive send should return True when blocked"
     assert len(spy_posts) == 0, "No HTTP call should be made when QUIET=1"
 
+    # Proactive alert with On Deck line
+    res_od = main.send_telegram("No new midcap swing signals today.\n\n🎯 On Deck (near misses): COFORGE (+0.3%, needs vol), NYKAA (+0.8%, price pending).", kind="proactive", msg_type="scan")
+    assert res_od is True
+    assert len(spy_posts) == 0, "No HTTP call should be made for On Deck line when QUIET=1"
+
     # User reply (e.g. /status)
     res_reply = main.send_telegram("Position status: OK", kind="reply")
     assert res_reply is True

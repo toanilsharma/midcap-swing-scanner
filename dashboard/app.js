@@ -22,6 +22,19 @@ let _isViewingArchive = false;
 // SITE-WIDE TERMS & DEFINITIONS DICTIONARY
 // =====================================================================
 const TERMS = {
+  // On Deck Near Misses
+  "On Deck / Near Miss": {
+    short: "Stocks passing trend/setup/sector gates but failing volume or price-breakout confirmation. Not tradable yet, but prime candidates for next session's watch.",
+    long: "Stocks passing trend/setup/sector gates but failing volume or price-breakout confirmation. Not tradable yet, but prime candidates for next session's watch. They represent near-miss candidates that are spring-loaded and just need volume expansion or a fraction of a percent price push to trigger valid swing entries.",
+    where_used: "Near Buy (On Deck Radar), Telegram Alerts, Help Guide",
+    anchor: "glossary-ondeck"
+  },
+  "On Deck": {
+    short: "Stocks passing trend/setup/sector gates but failing volume or price-breakout confirmation. Not tradable yet, but prime candidates for next session's watch.",
+    long: "Stocks passing trend/setup/sector gates but failing volume or price-breakout confirmation. Not tradable yet, but prime candidates for next session's watch.",
+    where_used: "Near Buy (On Deck Radar), Help Guide",
+    anchor: "glossary-ondeck"
+  },
   // Moving Averages & Trend
   "SMA50": {
     short: "50-day Simple Moving Average representing 10 weeks of institutional price trend.",
@@ -627,6 +640,297 @@ function renderNearBuy(scanData, openPositions) {
   initWatchlistFilterListeners();
   renderSectorLeadership(watchlist);
   applyWatchlistFiltering(watchlist, scanData);
+
+  // Render On Deck (Near Misses) Section
+  renderOnDeck(scanData);
+}
+
+// =====================================================================
+// ON DECK (NEAR MISSES) RADAR COMPONENT
+// =====================================================================
+
+function getOnDeckCacheKey(updatedAt) {
+  const dateKey = (updatedAt || "").slice(0, 10) || new Date().toISOString().slice(0, 10);
+  return `on_deck_cache_${dateKey}`;
+}
+
+function getCachedOnDeckData(updatedAt) {
+  const key = getOnDeckCacheKey(updatedAt);
+  const raw = localStorage.getItem(key);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && Array.isArray(parsed.on_deck) ? parsed.on_deck : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setCachedOnDeckData(updatedAt, onDeckList) {
+  const key = getOnDeckCacheKey(updatedAt);
+  try {
+    localStorage.setItem(key, JSON.stringify({
+      updated_at: updatedAt || new Date().toISOString(),
+      on_deck: onDeckList || []
+    }));
+  } catch (e) {
+    console.warn("Error caching on_deck:", e);
+  }
+}
+
+function drawOnDeckSparkline(canvas, candles, breakoutLevel) {
+  if (!canvas) return;
+  const container = canvas.parentElement;
+  const width = Math.max(220, Math.floor(container.clientWidth || 320));
+  const height = 120;
+  const dpr = window.devicePixelRatio || 1;
+
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  canvas.style.width = "100%";
+  canvas.style.height = `${height}px`;
+
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, width, height);
+
+  const n = candles.length;
+  if (n < 2) return;
+
+  const closes = candles.map(c => c.close);
+  let minP = Math.min(...closes, breakoutLevel);
+  let maxP = Math.max(...closes, breakoutLevel);
+  const pad = (maxP - minP) * 0.12 || 1;
+  minP -= pad;
+  maxP += pad;
+  const span = maxP - minP;
+
+  const marginLeft = 10;
+  const marginRight = 65;
+  const marginTop = 16;
+  const plotH = height - 36;
+  const plotW = width - marginLeft - marginRight;
+
+  const getY = (p) => marginTop + plotH - ((p - minP) / span) * plotH;
+  const getX = (i) => marginLeft + (i / (n - 1)) * plotW;
+
+  // 1. Breakout dashed red line
+  if (!isNaN(breakoutLevel)) {
+    const bY = getY(breakoutLevel);
+    ctx.strokeStyle = "#ef4444";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(marginLeft, bY);
+    ctx.lineTo(marginLeft + plotW, bY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = "#ef4444";
+    ctx.font = "bold 9px Inter, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(`BO ₹${breakoutLevel.toFixed(1)}`, marginLeft + plotW + 5, bY + 3);
+  }
+
+  // 2. Gradient fill under price trajectory
+  const grad = ctx.createLinearGradient(0, marginTop, 0, marginTop + plotH);
+  grad.addColorStop(0, "rgba(56, 189, 248, 0.28)");
+  grad.addColorStop(1, "rgba(56, 189, 248, 0.0)");
+
+  ctx.beginPath();
+  ctx.moveTo(getX(0), getY(closes[0]));
+  for (let i = 1; i < n; i++) {
+    ctx.lineTo(getX(i), getY(closes[i]));
+  }
+  ctx.lineTo(getX(n - 1), marginTop + plotH);
+  ctx.lineTo(getX(0), marginTop + plotH);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // 3. Price trajectory line
+  ctx.beginPath();
+  ctx.moveTo(getX(0), getY(closes[0]));
+  for (let i = 1; i < n; i++) {
+    ctx.lineTo(getX(i), getY(closes[i]));
+  }
+  ctx.strokeStyle = "#38bdf8";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 4. Dot on last close
+  const lastX = getX(n - 1);
+  const lastY = getY(closes[n - 1]);
+  ctx.fillStyle = "#38bdf8";
+  ctx.beginPath();
+  ctx.arc(lastX, lastY, 3.5, 0, 2 * Math.PI);
+  ctx.fill();
+
+  ctx.fillStyle = "#cbd5e1";
+  ctx.font = "9px Inter, sans-serif";
+  ctx.fillText(`₹${closes[n - 1].toFixed(1)}`, lastX + 5, lastY + 3);
+}
+
+function renderOnDeck(scanData) {
+  const container = document.getElementById("onDeckContainer");
+  if (!container) return;
+
+  const updatedAt = scanData ? scanData.updated_at : null;
+  let onDeckItems = null;
+
+  if (scanData && Array.isArray(scanData.on_deck)) {
+    onDeckItems = scanData.on_deck;
+    setCachedOnDeckData(updatedAt, onDeckItems);
+  } else {
+    onDeckItems = getCachedOnDeckData(updatedAt) || [];
+  }
+
+  const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+  const count = onDeckItems.length;
+
+  container.innerHTML = `
+    <details id="onDeckDetails" class="on-deck-details" ${isDesktop ? "open" : ""}>
+      <summary class="on-deck-summary">
+        <div class="on-deck-summary-left">
+          <span class="on-deck-title">🎯 On Deck (Near Misses)</span>
+          <span class="badge badge-neutral on-deck-count-pill">${count} Candidate${count === 1 ? '' : 's'}</span>
+        </div>
+        <span class="on-deck-toggle-hint">Click to toggle</span>
+      </summary>
+      <div class="on-deck-body">
+        <p class="on-deck-subtext">
+          Stocks passing trend/setup/sector gates but failing volume or price-breakout confirmation. Not tradable yet, but prime candidates for next session's watch.
+          <a href="javascript:void(0)" class="term-lookup" data-term="On Deck / Near Miss" style="color: var(--accent); text-decoration: underline; margin-left: 4px;">Learn more</a>
+        </p>
+        ${count === 0 ? `
+          <div class="empty-state" style="padding: 24px; text-align: center; color: var(--muted);">
+            Zero contenders on deck today. All qualified candidates either triggered active signals or are consolidating further out.
+          </div>
+        ` : `
+          <div class="on-deck-grid" id="onDeckGrid">
+            ${onDeckItems.map((item, idx) => {
+              const sym = (item.symbol || "").replace('.NS', '');
+              const dist = parseFloat(item.dist_pct) || 0;
+              let pillClass = "pill-green";
+              if (dist > 3.0) pillClass = "pill-red";
+              else if (dist >= 1.0) pillClass = "pill-yellow";
+              const distText = dist >= 0 ? `+${dist.toFixed(2)}%` : `${dist.toFixed(2)}%`;
+              const missing = item.missing_condition || "Price not broken";
+
+              return `
+                <div class="on-deck-card" data-index="${idx}" data-symbol="${sym}">
+                  <div class="on-deck-card-main">
+                    <div class="on-deck-row" data-label="Symbol">
+                      <strong class="on-deck-sym">${sym}</strong>
+                    </div>
+                    <div class="on-deck-row" data-label="Dist to Breakout">
+                      <span class="on-deck-dist-pill ${pillClass}">${distText}</span>
+                    </div>
+                    <div class="on-deck-row" data-label="Missing Condition">
+                      <span class="on-deck-missing">${escapeHtml(missing)}</span>
+                    </div>
+                    <div class="on-deck-row" data-label="Key Metrics">
+                      <div class="on-deck-badges">
+                        <span class="badge badge-neutral" title="14-day Average True Range">ATR: ₹${item.atr14 ?? 'N/A'}</span>
+                        <span class="badge badge-neutral" title="14-day Relative Strength Index">RSI: ${item.rsi14 ?? 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="on-deck-expand-hint">
+                    <span class="on-deck-chevron">▼</span> <span>View 20-day sparkline</span>
+                  </div>
+                  <div class="on-deck-detail-inline" id="on-deck-detail-${idx}" style="display: none;">
+                    <div class="on-deck-explanation">
+                      <strong>Diagnostic Assessment:</strong>
+                      ${missing === "Volume too low"
+                        ? "Stock broke out above the 20-day high resistance, but trading volume did not meet the 1.5× volume spike confirmation threshold. Prime candidate for immediate volume expansion."
+                        : `Stock has formed a textbook contraction pattern in an active Stage 2 uptrend, but closing price (₹${item.close ?? 'N/A'}) is still ${distText} below the 20-day breakout trigger level (₹${item.breakout_level ?? 'N/A'}).`}
+                    </div>
+                    <div class="on-deck-sparkline-wrap">
+                      <div class="on-deck-sparkline-meta">
+                        <span>Last 20 Days vs Breakout Level (₹${item.breakout_level ?? 'N/A'})</span>
+                        <span id="on-deck-sparkline-status-${idx}" class="sparkline-status-text">Loading chart...</span>
+                      </div>
+                      <canvas id="on-deck-canvas-${idx}" class="on-deck-sparkline-canvas"></canvas>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        `}
+      </div>
+    </details>
+  `;
+
+  // Attach card click handlers for expanding inline detail
+  const cards = container.querySelectorAll(".on-deck-card");
+  cards.forEach(card => {
+    card.addEventListener("click", async (e) => {
+      // Don't toggle if clicking a link or term lookup
+      if (e.target.closest("a") || e.target.closest(".term-lookup")) return;
+
+      const idx = card.getAttribute("data-index");
+      const item = onDeckItems[idx];
+      const detailEl = document.getElementById(`on-deck-detail-${idx}`);
+      const chevron = card.querySelector(".on-deck-chevron");
+      const hintText = card.querySelector(".on-deck-expand-hint span:last-child");
+
+      if (!detailEl) return;
+
+      const isExpanded = detailEl.style.display !== "none";
+      if (isExpanded) {
+        detailEl.style.display = "none";
+        card.classList.remove("expanded");
+        if (chevron) chevron.textContent = "▼";
+        if (hintText) hintText.textContent = "View 20-day sparkline";
+      } else {
+        detailEl.style.display = "block";
+        card.classList.add("expanded");
+        if (chevron) chevron.textContent = "▲";
+        if (hintText) hintText.textContent = "Hide sparkline";
+
+        // Draw sparkline
+        const canvas = document.getElementById(`on-deck-canvas-${idx}`);
+        const statusEl = document.getElementById(`on-deck-sparkline-status-${idx}`);
+        if (canvas && !canvas._rendered) {
+          try {
+            const sym = item.symbol || "";
+            const chartData = await fetchChartData(sym);
+            if (chartData && chartData.chart && chartData.chart.result && chartData.chart.result[0]) {
+              const res = chartData.chart.result[0];
+              const timestamps = res.timestamp || [];
+              const quote = res.indicators?.quote?.[0] || {};
+              const candles = [];
+              for (let i = 0; i < timestamps.length; i++) {
+                const c = quote.close?.[i];
+                const o = quote.open?.[i];
+                const h = quote.high?.[i];
+                const l = quote.low?.[i];
+                const v = quote.volume?.[i] || 0;
+                if (c != null && !isNaN(c)) {
+                  candles.push({ time: timestamps[i], open: o ?? c, high: h ?? c, low: l ?? c, close: c, volume: v });
+                }
+              }
+              const last20 = candles.slice(-20);
+              if (last20.length >= 2) {
+                drawOnDeckSparkline(canvas, last20, parseFloat(item.breakout_level) || last20[last20.length - 1].close);
+                canvas._rendered = true;
+                if (statusEl) statusEl.textContent = `20 sessions • Close ₹${item.close}`;
+              } else {
+                if (statusEl) statusEl.textContent = "Insufficient candle history";
+              }
+            } else {
+              if (statusEl) statusEl.textContent = "Chart data unavailable";
+            }
+          } catch (err) {
+            console.warn("Sparkline fetch error:", err);
+            if (statusEl) statusEl.textContent = "Chart unavailable";
+          }
+        }
+      }
+    });
+  });
 }
 
 // Module state for Watchlist Filter & Sort (Phase 1)

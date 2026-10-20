@@ -58,6 +58,7 @@ def execute_full_scan_pipeline() -> Tuple[List[Dict[str, Any]], List[Dict[str, A
         "market_ok": is_mkt_ok,
         "signals": signals,
         "watchlist": watchlist,
+        "on_deck": getattr(main, "_LAST_ON_DECK", []),
         "scanned_count": scanned_count,
     }
     with open(main.SCAN_RESULTS_FILE, "w", encoding="utf-8") as f:
@@ -89,7 +90,9 @@ def test_hermetic_scan_unmuted(tmp_cwd: Any, spy_posts: list, pin_ist_time: Any,
     with open(main.SCAN_RESULTS_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    assert set(data.keys()) == {"updated_at", "market_ok", "signals", "watchlist", "scanned_count"}
+    assert set(data.keys()) == {"updated_at", "market_ok", "signals", "watchlist", "on_deck", "scanned_count"}
+    assert "on_deck" in data
+    assert isinstance(data["on_deck"], list)
     assert data["market_ok"] is True
     assert data["scanned_count"] == 2
 

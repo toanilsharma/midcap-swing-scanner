@@ -16,6 +16,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "market_ok",
     "signals",
     "watchlist",
+    "on_deck",
     "scanned_count",
 }
 

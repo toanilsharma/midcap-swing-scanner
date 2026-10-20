@@ -67,7 +67,7 @@
       <div class="tab-guide-banner" id="bannerNearBuy" data-tab-banner="near_buy">
         <div class="tab-guide-content">
           <span class="tab-guide-icon">💡</span>
-          <span class="tab-guide-text">Stocks in uptrend closest to their breakout. Act only on Grade A/A+ when the market badge is green.</span>
+          <span class="tab-guide-text">Stocks in uptrend closest to their breakout. Act only on Grade A/A+ when the market badge is green. <a href="javascript:void(0)" class="term-lookup" data-term="On Deck / Near Miss" style="color: var(--accent); text-decoration: underline; margin-left: 6px;" title="View On Deck / Near Miss definition">🎯 On Deck candidates</a></span>
         </div>
         <button class="tab-guide-dismiss" title="Dismiss banner" aria-label="Dismiss">×</button>
       </div>
@@ -202,6 +202,8 @@
           </tbody>
         </table>
       </div>
+      <!-- ON DECK (NEAR MISSES) COLLAPSIBLE SECTION -->
+      <div id="onDeckContainer" class="on-deck-container"></div>
     </section>
 
     <!-- TAB 2: OPEN POSITIONS -->
@@ -1030,6 +1032,14 @@
                 <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Locks in gains before predictable mean reversion or pullbacks occur.</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Target = Entry + 2 × (Entry - Stop) (2.0R Multiple)</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">Entry ₹500, Stop ₹475 (Risk ₹25); Target is ₹500 + 2×25 = ₹550.</span></div>
+              </div>
+
+              <div class="glossary-card" id="glossary-ondeck">
+                <div class="glossary-card-header"><span class="glossary-term">On Deck / Near Miss</span><span class="glossary-category">Diagnostic Watch</span></div>
+                <p class="glossary-meaning">Stocks passing trend/setup/sector gates but failing volume or price-breakout confirmation. Not tradable yet, but prime candidates for next session's watch.</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Identifies high-quality coiled stocks right before their breakout trigger, giving you advance situational awareness.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">TREND_OK & SETUP_OK & sector_ok == True, but (BREAKOUT == False or VOL_SPIKE == False)</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Action:</span><span class="glossary-example">Place on immediate radar for the next session; monitor for breakout price clearance and volume expansion.</span></div>
               </div>
 
               <div class="glossary-card" id="glossary-rmultiple">

@@ -965,11 +965,34 @@ def format_signal(sig: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+_LAST_ON_DECK: List[Dict[str, Any]] = []
+
+
+def format_on_deck_summary(on_deck_list: List[Dict[str, Any]], max_names: int = 3) -> str:
+    """
+    Format on_deck list into comma-separated symbol+dist_pct+brief_reason, max 3 names.
+    e.g. 'COFORGE (+0.3%, needs vol), NYKAA (+0.8%, price pending)'
+    """
+    parts = []
+    for item in on_deck_list[:max_names]:
+        sym = item.get("symbol", "")
+        sym_clean = sym[:-3] if sym.endswith(".NS") else sym
+        dist = item.get("dist_pct", 0.0)
+        dist_str = f"+{dist}%" if dist >= 0 else f"{dist}%"
+        reason = "needs vol" if item.get("missing_condition") == "Volume too low" else "price pending"
+        parts.append(f"{sym_clean} ({dist_str}, {reason})")
+    return ", ".join(parts)
+
+
 def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
     """
     Execute the scan across all candidate symbols.
     Returns (signals, scanned_count, is_market_ok).
     """
+    global _LAST_ON_DECK
+    _LAST_ON_DECK = []
+    on_deck: List[Dict[str, Any]] = []
+
     print("Checking market regime filter...")
     is_mkt_ok = market_ok()
     settings = load_alert_settings()
@@ -998,20 +1021,71 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
             signals.append(sig)
             formatted = f"{format_signal(sig)}\n\n{DISCIPLINE_CARD}"
             messages.append(formatted)
+
+        # On-deck diagnostic near-miss evaluation (does not alter signal calculation)
+        try:
+            df_sym = get_history(sym)
+            if df_sym is not None and len(df_sym) >= 50:
+                df_sym = add_indicators(df_sym)
+                last_row = df_sym.iloc[-1]
+                t_ok = bool(last_row.get("TREND_OK", False))
+                s_ok = bool(last_row.get("SETUP_OK", False))
+                sec_is_ok = bool(sector_ok(sym))
+                if t_ok and s_ok and sec_is_ok:
+                    brk = bool(last_row.get("BREAKOUT", False))
+                    v_spk = bool(last_row.get("VOL_SPIKE", False))
+                    if not brk or not v_spk:
+                        l_close = float(last_row["Close"])
+                        p_high = float(last_row["HIGH20"])
+                        if l_close > 0 and not pd.isna(p_high):
+                            d_pct = round((p_high - l_close) / l_close * 100, 2)
+                            m_cond = "Volume too low" if brk else "Price not broken"
+                            a_val = round(float(last_row["ATR14"]), 2) if ("ATR14" in last_row and not pd.isna(last_row["ATR14"])) else None
+                            r_val = round(float(last_row["RSI14"]), 1) if ("RSI14" in last_row and not pd.isna(last_row["RSI14"])) else None
+                            on_deck.append({
+                                "symbol": sym,
+                                "close": round(l_close, 2),
+                                "breakout_level": round(p_high, 2),
+                                "dist_pct": d_pct,
+                                "missing_condition": m_cond,
+                                "atr14": a_val,
+                                "rsi14": r_val,
+                            })
+        except Exception as exc:
+            print(f"Diagnostic on_deck check error for {sym}: {exc}")
         time.sleep(0.25)
+
+    on_deck.sort(key=lambda x: x["dist_pct"])
+    on_deck = on_deck[:5]
+    _LAST_ON_DECK = on_deck
 
     if messages:
         joined_message = "\n\n----\n\n".join(messages)
+        if len(on_deck) > 0:
+            od_summary = format_on_deck_summary(on_deck, 3)
+            if is_digest:
+                joined_message += f"\n\n🎯 Near Misses:\n{od_summary}."
+            else:
+                joined_message += f"\n\n----\n\n🎯 On Deck (near misses): {od_summary}."
         if is_digest:
             _DIGEST_MESSAGES.append(("scan", joined_message))
         else:
             send_telegram(joined_message, kind="proactive", msg_type="scan")
-    elif SEND_NO_SIGNAL_MESSAGE:
-        no_sig_msg = "No new midcap swing signals today."
-        if is_digest:
-            _DIGEST_MESSAGES.append(("scan", no_sig_msg))
-        else:
-            send_telegram(no_sig_msg, kind="proactive", msg_type="scan")
+    elif len(signals) == 0:
+        if len(on_deck) > 0:
+            od_summary = format_on_deck_summary(on_deck, 3)
+            if is_digest:
+                digest_msg = f"No new midcap swing signals today.\n\n🎯 Near Misses:\n{od_summary}."
+                _DIGEST_MESSAGES.append(("scan", digest_msg))
+            else:
+                evening_msg = f"No new midcap swing signals today.\n\n🎯 On Deck (near misses): {od_summary}."
+                send_telegram(evening_msg, kind="proactive", msg_type="scan")
+        elif SEND_NO_SIGNAL_MESSAGE:
+            no_sig_msg = "No new midcap swing signals today."
+            if is_digest:
+                _DIGEST_MESSAGES.append(("scan", no_sig_msg))
+            else:
+                send_telegram(no_sig_msg, kind="proactive", msg_type="scan")
 
     return signals, total, True
 
@@ -2046,6 +2120,7 @@ if __name__ == "__main__":
             "market_ok": is_mkt_ok,
             "signals": signals,
             "watchlist": watchlist_candidates,
+            "on_deck": _LAST_ON_DECK,
             "scanned_count": total_scanned,
         }
 
