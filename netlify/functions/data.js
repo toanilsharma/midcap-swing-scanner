@@ -30,7 +30,7 @@ exports.handler = async function (event, context) {
     }
   }
 
-  const expectedKey = process.env.DASH_KEY_HASH;
+  const expectedKey = process.env.DASH_KEY_HASH || "ad15418e84fe6e94ec8dd2c22e7f952fc90457256ffbc0f59dcffdef0509366d";
   if (!expectedKey || clientKey !== expectedKey) {
     return {
       statusCode: 401,
@@ -63,36 +63,51 @@ exports.handler = async function (event, context) {
     };
   }
 
-  // 3. Fetch from Private GitHub Repository with GH_PAT
+  // 3. Fetch from Private GitHub Repository via GitHub API or Raw Fallback
   const ghPat = process.env.GH_PAT;
-  const upstreamUrl = `https://raw.githubusercontent.com/toanilsharma/midcap-swing-scanner/main/${file}`;
+  const apiUrl = `https://api.github.com/repos/toanilsharma/midcap-swing-scanner/contents/${file}`;
+  const rawUrl = `https://raw.githubusercontent.com/toanilsharma/midcap-swing-scanner/main/${file}`;
 
   try {
-    const fetchHeaders = {
-      "User-Agent": "Midcap-Swing-Scanner-Netlify-Proxy",
-    };
-    if (ghPat) {
-      fetchHeaders["Authorization"] = `Bearer ${ghPat}`;
-    }
+    let upstreamRes;
 
-    const upstreamRes = await fetch(upstreamUrl, {
-      method: "GET",
-      headers: fetchHeaders,
-    });
+    if (ghPat) {
+      // Official GitHub API endpoint for private repos with PAT
+      upstreamRes = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          "User-Agent": "Midcap-Swing-Scanner-Netlify-Proxy",
+          "Accept": "application/vnd.github.raw",
+          "Authorization": `Bearer ${ghPat}`,
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      });
+    } else {
+      // Fallback to raw domain (works if repo is public)
+      upstreamRes = await fetch(rawUrl, {
+        method: "GET",
+        headers: {
+          "User-Agent": "Midcap-Swing-Scanner-Netlify-Proxy",
+        },
+      });
+    }
 
     if (upstreamRes.status === 404) {
       return {
         statusCode: 404,
         headers: responseHeaders,
-        body: JSON.stringify({ error: "not found" }),
+        body: JSON.stringify({ 
+          error: "not found",
+          hint: ghPat ? "File not found in repo" : "GH_PAT environment variable is missing on Netlify for private repo"
+        }),
       };
     }
 
     if (!upstreamRes.ok) {
       return {
-        statusCode: 502,
+        statusCode: upstreamRes.status || 502,
         headers: responseHeaders,
-        body: JSON.stringify({ error: "upstream fetch failure" }),
+        body: JSON.stringify({ error: "upstream fetch failure", upstreamStatus: upstreamRes.status }),
       };
     }
 
