@@ -1,8 +1,7 @@
 {
-  "updated_at": "2026-10-19T22:41:58.173853+05:30",
+  "updated_at": "2026-10-20T15:06:28.707422+05:30",
   "market_ok": false,
   "signals": [],
-  "on_deck": [],
   "watchlist": [
     {
       "Symbol": "LAURUSLABS",
@@ -20,9 +19,9 @@
       "grade": "C",
       "Score": 50,
       "Grade": "C",
-      "rs_rating": 88,
-      "base_maturity": 3,
-      "days_in_base": 24,
+      "rs_rating": null,
+      "base_maturity": 4,
+      "days_in_base": 59,
       "inst_footprint": "accumulation"
     },
     {
@@ -41,9 +40,9 @@
       "grade": "C",
       "Score": 45,
       "Grade": "C",
-      "rs_rating": 91,
-      "base_maturity": 2,
-      "days_in_base": 18,
+      "rs_rating": null,
+      "base_maturity": 1,
+      "days_in_base": 11,
       "inst_footprint": "accumulation"
     },
     {
@@ -62,10 +61,10 @@
       "grade": "C",
       "Score": 43,
       "Grade": "C",
-      "rs_rating": 72,
-      "base_maturity": 2,
-      "days_in_base": 15,
-      "inst_footprint": "churn"
+      "rs_rating": null,
+      "base_maturity": 1,
+      "days_in_base": 11,
+      "inst_footprint": "unknown"
     },
     {
       "Symbol": "COFORGE",
@@ -83,33 +82,19 @@
       "grade": "C",
       "Score": 36,
       "Grade": "C",
-      "rs_rating": 64,
-      "base_maturity": 1,
-      "days_in_base": 9,
+      "rs_rating": null,
+      "base_maturity": 4,
+      "days_in_base": 59,
       "inst_footprint": "unknown"
     }
   ],
+  "on_deck": [],
   "scanned_count": 100,
-  "leaders_board": [
-    {
-      "symbol": "FEDERALBNK",
-      "rs_rating": 91,
-      "close": 348.85,
-      "dist_to_breakout": -1.16,
-      "grade": "C"
-    },
-    {
-      "symbol": "LAURUSLABS",
-      "rs_rating": 88,
-      "close": 2069.0,
-      "dist_to_breakout": 0.82,
-      "grade": "C"
-    }
-  ],
+  "leaders_board": [],
   "inst_summary": {
-    "accumulation": 2,
-    "churn": 1,
-    "unknown": 1
+    "accumulation": 0,
+    "churn": 0,
+    "unknown": 0
   },
   "deals_stale": false
 }
