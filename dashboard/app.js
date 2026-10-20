@@ -6,13 +6,29 @@
 const PASSWORD_HASH = "ad15418e84fe6e94ec8dd2c22e7f952fc90457256ffbc0f59dcffdef0509366d";
 
 // =====================================================================
-// GITHUB RAW ENDPOINTS
+// SECURE NETLIFY FUNCTION DATA ENDPOINTS (Private Repo Proxy)
 // =====================================================================
-const REPO_BASE = "https://raw.githubusercontent.com/toanilsharma/midcap-swing-scanner/main";
-const SCAN_RESULTS_URL = `${REPO_BASE}/scan_results.json`;
-const OPEN_POSITIONS_URL = `${REPO_BASE}/open_positions.json`;
-const TRADES_URL = `${REPO_BASE}/trades.json`;
-const BACKTEST_RESULTS_URL = `${REPO_BASE}/backtest_results.json`;
+// Helper to retrieve stored login hash from localStorage
+function getStoredLoginHash() {
+  return localStorage.getItem("dash_key_hash") || (typeof PASSWORD_HASH !== "undefined" ? PASSWORD_HASH : "");
+}
+
+// Fetch helper routing through Netlify Serverless Proxy Function
+async function fetchDataFile(file) {
+  const storedLoginHash = getStoredLoginHash();
+  const url = "/.netlify/functions/data?file=" + encodeURIComponent(file);
+  const response = await fetch(url, {
+    headers: {
+      "x-dash-key": storedLoginHash,
+    },
+  });
+  if (!response.ok) {
+    const err = new Error(`HTTP ${response.status} fetching ${file}`);
+    err.status = response.status;
+    throw err;
+  }
+  return await response.json();
+}
 
 let equityChartInstance = null;
 let backtestChartInstance = null;
@@ -3589,14 +3605,9 @@ function renderStats(trades) {
 // =====================================================================
 async function fetchBacktestData() {
   try {
-    return await fetchJson(BACKTEST_RESULTS_URL);
+    return await fetchJson("backtest_results.json");
   } catch (err) {
-    try {
-      return await fetchJson("backtest_results.json");
-    } catch (e2) {
-      console.warn("Backtest results not available:", err, e2);
-      return null;
-    }
+    return null;
   }
 }
 
@@ -3970,42 +3981,173 @@ function initBacktestListeners() {
 // =====================================================================
 async function loadAllData() {
   const refreshBtn = document.getElementById("refreshBtn");
+  const dataLinkBanner = document.getElementById("dataLinkErrorBanner");
+  const dataLinkText = document.getElementById("dataLinkErrorText");
+  const dataLinkCachedNotice = document.getElementById("dataLinkCachedNotice");
+  const marketBadge = document.getElementById("marketBadge");
+  const lastUpdated = document.getElementById("lastUpdatedText");
+
   if (refreshBtn) {
     refreshBtn.disabled = true;
     refreshBtn.textContent = "⏳ Updating...";
   }
 
+  let scanErr = null;
+  let scanData = null;
+  let openPositions = [];
+  let trades = [];
+  let backtestData = null;
+
   try {
-    const [scanData, openPositions, trades, backtestData] = await Promise.all([
-      fetchJson(SCAN_RESULTS_URL).catch(e => { console.warn("Scan results fetch error:", e); return null; }),
-      fetchJson(OPEN_POSITIONS_URL).catch(e => { console.warn("Open positions fetch error:", e); return []; }),
-      fetchJson(TRADES_URL).catch(e => { console.warn("Trades fetch error:", e); return []; }),
-      fetchBacktestData().catch(e => { console.warn("Backtest results fetch error:", e); return null; }),
+    const results = await Promise.allSettled([
+      fetchDataFile("scan_results.json"),
+      fetchDataFile("open_positions.json"),
+      fetchDataFile("trades.json"),
+      fetchBacktestData(),
     ]);
 
-    _liveScanData = scanData;
-    _cachedOpenPositions = openPositions;
-    _cachedTradesData = trades;
-    _cachedBacktestData = backtestData;
-
-    if (scanData) {
-      archiveScanData(scanData);
+    if (results[0].status === "fulfilled") {
+      scanData = results[0].value;
+    } else {
+      scanErr = results[0].reason;
+      console.warn("Scan results fetch error:", scanErr);
     }
+
+    if (results[1].status === "fulfilled") {
+      openPositions = results[1].value || [];
+      try {
+        localStorage.setItem("midcap_cached_open_positions", JSON.stringify(openPositions));
+      } catch (e) {}
+    } else {
+      console.warn("Open positions fetch error:", results[1].reason);
+      try {
+        const c = localStorage.getItem("midcap_cached_open_positions");
+        if (c) openPositions = JSON.parse(c);
+      } catch (e) {}
+    }
+
+    if (results[2].status === "fulfilled") {
+      trades = results[2].value || [];
+      try {
+        localStorage.setItem("midcap_cached_trades", JSON.stringify(trades));
+      } catch (e) {}
+    } else {
+      console.warn("Trades fetch error:", results[2].reason);
+      try {
+        const c = localStorage.getItem("midcap_cached_trades");
+        if (c) trades = JSON.parse(c);
+      } catch (e) {}
+    }
+
+    if (results[3].status === "fulfilled") {
+      backtestData = results[3].value;
+    }
+  } catch (err) {
+    scanErr = err;
+    console.error("Global dashboard data load error:", err);
+  }
+
+  // Handle data fetch status & error banner (Item #4)
+  if (scanErr || !scanData) {
+    const status = (scanErr && scanErr.status) ? scanErr.status : "Error";
+    const errorMsg = `Data link error (HTTP ${status}). Repo is private - check Netlify function deploy + env vars.`;
+
+    if (dataLinkBanner && dataLinkText) {
+      dataLinkText.textContent = errorMsg;
+      dataLinkBanner.style.display = "block";
+    }
+
+    // Check localStorage for previous good payload
+    let cachedPayload = null;
+    try {
+      const storedGood = localStorage.getItem("midcap_last_good_scan");
+      if (storedGood) {
+        cachedPayload = JSON.parse(storedGood);
+      }
+      if (!cachedPayload) {
+        const archive = JSON.parse(localStorage.getItem("midcap_scan_archive") || "{}");
+        const dates = Object.keys(archive).sort().reverse();
+        if (dates.length > 0) {
+          cachedPayload = archive[dates[0]];
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to retrieve cached scan payload:", e);
+    }
+
+    if (cachedPayload) {
+      const cachedTime = cachedPayload.updated_at || cachedPayload.scan_time || "recent session";
+      if (dataLinkCachedNotice) {
+        dataLinkCachedNotice.innerHTML = `
+          <span class="badge" style="background: rgba(245, 158, 11, 0.25); border: 1px solid #f59e0b; color: #fcd34d; font-size: 11px; padding: 2px 7px; border-radius: 4px; font-weight: 600;">cached copy</span>
+          Showing offline snapshot from <strong>${escapeHtml(formatDateTime(cachedTime))}</strong>
+        `;
+        dataLinkCachedNotice.style.display = "block";
+      }
+
+      if (lastUpdated) {
+        lastUpdated.innerHTML = `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fcd34d; font-size: 10px; margin-right: 4px; padding: 1px 5px;">cached</span> ${formatDateTime(cachedTime)}`;
+      }
+
+      if (marketBadge) {
+        marketBadge.className = cachedPayload.market_ok ? "badge badge-success" : "badge badge-danger";
+        marketBadge.textContent = cachedPayload.market_ok ? "Market: Uptrend (Cached)" : "Market: Defensive (Cached)";
+      }
+
+      _liveScanData = cachedPayload;
+      if (!_isViewingArchive) {
+        renderNearBuy(cachedPayload, openPositions);
+      }
+    } else {
+      // No cached copy available - clear loading indicators
+      if (dataLinkCachedNotice) {
+        dataLinkCachedNotice.style.display = "none";
+      }
+      if (marketBadge) {
+        marketBadge.className = "badge badge-danger";
+        marketBadge.textContent = "Data Link Offline";
+      }
+      if (lastUpdated) {
+        lastUpdated.textContent = `Offline (HTTP ${status})`;
+      }
+      const watchlistBody = document.getElementById("watchlistBody");
+      if (watchlistBody) {
+        watchlistBody.innerHTML = `
+          <tr><td colspan="10" class="empty-state" style="color: #fca5a5; padding: 24px;">
+            ⚠️ ${escapeHtml(errorMsg)}
+          </td></tr>
+        `;
+      }
+    }
+  } else {
+    // Live Success: dismiss banner & save fresh copy to localStorage
+    if (dataLinkBanner) {
+      dataLinkBanner.style.display = "none";
+    }
+    try {
+      localStorage.setItem("midcap_last_good_scan", JSON.stringify(scanData));
+    } catch (e) {}
+
+    _liveScanData = scanData;
+    archiveScanData(scanData);
 
     if (!_isViewingArchive) {
       renderNearBuy(scanData, openPositions);
     }
-    await renderOpenPositions(openPositions);
-    renderHistory(trades);
-    renderStats(trades);
-    renderBacktestTab(backtestData);
-  } catch (err) {
-    console.error("Global dashboard data load error:", err);
-  } finally {
-    if (refreshBtn) {
-      refreshBtn.disabled = false;
-      refreshBtn.textContent = "🔄 Refresh";
-    }
+  }
+
+  _cachedOpenPositions = openPositions;
+  _cachedTradesData = trades;
+  _cachedBacktestData = backtestData;
+
+  await renderOpenPositions(openPositions);
+  renderHistory(trades);
+  renderStats(trades);
+  renderBacktestTab(backtestData);
+
+  if (refreshBtn) {
+    refreshBtn.disabled = false;
+    refreshBtn.textContent = "🔄 Refresh";
   }
 }
 
@@ -4373,6 +4515,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (logoutBtn) {
     logoutBtn.addEventListener("click", () => {
       localStorage.removeItem("auth");
+      localStorage.removeItem("dash_key_hash");
       window.location.href = "index.html";
     });
   }
