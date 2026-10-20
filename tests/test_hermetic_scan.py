@@ -60,6 +60,7 @@ def execute_full_scan_pipeline() -> Tuple[List[Dict[str, Any]], List[Dict[str, A
         "watchlist": watchlist,
         "on_deck": getattr(main, "_LAST_ON_DECK", []),
         "scanned_count": scanned_count,
+        "leaders_board": getattr(main, "_LEADERS_BOARD", []),
     }
     with open(main.SCAN_RESULTS_FILE, "w", encoding="utf-8") as f:
         json.dump(scan_data, f, indent=2, ensure_ascii=False)
@@ -90,9 +91,11 @@ def test_hermetic_scan_unmuted(tmp_cwd: Any, spy_posts: list, pin_ist_time: Any,
     with open(main.SCAN_RESULTS_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    assert set(data.keys()) == {"updated_at", "market_ok", "signals", "watchlist", "on_deck", "scanned_count"}
+    assert set(data.keys()) == {"updated_at", "market_ok", "signals", "watchlist", "on_deck", "scanned_count", "leaders_board"}
     assert "on_deck" in data
     assert isinstance(data["on_deck"], list)
+    assert "leaders_board" in data
+    assert isinstance(data["leaders_board"], list)
     assert data["market_ok"] is True
     assert data["scanned_count"] == 2
 
@@ -105,9 +108,19 @@ def test_hermetic_scan_unmuted(tmp_cwd: Any, spy_posts: list, pin_ist_time: Any,
     sig = data["signals"][0]
     expected_fields = {
         "Signal Date", "Symbol", "Sector", "Type", "Close", "Entry",
-        "Stop", "Target", "Qty", "Risk Per Unit", "Risk Amount", "ATR14", "RSI14"
+        "Stop", "Target", "Qty", "Risk Per Unit", "Risk Amount", "ATR14", "RSI14",
+        "rs_rating", "base_maturity", "days_in_base"
     }
     assert expected_fields.issubset(sig.keys()), f"Signal missing expected fields: {expected_fields - set(sig.keys())}"
+    assert "rs_rating" in sig
+    assert isinstance(sig["base_maturity"], int)
+    assert isinstance(sig["days_in_base"], int)
+
+    if data["watchlist"]:
+        wl0 = data["watchlist"][0]
+        assert "rs_rating" in wl0
+        assert isinstance(wl0["base_maturity"], int)
+        assert isinstance(wl0["days_in_base"], int)
 
     # Telegram sends should have fired
     assert len(spy_posts) >= 1, "Expected at least 1 proactive Telegram alert when unmuted"
@@ -166,3 +179,35 @@ def test_hermetic_scan_digest_combines_proactive_sends(
     assert len(spy_posts) == 1, f"Expected exactly 1 combined digest message, got {len(spy_posts)}"
     combined_body = spy_posts[0][1]["text"]
     assert "AAA" in combined_body
+
+
+def test_rs_graceful_small_universe(tmp_cwd: Any, monkeypatch: pytest.MonkeyPatch):
+    """
+    With N=2 symbols (eval universe < 30), rs_rating must gracefully degrade
+    to None on all outputs with no exception and no division by zero.
+    """
+    monkeypatch.setenv("QUIET", "1")
+    signals, watchlist, count, mkt_ok = execute_full_scan_pipeline()
+
+    with open(main.SCAN_RESULTS_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # 1. Assert keys exist and rs_rating is None for small universe
+    assert len(data["signals"]) > 0
+    for sig in data["signals"]:
+        assert "rs_rating" in sig
+        assert sig["rs_rating"] is None
+        assert isinstance(sig["base_maturity"], int)
+        assert isinstance(sig["days_in_base"], int)
+
+    assert len(data["watchlist"]) > 0
+    for wl in data["watchlist"]:
+        assert "rs_rating" in wl
+        assert wl["rs_rating"] is None
+        assert isinstance(wl["base_maturity"], int)
+        assert isinstance(wl["days_in_base"], int)
+
+    # 2. leaders_board is empty list
+    assert "leaders_board" in data
+    assert data["leaders_board"] == []
+

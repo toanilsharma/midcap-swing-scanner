@@ -150,6 +150,42 @@ const TERMS = {
     where_used: "Trend Filter, Help Guide",
     anchor: "glossary-52whighlow"
   },
+  "RS Rating (Relative Strength)": {
+    short: "Percentile ranking (1-99) of 1-year blended momentum: 0.4*63d + 0.2*126d + 0.2*189d + 0.2*252d.",
+    long: "blended_return = 0.4*ret_63d + 0.2*ret_126d + 0.2*ret_189d + 0.2*ret_252d. Ranked against universe (1-99). Green: >=90 (leaders), Blue: 80-89 (strong), Gray: <80 or n/a (small universe < 30).",
+    where_used: "Near Buy Table, Leaders Board, Help Guide",
+    anchor: "glossary-rsrating"
+  },
+  "RS Rating": {
+    short: "Percentile ranking (1-99) of 1-year blended momentum: 0.4*63d + 0.2*126d + 0.2*189d + 0.2*252d.",
+    long: "blended_return = 0.4*ret_63d + 0.2*ret_126d + 0.2*ret_189d + 0.2*ret_252d. Ranked against universe (1-99). Green: >=90 (leaders), Blue: 80-89 (strong), Gray: <80 or n/a (small universe < 30).",
+    where_used: "Near Buy Table, Leaders Board, Help Guide",
+    anchor: "glossary-rsrating"
+  },
+  "RS": {
+    short: "Relative Strength rating (1-99) measuring stock performance against the midcap universe.",
+    long: "blended_return = 0.4*ret_63d + 0.2*ret_126d + 0.2*ret_189d + 0.2*ret_252d. Green >= 90, Blue 80-89, Gray < 80.",
+    where_used: "Near Buy Table Header & Pills, Help Guide",
+    anchor: "glossary-rsrating"
+  },
+  "Base Maturity / VCP contraction": {
+    short: "Count (1-4 dots) of volatility contractions within consolidation, measured by 10-day rolling std of (H-L)/C.",
+    long: "base_start_idx = index of min(Low) over last 60 bars; days_in_base = len(df) - 1 - base_start_idx. Step-downs in rolling range volatility clamp 1 to 4 dots. 4 dots = late-stage coiled base ready for breakout.",
+    where_used: "Watchlist Detail Panel, Sparkline Meter, Help Guide",
+    anchor: "glossary-basematurity"
+  },
+  "Base Maturity": {
+    short: "Count (1-4 dots) of volatility contractions within consolidation, measured by 10-day rolling std of (H-L)/C.",
+    long: "base_start_idx = index of min(Low) over last 60 bars; days_in_base = len(df) - 1 - base_start_idx. Step-downs in rolling range volatility clamp 1 to 4 dots. 4 dots = late-stage coiled base ready for breakout.",
+    where_used: "Watchlist Detail Panel, Sparkline Meter, Help Guide",
+    anchor: "glossary-basematurity"
+  },
+  "Leaders Board": {
+    short: "Top 10 relative strength leaders (1-99 RS) that also qualify in Stage-2 uptrend (TREND_OK).",
+    long: "Curated radar displaying up-to-10 highest RS rating symbols in active Stage-2 uptrends. Displays symbol, RS rating pill, close price, distance to breakout, and setup grade in an interactive strip.",
+    where_used: "Near Buy (Above Watchlist Table), Help Guide",
+    anchor: "glossary-leadersboard"
+  },
   "Relative Strength vs index": {
     short: "Outperformance of an individual stock compared to the NIFTY 50 benchmark.",
     long: "Stocks with high Relative Strength resist market sell-offs and reach new highs first. Our strategy focuses strictly on market leaders with sector and index outperformance.",
@@ -639,10 +675,115 @@ function renderNearBuy(scanData, openPositions) {
   const watchlist = scanData.watchlist || [];
   initWatchlistFilterListeners();
   renderSectorLeadership(watchlist);
+  renderLeadersBoard(scanData.leaders_board || []);
   applyWatchlistFiltering(watchlist, scanData);
 
   // Render On Deck (Near Misses) Section
   renderOnDeck(scanData);
+}
+
+// =====================================================================
+// LEADERS BOARD (TOP RS & STAGE-2) COMPONENT
+// =====================================================================
+let _leadersBoardExpanded = null;
+
+function renderLeadersBoard(leadersBoard) {
+  const container = document.getElementById("leadersBoardContainer");
+  if (!container) return;
+
+  const count = (leadersBoard || []).length;
+
+  // Default state: open on desktop (>=768px), collapsed on mobile (<768px)
+  if (_leadersBoardExpanded === null) {
+    _leadersBoardExpanded = window.innerWidth >= 768;
+  }
+
+  const chipsHtml = (!leadersBoard || leadersBoard.length === 0)
+    ? `<div class="leaders-board-empty">No Stage-2 leaders currently qualified (eval universe &lt; 30 or no active Stage-2 uptrends).</div>`
+    : leadersBoard.map(item => {
+        const sym = escapeHtml(item.symbol || "");
+        const rsVal = (item.rs_rating !== null && item.rs_rating !== undefined) ? item.rs_rating : "n/a";
+        let rsClass = "badge-neutral";
+        if (typeof rsVal === "number") {
+          if (rsVal >= 90) rsClass = "badge-success";
+          else if (rsVal >= 80) rsClass = "badge-info";
+          else rsClass = "badge-neutral";
+        }
+        const dist = parseFloat(item.dist_to_breakout) || 0;
+        const distStr = dist > 0 ? `+${dist.toFixed(1)}%` : `${dist.toFixed(1)}%`;
+        const grade = escapeHtml(item.grade || "C");
+        let gradeClass = "badge-neutral";
+        if (grade === "A+" || grade === "A") gradeClass = "badge-success";
+        else if (grade === "B") gradeClass = "badge-warning";
+        else gradeClass = "badge-danger";
+
+        return `
+          <div class="leader-chip" data-symbol="${sym}" title="Filter watchlist by ${sym}">
+            <div class="leader-chip-top">
+              <strong class="leader-chip-symbol">${sym}</strong>
+              <span class="badge ${rsClass} term-lookup" data-term="RS Rating">RS ${rsVal}</span>
+            </div>
+            <div class="leader-chip-bottom">
+              <span class="leader-chip-price">${formatINR(item.close)}</span>
+              <span class="leader-chip-dist">${distStr}</span>
+              <span class="badge ${gradeClass}">${grade}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+  container.innerHTML = `
+    <div class="leaders-board-card">
+      <div class="leaders-board-header" id="leadersBoardToggle">
+        <div class="leaders-board-title-group">
+          <span class="leaders-board-icon">🏆</span>
+          <span class="leaders-board-title">Leaders Board</span>
+          <span class="badge badge-neutral">${count} Qualified</span>
+          <span class="leaders-board-subtitle">(Top RS &ge; 80 + Stage-2 Uptrend)</span>
+        </div>
+        <button class="leaders-board-toggle-btn" aria-label="Toggle Leaders Board">
+          <span class="leaders-chevron">${_leadersBoardExpanded ? "▲" : "▼"}</span>
+        </button>
+      </div>
+      <div class="leaders-board-body" id="leadersBoardBody" style="display: ${_leadersBoardExpanded ? 'block' : 'none'};">
+        <div class="leaders-chips-wrapper">
+          ${chipsHtml}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Toggle listener
+  const toggleEl = document.getElementById("leadersBoardToggle");
+  const bodyEl = document.getElementById("leadersBoardBody");
+  if (toggleEl && bodyEl) {
+    toggleEl.addEventListener("click", () => {
+      _leadersBoardExpanded = !_leadersBoardExpanded;
+      bodyEl.style.display = _leadersBoardExpanded ? "block" : "none";
+      const chevron = toggleEl.querySelector(".leaders-chevron");
+      if (chevron) chevron.textContent = _leadersBoardExpanded ? "▲" : "▼";
+    });
+  }
+
+  // Click on a leader chip to filter watchlist
+  container.querySelectorAll(".leader-chip").forEach(chip => {
+    chip.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const sym = chip.getAttribute("data-symbol");
+      const searchInput = document.getElementById("watchlistSearchInput");
+      if (searchInput && sym) {
+        searchInput.value = sym;
+        _wlSearchQuery = sym;
+        const clearBtn = document.getElementById("clearWatchlistSearchBtn");
+        if (clearBtn) clearBtn.style.display = "inline-block";
+        const wlTable = document.getElementById("watchlistTable");
+        if (wlTable) wlTable.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (window._cachedScanData && window._cachedScanData.watchlist) {
+          applyWatchlistFiltering(window._cachedScanData.watchlist, window._cachedScanData);
+        }
+      }
+    });
+  });
 }
 
 // =====================================================================
@@ -769,6 +910,82 @@ function drawOnDeckSparkline(canvas, candles, breakoutLevel) {
   ctx.fillStyle = "#cbd5e1";
   ctx.font = "9px Inter, sans-serif";
   ctx.fillText(`₹${closes[n - 1].toFixed(1)}`, lastX + 5, lastY + 3);
+}
+
+function drawTighteningSparkline(canvas, candles) {
+  if (!canvas) return;
+  const container = canvas.parentElement;
+  const width = (container && container.clientWidth > 0) ? Math.min(container.clientWidth, 160) : 130;
+  const height = 28;
+  const dpr = window.devicePixelRatio || 1;
+
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, width, height);
+
+  if (!candles || candles.length < 2) return;
+
+  // Last 60 bars
+  const slice = candles.slice(-60);
+  const hl_c = slice.map(c => {
+    const cl = c.close || 1;
+    return (c.high - c.low) / cl;
+  });
+
+  // 10-period rolling standard deviation
+  const rollingStd = [];
+  for (let i = 0; i < hl_c.length; i++) {
+    const start = Math.max(0, i - 9);
+    const windowVals = hl_c.slice(start, i + 1);
+    if (windowVals.length < 2) {
+      rollingStd.push(0);
+      continue;
+    }
+    const mean = windowVals.reduce((a, b) => a + b, 0) / windowVals.length;
+    const variance = windowVals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (windowVals.length - 1);
+    rollingStd.push(Math.sqrt(variance));
+  }
+
+  const validVals = rollingStd.slice(Math.min(9, rollingStd.length - 1));
+  if (validVals.length < 2) return;
+
+  const minVal = Math.min(...validVals);
+  const maxVal = Math.max(...validVals);
+  const range = maxVal - minVal || 0.001;
+
+  const padX = 4;
+  const padY = 3;
+  const plotW = width - 2 * padX;
+  const plotH = height - 2 * padY;
+
+  ctx.beginPath();
+  const step = plotW / (validVals.length - 1);
+  validVals.forEach((val, i) => {
+    const x = padX + i * step;
+    const y = padY + plotH - ((val - minVal) / range) * plotH;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+
+  ctx.strokeStyle = "#38bdf8";
+  ctx.lineWidth = 1.75;
+  ctx.stroke();
+
+  // Gradient area underneath
+  const lastX = padX + (validVals.length - 1) * step;
+  ctx.lineTo(lastX, height - padY);
+  ctx.lineTo(padX, height - padY);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, height);
+  grad.addColorStop(0, "rgba(56, 189, 248, 0.25)");
+  grad.addColorStop(1, "rgba(56, 189, 248, 0.0)");
+  ctx.fillStyle = grad;
+  ctx.fill();
 }
 
 function renderOnDeck(scanData) {
@@ -1035,7 +1252,7 @@ function applyWatchlistFiltering(watchlist, scanData) {
 
   if (!watchlist || watchlist.length === 0) {
     watchlistBody.innerHTML = `
-      <tr><td colspan="9" class="empty-state">📋 Watchlist empty: no midcaps currently in uptrend within 5% of breakout.</td></tr>
+      <tr><td colspan="10" class="empty-state">📋 Watchlist empty: no midcaps currently in uptrend within 5% of breakout.</td></tr>
     `;
     updateFilterCounts([], 0);
     return;
@@ -1115,7 +1332,7 @@ function applyWatchlistFiltering(watchlist, scanData) {
   if (filtered.length === 0) {
     watchlistBody.innerHTML = `
       <tr>
-        <td colspan="9" class="empty-state">
+        <td colspan="10" class="empty-state">
           🔍 No setups match the current filters. 
           <a href="javascript:void(0)" onclick="resetAllWatchlistFilters()" style="color: #38bdf8; text-decoration: underline; margin-left: 6px;">Reset filters</a>
         </td>
@@ -1155,6 +1372,17 @@ function applyWatchlistFiltering(watchlist, scanData) {
     else if (grade === "C") gradeBadgeClass = "badge-danger";
     const gradeBadge = `<span class="badge ${gradeBadgeClass} term-lookup" data-term="Grade">${grade}</span>`;
 
+    const rsVal = (item.rs_rating !== undefined && item.rs_rating !== null) ? item.rs_rating : (item.RS_Rating ?? null);
+    let rsBadgeClass = "badge-neutral";
+    let rsText = "n/a";
+    if (rsVal !== null && !isNaN(rsVal)) {
+      rsText = `${rsVal}`;
+      if (rsVal >= 90) rsBadgeClass = "badge-success";
+      else if (rsVal >= 80) rsBadgeClass = "badge-info";
+      else rsBadgeClass = "badge-neutral";
+    }
+    const rsBadge = `<span class="badge ${rsBadgeClass} term-lookup" data-term="RS Rating">${rsText}</span>`;
+
     return `
       <tr class="watchlist-row ${rowClass}" data-symbol="${item.Symbol}" title="Click to view 6-month chart & checklist">
         <td data-label="Symbol">
@@ -1165,6 +1393,7 @@ function applyWatchlistFiltering(watchlist, scanData) {
         </td>
         <td data-label="Score">${scoreBadge}</td>
         <td data-label="Grade">${gradeBadge}</td>
+        <td data-label="RS">${rsBadge}</td>
         <td data-label="Close">${formatINR(item.Close)}</td>
         <td data-label="Dist to Breakout"><strong>${dist.toFixed(2)}%</strong> away</td>
         <td data-label="Coiling">${coilingBadge}</td>
@@ -1699,9 +1928,12 @@ async function toggleWatchlistDetail(row, item, scanData) {
   const bePrice = Number((breakoutLevel * 1.08).toFixed(2));
   const atrPct = ((atr / (close || 1)) * 100).toFixed(1);
 
+  const baseMat = Math.max(1, Math.min(4, parseInt(item.base_maturity, 10) || 1));
+  const daysInBase = (item.days_in_base !== undefined && item.days_in_base !== null) ? parseInt(item.days_in_base, 10) : 0;
+
   const detailHtml = `
     <tr class="detail-row" id="detail-${symbol}">
-      <td colspan="9">
+      <td colspan="10">
         <div class="stock-detail-panel">
           <div class="detail-header">
             <div class="detail-title-group">
@@ -1782,6 +2014,23 @@ async function toggleWatchlistDetail(row, item, scanData) {
                 <span class="bp-label">Daily Range (ATR 14)</span>
                 <span class="bp-val">₹${atr.toFixed(2)}</span>
                 <span class="bp-sub">${atrPct}% typical daily volatility</span>
+              </div>
+              <div class="blueprint-item maturity-box" data-label="Base Maturity">
+                <span class="bp-label">Base Maturity</span>
+                <div class="maturity-meter-row">
+                  <div class="maturity-dots-group" title="Base Maturity: ${baseMat} of 4 contraction stages">
+                    <span class="maturity-dot ${baseMat >= 1 ? 'filled' : ''}"></span>
+                    <span class="maturity-dot ${baseMat >= 2 ? 'filled' : ''}"></span>
+                    <span class="maturity-dot ${baseMat >= 3 ? 'filled' : ''}"></span>
+                    <span class="maturity-dot ${baseMat >= 4 ? 'filled' : ''}"></span>
+                    <strong class="maturity-stage-text">T${baseMat} / 4</strong>
+                  </div>
+                </div>
+                <span class="bp-sub">Days in base: <strong>${daysInBase}</strong></span>
+                <div class="tightening-sparkline-wrap">
+                  <canvas id="tightening-canvas-${symbol}" class="tightening-sparkline-canvas" width="130" height="28"></canvas>
+                  <span class="sparkline-caption">60-bar (H-L)/C rolling contraction</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1961,6 +2210,11 @@ async function toggleWatchlistDetail(row, item, scanData) {
     // Draw the chart on HTML5 canvas
     drawMiniChart(canvas, candles, finalBreakout, symbol);
 
+    const tightCanvas = document.getElementById(`tightening-canvas-${symbol}`);
+    if (tightCanvas) {
+      drawTighteningSparkline(tightCanvas, candles);
+    }
+
     if (metaEl) {
       const lastCandle = candles[candles.length - 1];
       metaEl.textContent = `${candles.length} trading days • Close: ₹${lastCandle.close.toFixed(2)} • 20D Breakout: ₹${finalBreakout.toFixed(2)}`;
@@ -1978,9 +2232,13 @@ window.addEventListener("resize", () => {
   clearTimeout(_resizeCanvasTimer);
   _resizeCanvasTimer = setTimeout(() => {
     document.querySelectorAll(".detail-row").forEach(detailRow => {
-      const canvas = detailRow.querySelector("canvas");
+      const canvas = detailRow.querySelector(".mini-chart-canvas");
       if (canvas && canvas._candles) {
         drawMiniChart(canvas, canvas._candles, canvas._breakoutLevel, canvas._symbol);
+      }
+      const tightCanvas = detailRow.querySelector(".tightening-sparkline-canvas");
+      if (tightCanvas && canvas && canvas._candles) {
+        drawTighteningSparkline(tightCanvas, canvas._candles);
       }
     });
   }, 100);

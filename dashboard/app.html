@@ -180,6 +180,9 @@
         </div>
       </div>
 
+      <!-- LEADERS BOARD STRIP (collapsible, above table) -->
+      <div id="leadersBoardContainer" class="leaders-board-container"></div>
+
       <div class="table-scroll" tabindex="0">
         <table id="watchlistTable">
           <thead>
@@ -187,6 +190,7 @@
               <th>Symbol</th>
               <th><span class="term-lookup" data-term="Setup score">Score</span></th>
               <th><span class="term-lookup" data-term="Grade">Grade</span></th>
+              <th><span class="term-lookup" data-term="RS Rating">RS</span></th>
               <th>Close</th>
               <th><span class="term-lookup" data-term="Dist to Breakout">Dist to Breakout</span></th>
               <th><span class="term-lookup" data-term="Coiling">Coiling</span></th>
@@ -197,7 +201,7 @@
           </thead>
           <tbody id="watchlistBody">
             <tr>
-              <td colspan="9" class="empty-state">Loading scan results from GitHub...</td>
+              <td colspan="10" class="empty-state">Loading scan results from GitHub...</td>
             </tr>
           </tbody>
         </table>
@@ -1040,6 +1044,30 @@
                 <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Identifies high-quality coiled stocks right before their breakout trigger, giving you advance situational awareness.</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">TREND_OK & SETUP_OK & sector_ok == True, but (BREAKOUT == False or VOL_SPIKE == False)</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">Action:</span><span class="glossary-example">Place on immediate radar for the next session; monitor for breakout price clearance and volume expansion.</span></div>
+              </div>
+
+              <div class="glossary-card" id="glossary-rsrating">
+                <div class="glossary-card-header"><span class="glossary-term">RS Rating (Relative Strength)</span><span class="glossary-category">Diagnostic Metric</span></div>
+                <p class="glossary-meaning">Percentile rank (1-99) of 1-year blended momentum: 0.4*ret_63d + 0.2*ret_126d + 0.2*ret_189d + 0.2*ret_252d against the universe.</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Identifies market leaders with institutional sponsorship that tend to break out strongest.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Green pill: RS &ge; 90 | Blue pill: RS 80-89 | Gray: RS &lt; 80 or n/a (universe &lt; 30)</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Action:</span><span class="glossary-example">Focus primary execution on stocks with RS &ge; 80 in Stage-2 uptrends.</span></div>
+              </div>
+
+              <div class="glossary-card" id="glossary-basematurity">
+                <div class="glossary-card-header"><span class="glossary-term">Base Maturity / VCP contraction</span><span class="glossary-category">Pattern Diagnostic</span></div>
+                <p class="glossary-meaning">Measures volatility contraction within the active consolidation: base_start_idx = index of min(Low) over last 60 bars; days_in_base = len(df) - 1 - base_start_idx.</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Tracks progressive volatility contraction (VCP stages) before an explosive expansion.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Count successive step-downs of 10-day rolling std of (High-Low)/Close; clamp 1..4 dots.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">4 dots = late-stage mature coil; 1-2 dots = early consolidation.</span></div>
+              </div>
+
+              <div class="glossary-card" id="glossary-leadersboard">
+                <div class="glossary-card-header"><span class="glossary-term">Leaders Board</span><span class="glossary-category">Curated Radar</span></div>
+                <p class="glossary-meaning">Top 10 relative strength leaders (1-99 RS) that also qualify in Stage-2 uptrend (TREND_OK).</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Instantly highlights the strongest market leaders near or at new highs with Stage-2 alignment.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Top-10 highest RS rating satisfying TREND_OK (Stage-2), formatted as {symbol, rs_rating, close, dist_to_breakout, grade}.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Display:</span><span class="glossary-example">Collapsible strip above Near Buy table; horizontal scroll on mobile, compact grid on desktop.</span></div>
               </div>
 
               <div class="glossary-card" id="glossary-rmultiple">

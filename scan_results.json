@@ -19,7 +19,10 @@
       "score": 50,
       "grade": "C",
       "Score": 50,
-      "Grade": "C"
+      "Grade": "C",
+      "rs_rating": 88,
+      "base_maturity": 3,
+      "days_in_base": 24
     },
     {
       "Symbol": "FEDERALBNK",
@@ -36,7 +39,10 @@
       "score": 45,
       "grade": "C",
       "Score": 45,
-      "Grade": "C"
+      "Grade": "C",
+      "rs_rating": 91,
+      "base_maturity": 2,
+      "days_in_base": 18
     },
     {
       "Symbol": "NYKAA",
@@ -53,7 +59,10 @@
       "score": 43,
       "grade": "C",
       "Score": 43,
-      "Grade": "C"
+      "Grade": "C",
+      "rs_rating": 72,
+      "base_maturity": 2,
+      "days_in_base": 15
     },
     {
       "Symbol": "COFORGE",
@@ -70,8 +79,27 @@
       "score": 36,
       "grade": "C",
       "Score": 36,
-      "Grade": "C"
+      "Grade": "C",
+      "rs_rating": 64,
+      "base_maturity": 1,
+      "days_in_base": 9
     }
   ],
-  "scanned_count": 100
+  "scanned_count": 100,
+  "leaders_board": [
+    {
+      "symbol": "FEDERALBNK",
+      "rs_rating": 91,
+      "close": 348.85,
+      "dist_to_breakout": -1.16,
+      "grade": "C"
+    },
+    {
+      "symbol": "LAURUSLABS",
+      "rs_rating": 88,
+      "close": 2069.0,
+      "dist_to_breakout": 0.82,
+      "grade": "C"
+    }
+  ]
 }

@@ -581,11 +581,18 @@ def get_symbols() -> List[str]:
 # =====================================================================
 # 4) HISTORICAL DATA RETRIEVAL
 # =====================================================================
+_HISTORY_CACHE: Dict[str, pd.DataFrame] = {}
+
+
 def get_history(symbol: str) -> Optional[pd.DataFrame]:
     """
     Download 2 years of daily historical data for the symbol from Yahoo Finance.
     Returns clean DataFrame with Date, Open, High, Low, Close, Volume.
+    Caches downloaded frames in memory to avoid redundant network calls.
     """
+    if symbol in _HISTORY_CACHE:
+        return _HISTORY_CACHE[symbol].copy()
+
     try:
         df = yf.download(symbol, period="2y", interval="1d", auto_adjust=False, progress=False)
         if df is None or df.empty:
@@ -620,7 +627,8 @@ def get_history(symbol: str) -> Optional[pd.DataFrame]:
         if df.empty:
             return None
 
-        return df
+        _HISTORY_CACHE[symbol] = df
+        return df.copy()
     except Exception:
         return None
 
@@ -754,6 +762,142 @@ def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
         df[col] = df[col].fillna(False).astype(bool)
 
     return df
+
+
+# =====================================================================
+# 5b) PREMIUM INFORMATIONAL METRICS (DIAGNOSTIC ONLY)
+# =====================================================================
+def compute_window_return(df: pd.DataFrame, window_bars: int) -> float:
+    """
+    Compute raw % return over window_bars: ((close_now - prior_close) / prior_close) * 100.
+    If window has fewer bars, uses the longest available.
+    """
+    if df is None or len(df) < 2:
+        return 0.0
+    try:
+        close_now = float(df["Close"].iloc[-1])
+        prior_idx = max(0, len(df) - 1 - window_bars)
+        prior_close = float(df["Close"].iloc[prior_idx])
+        if prior_close <= 0 or pd.isna(prior_close) or pd.isna(close_now):
+            return 0.0
+        return float(((close_now - prior_close) / prior_close) * 100.0)
+    except Exception:
+        return 0.0
+
+
+def compute_blended_return(df: pd.DataFrame) -> float:
+    """
+    blended_return = 0.4*ret_63d + 0.2*ret_126d + 0.2*ret_189d + 0.2*ret_252d
+    (annualized-free, raw % over each window; if window has < its bars, uses longest available).
+    """
+    ret_63d = compute_window_return(df, 63)
+    ret_126d = compute_window_return(df, 126)
+    ret_189d = compute_window_return(df, 189)
+    ret_252d = compute_window_return(df, 252)
+    return float(0.4 * ret_63d + 0.2 * ret_126d + 0.2 * ret_189d + 0.2 * ret_252d)
+
+
+def compute_universe_rs_ratings(symbols_blended: Dict[str, float]) -> Dict[str, Optional[int]]:
+    """
+    Percentile ranking (1-99) of blended returns across evaluated universe.
+    rs_rating = round(100 * (#symbols with blended_return <= this symbol's) / N).
+    Ties broken deterministically by symbol name ascending (stable).
+    Graceful degradation: if evaluated universe N < 30, rs_rating = None.
+    """
+    N = len(symbols_blended)
+    if N < 30:
+        return {sym: None for sym in symbols_blended}
+
+    # Deterministic sort: ascending by (blended_return, symbol)
+    sorted_items = sorted(symbols_blended.items(), key=lambda item: (item[1], item[0]))
+    ratings: Dict[str, Optional[int]] = {}
+    for idx, (sym, _) in enumerate(sorted_items, start=1):
+        raw_rs = round(100.0 * idx / N)
+        clamped_rs = max(1, min(99, int(raw_rs)))
+        ratings[sym] = clamped_rs
+    return ratings
+
+
+def compute_base_maturity(df: pd.DataFrame) -> Tuple[int, int]:
+    """
+    base_start_idx = index of min(Low) over last 60 bars;
+    days_in_base = len(df) - 1 - base_start_idx.
+    Counts successive step-downs of 10-day rolling std of (High-Low)/Close; clamp 1..4.
+    Returns (base_maturity, days_in_base) as integers.
+    """
+    if df is None or len(df) < 2:
+        return 1, 0
+
+    try:
+        window = min(60, len(df))
+        sub_lows = df["Low"].iloc[-window:].values
+        min_pos = int(np.argmin(sub_lows))
+        base_start_idx = int((len(df) - window) + min_pos)
+        days_in_base = int((len(df) - 1) - base_start_idx)
+
+        safe_close = df["Close"].replace(0, np.nan)
+        hl_c = ((df["High"] - df["Low"]) / safe_close).fillna(0)
+        rolling_std = hl_c.rolling(10, min_periods=2).std().fillna(0)
+
+        cons_slice = rolling_std.iloc[base_start_idx:].values
+        if len(cons_slice) < 2:
+            return 1, max(0, days_in_base)
+
+        checkpoints = [float(cons_slice[i]) for i in range(0, len(cons_slice), 10)]
+        if (len(cons_slice) - 1) not in range(0, len(cons_slice), 10):
+            checkpoints.append(float(cons_slice[-1]))
+
+        step_downs = sum(1 for i in range(1, len(checkpoints)) if checkpoints[i] < checkpoints[i - 1])
+        base_maturity = max(1, min(4, 1 + step_downs))
+        return int(base_maturity), max(0, int(days_in_base))
+    except Exception:
+        return 1, 0
+
+
+def build_leaders_board(symbols: List[str], rs_ratings: Dict[str, Optional[int]]) -> List[Dict[str, Any]]:
+    """
+    Build leaders_board = up to 10 symbols with highest rs_rating that ALSO satisfy TREND_OK (Stage-2).
+    Format: {symbol, rs_rating, close, dist_to_breakout, grade}.
+    Empty list allowed if no symbols qualify or universe N < 30.
+    """
+    leaders: List[Dict[str, Any]] = []
+    for sym in symbols:
+        rs_val = rs_ratings.get(sym)
+        if rs_val is None:
+            if not sym.endswith(".NS"):
+                rs_val = rs_ratings.get(sym + ".NS")
+            else:
+                rs_val = rs_ratings.get(sym[:-3])
+        if rs_val is None:
+            continue
+
+        df = get_history(sym)
+        if df is None or len(df) < 50:
+            continue
+        df = add_indicators(df)
+        last_row = df.iloc[-1]
+        if not bool(last_row.get("TREND_OK", False)):
+            continue
+
+        c_val = float(last_row["Close"])
+        h20 = float(last_row["HIGH20"])
+        if c_val <= 0 or pd.isna(h20):
+            continue
+        dist_bo = round(((h20 - c_val) / c_val) * 100, 2)
+        diag = diagnose(sym)
+        grade_val = diag.get("grade", "C") if diag else "C"
+        clean_sym = sym[:-3] if sym.endswith(".NS") else sym
+        leaders.append({
+            "symbol": clean_sym,
+            "rs_rating": int(rs_val),
+            "close": round(c_val, 2),
+            "dist_to_breakout": dist_bo,
+            "grade": grade_val,
+        })
+
+    # Sort descending by rs_rating, secondary ascending by symbol
+    leaders.sort(key=lambda x: (-x["rs_rating"], x["symbol"]))
+    return leaders[:10]
 
 
 # =====================================================================
@@ -913,6 +1057,13 @@ def scan_symbol(symbol: str) -> Optional[Dict[str, Any]]:
 
     risk_amount = qty * risk_per_unit
     sector_sym = SECTOR_MAP.get(symbol, INDEX_SYMBOL)
+    base_mat, days_base = compute_base_maturity(df)
+    rs_val = _RS_RATINGS.get(symbol)
+    if rs_val is None:
+        if not symbol.endswith(".NS"):
+            rs_val = _RS_RATINGS.get(symbol + ".NS")
+        else:
+            rs_val = _RS_RATINGS.get(symbol[:-3])
 
     return {
         "Signal Date": pd.to_datetime(last_row["Date"]).strftime("%Y-%m-%d"),
@@ -928,6 +1079,9 @@ def scan_symbol(symbol: str) -> Optional[Dict[str, Any]]:
         "Risk Amount": round(risk_amount, 2),
         "ATR14": round(atr, 2),
         "RSI14": round(float(last_row["RSI14"]), 1),
+        "rs_rating": rs_val,
+        "base_maturity": base_mat,
+        "days_in_base": days_base,
     }
 
 
@@ -984,13 +1138,20 @@ def format_on_deck_summary(on_deck_list: List[Dict[str, Any]], max_names: int = 
     return ", ".join(parts)
 
 
+_LAST_ON_DECK: List[Dict[str, Any]] = []
+_RS_RATINGS: Dict[str, Optional[int]] = {}
+_LEADERS_BOARD: List[Dict[str, Any]] = []
+
+
 def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
     """
     Execute the scan across all candidate symbols.
     Returns (signals, scanned_count, is_market_ok).
     """
-    global _LAST_ON_DECK
+    global _LAST_ON_DECK, _RS_RATINGS, _LEADERS_BOARD
     _LAST_ON_DECK = []
+    _RS_RATINGS = {}
+    _LEADERS_BOARD = []
     on_deck: List[Dict[str, Any]] = []
 
     print("Checking market regime filter...")
@@ -1042,6 +1203,7 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
                             m_cond = "Volume too low" if brk else "Price not broken"
                             a_val = round(float(last_row["ATR14"]), 2) if ("ATR14" in last_row and not pd.isna(last_row["ATR14"])) else None
                             r_val = round(float(last_row["RSI14"]), 1) if ("RSI14" in last_row and not pd.isna(last_row["RSI14"])) else None
+                            base_mat, days_base = compute_base_maturity(df_sym)
                             on_deck.append({
                                 "symbol": sym,
                                 "close": round(l_close, 2),
@@ -1050,10 +1212,40 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
                                 "missing_condition": m_cond,
                                 "atr14": a_val,
                                 "rsi14": r_val,
+                                "rs_rating": None,
+                                "base_maturity": base_mat,
+                                "days_in_base": days_base,
                             })
         except Exception as exc:
             print(f"Diagnostic on_deck check error for {sym}: {exc}")
         time.sleep(0.25)
+
+    # 1. Deterministically compute universe RS ratings (reusing in-memory cached history)
+    blended_returns: Dict[str, float] = {}
+    for sym in symbols:
+        df_sym = get_history(sym)
+        if df_sym is not None and len(df_sym) >= 50:
+            blended_returns[sym] = compute_blended_return(df_sym)
+
+    _RS_RATINGS = compute_universe_rs_ratings(blended_returns)
+
+    # 2. Attach rs_rating to signals and on_deck
+    for sig in signals:
+        s_name = sig.get("Symbol", "")
+        r_val = _RS_RATINGS.get(s_name)
+        if r_val is None:
+            r_val = _RS_RATINGS.get(s_name + ".NS" if not s_name.endswith(".NS") else s_name[:-3])
+        sig["rs_rating"] = r_val
+
+    for od in on_deck:
+        s_name = od.get("symbol", "")
+        r_val = _RS_RATINGS.get(s_name)
+        if r_val is None:
+            r_val = _RS_RATINGS.get(s_name + ".NS" if not s_name.endswith(".NS") else s_name[:-3])
+        od["rs_rating"] = r_val
+
+    # 3. Build top-level leaders board
+    _LEADERS_BOARD = build_leaders_board(symbols, _RS_RATINGS)
 
     on_deck.sort(key=lambda x: x["dist_pct"])
     on_deck = on_deck[:5]
@@ -1164,6 +1356,14 @@ def diagnose(symbol: str) -> Optional[Dict[str, Any]]:
     else:
         grade = "C"
 
+    base_mat, days_base = compute_base_maturity(df)
+    rs_val = _RS_RATINGS.get(symbol)
+    if rs_val is None:
+        if not symbol.endswith(".NS"):
+            rs_val = _RS_RATINGS.get(symbol + ".NS")
+        else:
+            rs_val = _RS_RATINGS.get(symbol[:-3])
+
     return {
         "Symbol": sym_name,
         "Sector": sec_sym,
@@ -1180,6 +1380,9 @@ def diagnose(symbol: str) -> Optional[Dict[str, Any]]:
         "grade": grade,
         "Score": score,
         "Grade": grade,
+        "rs_rating": rs_val,
+        "base_maturity": base_mat,
+        "days_in_base": days_base,
     }
 
 
@@ -2122,6 +2325,7 @@ if __name__ == "__main__":
             "watchlist": watchlist_candidates,
             "on_deck": _LAST_ON_DECK,
             "scanned_count": total_scanned,
+            "leaders_board": _LEADERS_BOARD,
         }
 
         with open(SCAN_RESULTS_FILE, "w", encoding="utf-8") as f:

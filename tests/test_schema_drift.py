@@ -18,6 +18,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "watchlist",
     "on_deck",
     "scanned_count",
+    "leaders_board",
 }
 
 EXPECTED_SIGNAL_KEYS = {
@@ -34,6 +35,9 @@ EXPECTED_SIGNAL_KEYS = {
     "Risk Amount",
     "ATR14",
     "RSI14",
+    "rs_rating",
+    "base_maturity",
+    "days_in_base",
 }
 
 EXPECTED_WATCHLIST_KEYS = {
@@ -52,6 +56,9 @@ EXPECTED_WATCHLIST_KEYS = {
     "grade",
     "Score",
     "Grade",
+    "rs_rating",
+    "base_maturity",
+    "days_in_base",
 }
 
 
