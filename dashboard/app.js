@@ -462,6 +462,42 @@ const TERMS = {
     where_used: "Performance Stats Tab, Help Guide",
     anchor: "glossary-maxdrawdown"
   },
+  "GTT": {
+    short: "Good Till Triggered conditional order remaining active in broker until a breakout level is reached.",
+    long: "Good Till Triggered (GTT) is a passive, automated order type offered by leading Indian brokers (Zerodha Kite, Groww, AngelOne, Upstox). In our breakout methodology, GTT orders are placed the evening prior with the trigger price at the 20-day high and a limit buffer (+0.5%), enabling disciplined execution without intraday screen watching.",
+    where_used: "Trader's Playbook (How to Buy), Help Guide",
+    anchor: "glossary-gtt"
+  },
+  "GTT Strategy": {
+    short: "Pre-market & evening execution checklist using Good Till Triggered orders to capture clean breakouts.",
+    long: "Our systematic entry checklist: verify Grade A/A+, check breakout distance <1%, confirm no binary events within 3 days, calculate exact 1% risk position size, and queue a passive GTT order. If morning opens gap up >2%, cancel immediately.",
+    where_used: "Trader's Playbook (How to Buy), Help Guide",
+    anchor: "glossary-gtt"
+  },
+  "Bracket Order": {
+    short: "Multi-leg order structure simultaneously attaching profit target and stop loss legs to an entry order.",
+    long: "A 3-in-1 order structure that ties an entry together with automated target profit and protective stop-loss legs on an OCO (One-Cancels-Other) basis. Essential for automated partial exits (50% at 2R) and breakeven stop loss ratcheting.",
+    where_used: "Trader's Playbook (How to Sell), Help Guide",
+    anchor: "glossary-bracketorder"
+  },
+  "Bracket Order (BO)": {
+    short: "Multi-leg order structure simultaneously attaching profit target and stop loss legs to an entry order.",
+    long: "A 3-in-1 order structure tying an entry with automated target profit and protective stop-loss legs on an OCO basis.",
+    where_used: "Trader's Playbook (How to Sell), Help Guide",
+    anchor: "glossary-bracketorder"
+  },
+  "Breakeven SL": {
+    short: "Moving stop loss price to original entry price after Target 1 (2R) is booked, making the trade risk-free.",
+    long: "A vital trade-management discipline: once 50% of the position is banked at the 2R target, the stop loss on the remaining runner shares is moved to the original entry price. The trade is now a risk-free free-roll where capital loss is mathematically impossible.",
+    where_used: "Trader's Playbook (How to Sell), Help Guide",
+    anchor: "glossary-breakeven"
+  },
+  "Time Stop": {
+    short: "Mandatory exit rule closing a stagnant position after 8 trading days without hitting Target or Stop.",
+    long: "Capital velocity discipline: true momentum breakouts follow through swiftly within 2 to 5 sessions. If a position stalls for more than 8 trading days without reaching its 2R target or hitting stop, it is closed entirely at market close to liberate capital for active leaders.",
+    where_used: "Trader's Playbook (How to Sell), Help Guide",
+    anchor: "glossary-timestop"
+  },
   "Time stop": {
     short: "Discipline rule to cut a stagnant breakout after 5 trading days without follow-through.",
     long: "Genuine momentum breakouts follow through swiftly. If a stock trades sideways near entry for 5 trading sessions, we close the trade to liberate capital for better setups.",
@@ -4583,6 +4619,83 @@ function renderTermSearchResults(query) {
   });
 }
 
+// Trader's Playbook: Collapsible How to Buy and How to Sell Guides
+function initPlaybookCards() {
+  const cards = [
+    { cardId: "buyPlaybookCard", headerId: "buyPlaybookHeader", btnId: "buyPlaybookToggleBtn", storageKey: "playbook_buy_collapsed" },
+    { cardId: "sellPlaybookCard", headerId: "sellPlaybookHeader", btnId: "sellPlaybookToggleBtn", storageKey: "playbook_sell_collapsed" },
+  ];
+
+  const isMobile = window.innerWidth < 768;
+
+  cards.forEach(({ cardId, headerId, btnId, storageKey }) => {
+    const card = document.getElementById(cardId);
+    const header = document.getElementById(headerId);
+    const btn = document.getElementById(btnId);
+    if (!card || !header) return;
+
+    // Default state: COLLAPSED on mobile, EXPANDED on desktop (save preference in localStorage)
+    const saved = localStorage.getItem(storageKey);
+    let isCollapsed;
+    if (saved !== null) {
+      isCollapsed = (saved === "1");
+    } else {
+      isCollapsed = isMobile;
+    }
+
+    const updateState = (collapsed) => {
+      if (collapsed) {
+        card.classList.add("collapsed");
+        if (btn) {
+          btn.setAttribute("aria-expanded", "false");
+          const label = btn.querySelector(".playbook-toggle-label");
+          if (label) label.textContent = "Expand";
+        }
+      } else {
+        card.classList.remove("collapsed");
+        if (btn) {
+          btn.setAttribute("aria-expanded", "true");
+          const label = btn.querySelector(".playbook-toggle-label");
+          if (label) label.textContent = "Collapse";
+        }
+      }
+    };
+
+    updateState(isCollapsed);
+
+    const toggle = (e) => {
+      // Don't toggle if clicking on a term lookup or copy button
+      if (e.target.closest(".term-lookup") || e.target.closest(".playbook-copy-btn")) return;
+      const willBeCollapsed = !card.classList.contains("collapsed");
+      updateState(willBeCollapsed);
+      localStorage.setItem(storageKey, willBeCollapsed ? "1" : "0");
+    };
+
+    header.addEventListener("click", toggle);
+  });
+
+  // Clipboard copy handlers for Playbook formulas
+  document.querySelectorAll(".playbook-copy-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const textToCopy = btn.getAttribute("data-copy") || "";
+      if (!textToCopy) return;
+
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        const originalText = btn.innerHTML;
+        btn.innerHTML = "✓ Copied!";
+        btn.classList.add("copied");
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+          btn.classList.remove("copied");
+        }, 2000);
+      }).catch((err) => {
+        console.warn("Clipboard copy error:", err);
+      });
+    });
+  });
+}
+
 // "How to read this tab" Dismissible Info Banners
 function initTabGuideBanners() {
   const banners = document.querySelectorAll(".tab-guide-banner");
@@ -4769,6 +4882,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initialize Term Search, Inline Definitions & Tab Banners
   initTabGuideBanners();
   initTermSearchAndLookups();
+
+  // Initialize Trader's Playbook Cards (How to Buy & How to Sell)
+  initPlaybookCards();
 
   // Initialize TradingView Modal Listeners (Phase 2 Item #3)
   initTradingViewModalListeners();

@@ -4749,6 +4749,270 @@ th .term-lookup {
   }
 }
 
+/* =====================================================================
+   TRADER'S PLAYBOOK COMPONENT (How to Buy & How to Sell Guides)
+   ===================================================================== */
+.playbook-card {
+  background: var(--card-bg, #0f172a);
+  border-radius: 12px;
+  margin: 16px 0 20px 0;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.playbook-card-buy {
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.05) 0%, rgba(15, 23, 42, 0.95) 100%);
+}
+
+.playbook-card-buy:hover {
+  border-color: rgba(16, 185, 129, 0.7);
+  box-shadow: 0 6px 22px rgba(16, 185, 129, 0.15);
+}
+
+.playbook-card-sell {
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.05) 0%, rgba(15, 23, 42, 0.95) 100%);
+}
+
+.playbook-card-sell:hover {
+  border-color: rgba(245, 158, 11, 0.7);
+  box-shadow: 0 6px 22px rgba(245, 158, 11, 0.15);
+}
+
+.playbook-header {
+  padding: 13px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid transparent;
+  transition: background 0.15s ease;
+}
+
+.playbook-card-buy .playbook-header {
+  border-bottom-color: rgba(16, 185, 129, 0.2);
+}
+
+.playbook-card-sell .playbook-header {
+  border-bottom-color: rgba(245, 158, 11, 0.2);
+}
+
+.playbook-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.playbook-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.playbook-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.playbook-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.playbook-card-buy .playbook-title {
+  color: #10b981;
+}
+
+.playbook-card-sell .playbook-title {
+  color: #f59e0b;
+}
+
+.playbook-subtitle {
+  font-size: 12px;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 400;
+}
+
+.playbook-toggle-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.playbook-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.playbook-toggle-chevron {
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-block;
+  font-size: 10px;
+}
+
+.playbook-card.collapsed .playbook-toggle-chevron {
+  transform: rotate(-90deg);
+}
+
+.playbook-card.collapsed .playbook-body {
+  display: none;
+}
+
+.playbook-body {
+  padding: 16px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 16px;
+}
+
+.playbook-step {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.playbook-card-buy .playbook-step {
+  border-left: 3px solid #10b981;
+}
+
+.playbook-card-sell .playbook-step {
+  border-left: 3px solid #f59e0b;
+}
+
+.playbook-step-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #f1f5f9;
+  margin-bottom: 2px;
+}
+
+.playbook-card-buy .playbook-step-title {
+  color: #34d399;
+}
+
+.playbook-card-sell .playbook-step-title {
+  color: #fbbf24;
+}
+
+.playbook-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 12.5px;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.playbook-list li {
+  position: relative;
+  padding-left: 14px;
+}
+
+.playbook-list li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--text-muted, #94a3b8);
+  font-weight: bold;
+}
+
+.playbook-formula-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 5px 0 3px 0;
+}
+
+.playbook-code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 4px;
+  padding: 4px 9px;
+  font-size: 11.5px;
+  color: #38bdf8;
+  word-break: break-all;
+}
+
+.playbook-code-inline {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  color: #a7f3d0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.playbook-copy-btn {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #10b981;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.playbook-copy-btn:hover {
+  background: rgba(16, 185, 129, 0.25);
+  color: #34d399;
+  border-color: #10b981;
+}
+
+.playbook-copy-btn.copied {
+  background: #10b981;
+  color: #0f172a;
+  border-color: #10b981;
+  font-weight: 700;
+}
+
+.playbook-warn-inline {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .playbook-body {
+    grid-template-columns: 1fr;
+    padding: 12px 14px;
+    gap: 12px;
+  }
+  .playbook-subtitle {
+    display: none;
+  }
+}
+
 
 
 

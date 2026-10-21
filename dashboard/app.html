@@ -247,6 +247,72 @@
           <!-- LEADERS BOARD STRIP (collapsible, above table) -->
           <div id="leadersBoardContainer" class="leaders-board-container"></div>
 
+          <!-- TRADER'S PLAYBOOK: HOW TO BUY (GTT Strategy) -->
+          <div class="playbook-card playbook-card-buy" id="buyPlaybookCard">
+            <div class="playbook-header" id="buyPlaybookHeader">
+              <div class="playbook-title-group">
+                <span class="playbook-icon">🛒</span>
+                <div>
+                  <h3 class="playbook-title">🛒 HOW TO BUY (GTT Strategy)</h3>
+                  <span class="playbook-subtitle">Pre-market &amp; evening execution checklist</span>
+                </div>
+              </div>
+              <button class="playbook-toggle-btn" id="buyPlaybookToggleBtn" type="button" aria-expanded="true">
+                <span class="playbook-toggle-label">Collapse</span>
+                <span class="playbook-toggle-chevron">▼</span>
+              </button>
+            </div>
+            <div class="playbook-body" id="buyPlaybookBody">
+              <div class="playbook-step">
+                <div class="playbook-step-title">STEP 1: VERIFY THE SIGNAL (Evening - Post 4:15 PM Scan)</div>
+                <ul class="playbook-list">
+                  <li><strong>Check Grade:</strong> Must be A or A+.</li>
+                  <li><strong>Check Distance:</strong> &lt; 1% to Breakout Level.</li>
+                  <li><strong>Check Events:</strong> Ensure NO earnings/lock-ins within 3 days (<span class="playbook-warn-inline">Red Flag if blocked</span>).</li>
+                  <li><strong>Check Breadth:</strong> Market Regime must be "Uptrend" or "Neutral". If "Defensive", SKIP unless exceptional quality.</li>
+                </ul>
+              </div>
+
+              <div class="playbook-step">
+                <div class="playbook-step-title">STEP 2: CALCULATE POSITION SIZE (<span class="term-lookup" data-term="Risk Management">Risk Management</span>)</div>
+                <ul class="playbook-list">
+                  <li>
+                    <strong>Formula:</strong>
+                    <div class="playbook-formula-row">
+                      <code class="playbook-code">Qty = (Capital × Risk%) ÷ (Entry Price − Stop Loss Price)</code>
+                      <button type="button" class="playbook-copy-btn" data-copy="Qty = (Capital * Risk%) / (Entry Price - Stop Loss Price)" title="Copy formula to clipboard">📋 Copy Formula</button>
+                    </div>
+                  </li>
+                  <li>
+                    <strong>Example:</strong> Capital ₹1L, Risk 1% (₹1000), Entry ₹2085, SL ₹2040.<br>
+                    <code class="playbook-code-inline">Diff = ₹45. Qty = 1000 / 45 ≈ 22 shares.</code>
+                  </li>
+                  <li><strong>Max Heat:</strong> Never exceed 5% total portfolio risk across all open trades.</li>
+                </ul>
+              </div>
+
+              <div class="playbook-step">
+                <div class="playbook-step-title">STEP 3: PLACE GTT ORDER (Before Market Close)</div>
+                <ul class="playbook-list">
+                  <li>Broker App &rarr; <span class="term-lookup" data-term="GTT">GTT</span> / Smart Order &rarr; <strong>BUY</strong>.</li>
+                  <li><strong>Trigger Price:</strong> Exact Breakout Level from Dashboard (e.g., ₹2085).</li>
+                  <li><strong>Limit Price:</strong> Trigger + 0.5% buffer (e.g., ₹2095) to ensure fill during volatility.</li>
+                  <li><strong>Validity:</strong> Good Till Cancelled (or 7 Days).</li>
+                  <li><strong class="playbook-warn-inline">⚠️ CRITICAL:</strong> Do NOT place regular market orders. Use <span class="term-lookup" data-term="GTT">GTT</span> only.</li>
+                </ul>
+              </div>
+
+              <div class="playbook-step">
+                <div class="playbook-step-title">STEP 4: MORNING CHECK (9:15 AM Next Day)</div>
+                <ul class="playbook-list">
+                  <li><strong>IF Gap Up &gt; 2% above Trigger:</strong> CANCEL <span class="term-lookup" data-term="GTT">GTT</span> immediately. Do not chase.</li>
+                  <li><strong>IF Opens Near Trigger:</strong> Let <span class="term-lookup" data-term="GTT">GTT</span> execute automatically.</li>
+                  <li><strong>IF No Trigger Hit:</strong> Order remains active. Review again next evening.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
           <div class="table-scroll" tabindex="0">
             <table id="watchlistTable">
               <thead>
@@ -445,6 +511,61 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- TRADER'S PLAYBOOK: HOW TO SELL / MANAGE RISK -->
+      <div class="playbook-card playbook-card-sell" id="sellPlaybookCard">
+        <div class="playbook-header" id="sellPlaybookHeader">
+          <div class="playbook-title-group">
+            <span class="playbook-icon">💰</span>
+            <div>
+              <h3 class="playbook-title">💰 HOW TO SELL / MANAGE RISK</h3>
+              <span class="playbook-subtitle">Trade management &amp; mechanical exit rules</span>
+            </div>
+          </div>
+          <button class="playbook-toggle-btn" id="sellPlaybookToggleBtn" type="button" aria-expanded="true">
+            <span class="playbook-toggle-label">Collapse</span>
+            <span class="playbook-toggle-chevron">▼</span>
+          </button>
+        </div>
+        <div class="playbook-body" id="sellPlaybookBody">
+          <div class="playbook-step">
+            <div class="playbook-step-title">SCENARIO A: STOP LOSS HIT (Protection)</div>
+            <ul class="playbook-list">
+              <li><strong>System Alert:</strong> "Stop Loss Triggered."</li>
+              <li><strong>Action:</strong> BROKER EXECUTES AUTOMATICALLY via attached SL order.</li>
+              <li><strong>Your Task:</strong> Log the trade in Journal (<code>/sell</code>). Analyze WHY it failed (Bad entry? News?). Move on. Do NOT revenge trade.</li>
+            </ul>
+          </div>
+
+          <div class="playbook-step">
+            <div class="playbook-step-title">SCENARIO B: TARGET REACHED (Profit Taking)</div>
+            <ul class="playbook-list">
+              <li><strong>System Alert:</strong> "Target 1 Reached (2R)."</li>
+              <li><strong>Action:</strong> Partial Exit (Sell 50%). Move Stop Loss to <span class="term-lookup" data-term="Breakeven SL">Breakeven</span> (Entry Price) for remaining 50%.</li>
+              <li><strong>Tool:</strong> Use <span class="term-lookup" data-term="Bracket Order">Bracket Order (BO)</span> or Manual Split.</li>
+              <li><strong>Trail Remaining:</strong> Switch to 20-EMA trailing stop or fixed 5% trail.</li>
+            </ul>
+          </div>
+
+          <div class="playbook-step">
+            <div class="playbook-step-title">SCENARIO C: TIME STOP (Stagnation)</div>
+            <ul class="playbook-list">
+              <li><strong>Condition:</strong> Position open &gt; 8 days without hitting Target OR Stop.</li>
+              <li><strong>Action:</strong> EXIT ENTIRELY at Market Close.</li>
+              <li><strong>Reason:</strong> Capital efficiency. Dead money kills compounding.</li>
+            </ul>
+          </div>
+
+          <div class="playbook-step">
+            <div class="playbook-step-title">SCENARIO D: EVENT WARNING (Gap Risk)</div>
+            <ul class="playbook-list">
+              <li><strong>Alert:</strong> "Earnings/Lock-in in 2 days."</li>
+              <li><strong>Action:</strong> CLOSE POSITION before event regardless of P&L.</li>
+              <li><strong>Reason:</strong> Small caps gap violently through stops. Survival first.</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -1275,6 +1396,22 @@
                 <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">True momentum breakouts follow through immediately. Stagnant trades tie up capital and usually fail.</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Discipline rule: Cut trade after 5 days without progress</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">Bought breakout on Monday; by next Monday price is hovering flat around entry -&gt; close trade.</span></div>
+              </div>
+
+              <div class="glossary-card" id="glossary-gtt">
+                <div class="glossary-card-header"><span class="glossary-term">Good Till Triggered (GTT)</span><span class="glossary-category">Order Execution</span></div>
+                <p class="glossary-meaning">A passive conditional order type that waits on broker servers until price hits the breakout level.</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Enables hands-free execution. You queue the order the night before; fills automatically on volume expansion without screen watching.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Playbook Rule:</span><span class="glossary-threshold">Trigger = 20-Day High Breakout; Limit = Trigger + 0.5% buffer; Cancel if gap up &gt; 2%.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">Breakout at ₹2085: Set Trigger ₹2085, Limit ₹2095. Fills automatically during morning breakout.</span></div>
+              </div>
+
+              <div class="glossary-card" id="glossary-bracketorder">
+                <div class="glossary-card-header"><span class="glossary-term">Bracket Order (BO)</span><span class="glossary-category">Risk Automation</span></div>
+                <p class="glossary-meaning">A 3-in-1 multi-leg order tying entry together with automated target profit and protective stop-loss legs.</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Provides automatic partial profit-taking at 2R and bracket stop protection (One-Cancels-Other / OCO).</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Playbook Rule:</span><span class="glossary-threshold">Sell 50% at 2R target; ratchet remaining stop to Breakeven (Entry price).</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">Buy at ₹1000, Stop ₹950, Target ₹1100. Target hits -&gt; 50% books +₹100 gain; remaining SL moves to ₹1000.</span></div>
               </div>
 
               <div class="glossary-card" id="glossary-gradescore">
