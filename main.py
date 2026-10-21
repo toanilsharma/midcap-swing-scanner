@@ -58,6 +58,7 @@ OPEN_POSITIONS_FILE = "open_positions.json"
 TG_OFFSET_FILE = "tg_offset.txt"
 ALERT_SETTINGS_FILE = "alert_settings.json"
 SCAN_RESULTS_FILE = "scan_results.json"
+LAST_ALERT_FILE = "last_alert.txt"
 DEALS_FILE = "deals.json"
 EVENTS_FILE = "events.json"
 EARNINGS_BLACKOUT_DAYS = 7
@@ -456,28 +457,31 @@ def send_telegram(
         return True
 
     # Rule (c): Inside quiet window quiet_start..quiet_end (handles past-midnight wrap)
-    q_start = settings.get("quiet_start")
-    q_end = settings.get("quiet_end")
-    if q_start and q_end and q_start != "off" and q_end != "off":
-        try:
-            qs_h, qs_m = map(int, q_start.split(":"))
-            qe_h, qe_m = map(int, q_end.split(":"))
-            now_m = now_ist.hour * 60 + now_ist.minute
-            start_m = qs_h * 60 + qs_m
-            end_m = qe_h * 60 + qe_m
+    # Bypassed if FORCE_ALERT == "1" so delayed GitHub Actions runners can still deliver daily summary
+    force_alert = os.getenv("FORCE_ALERT", "0").strip() == "1"
+    if not force_alert:
+        q_start = settings.get("quiet_start")
+        q_end = settings.get("quiet_end")
+        if q_start and q_end and q_start != "off" and q_end != "off":
+            try:
+                qs_h, qs_m = map(int, q_start.split(":"))
+                qe_h, qe_m = map(int, q_end.split(":"))
+                now_m = now_ist.hour * 60 + now_ist.minute
+                start_m = qs_h * 60 + qs_m
+                end_m = qe_h * 60 + qe_m
 
-            in_quiet = False
-            if start_m < end_m:
-                in_quiet = (start_m <= now_m < end_m)
-            elif start_m > end_m:
-                in_quiet = (now_m >= start_m or now_m < end_m)
+                in_quiet = False
+                if start_m < end_m:
+                    in_quiet = (start_m <= now_m < end_m)
+                elif start_m > end_m:
+                    in_quiet = (now_m >= start_m or now_m < end_m)
 
-            if in_quiet:
-                first_chars = message[:40].replace("\n", " ")
-                print(f"[BLOCKED:quiet_window] {first_chars}")
-                return True
-        except Exception as exc:
-            print(f"Warning checking quiet window ({q_start}-{q_end}): {exc}")
+                if in_quiet:
+                    first_chars = message[:40].replace("\n", " ")
+                    print(f"[BLOCKED:quiet_window] {first_chars}")
+                    return True
+            except Exception as exc:
+                print(f"Warning checking quiet window ({q_start}-{q_end}): {exc}")
 
     # Rule (d): Matching enable flag is false (scan / watchlist / market)
     eff_type = msg_type
@@ -3193,6 +3197,8 @@ def git_commit_scan_results() -> None:
         files_to_commit.append(EVENTS_FILE)
     if os.path.exists(OPEN_POSITIONS_FILE):
         files_to_commit.append(OPEN_POSITIONS_FILE)
+    if os.path.exists(LAST_ALERT_FILE):
+        files_to_commit.append(LAST_ALERT_FILE)
     git_commit_and_push(files_to_commit, "update scan results, deals, and events [skip ci]")
 
 
@@ -3213,6 +3219,20 @@ if __name__ == "__main__":
     if "--poll" in sys.argv:
         poll_loop()  # long-running, for the listener workflow
     else:
+        # Check if daily proactive scan alerts have already been sent for today
+        today_ist_str = get_now_ist().strftime("%Y-%m-%d")
+        already_alerted_today = False
+        if os.path.exists(LAST_ALERT_FILE) and os.getenv("FORCE_RESEND", "0").strip() != "1":
+            try:
+                with open(LAST_ALERT_FILE, "r", encoding="utf-8") as f:
+                    already_alerted_today = (f.read().strip() == today_ist_str)
+            except Exception:
+                pass
+
+        if already_alerted_today:
+            print(f"Daily proactive Telegram alert already sent for today ({today_ist_str}). Running in quiet mode for dashboard refresh.")
+            os.environ["QUIET"] = "1"
+
         settings = load_alert_settings()
         is_digest = settings.get("digest", False)
 
@@ -3243,6 +3263,14 @@ if __name__ == "__main__":
                 combined_digest = separator.join(valid_parts)
                 send_telegram(combined_digest, kind="proactive", msg_type="scan")
             _DIGEST_MESSAGES.clear()
+
+        # Record today's alert date if run was active
+        if not already_alerted_today and os.getenv("QUIET", "0").strip() != "1":
+            try:
+                with open(LAST_ALERT_FILE, "w", encoding="utf-8") as f:
+                    f.write(today_ist_str)
+            except Exception as exc:
+                print(f"Warning writing {LAST_ALERT_FILE}: {exc}")
 
         # 3. Publish scan_results.json for web dashboard
         ist_tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))

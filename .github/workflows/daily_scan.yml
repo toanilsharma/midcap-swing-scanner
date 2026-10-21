@@ -2,7 +2,10 @@ name: Daily Midcap Scan
 
 on:
   schedule:
-    - cron: "45 10 * * 1-5"  # 10:45 UTC = 16:15 IST, Monday through Friday
+    # Multiple staggered schedules prevent missed/delayed runs during GitHub peak queue loads:
+    - cron: "15 10 * * 1-5"  # 10:15 UTC = 15:45 IST (15 mins after NSE 15:30 close)
+    - cron: "45 10 * * 1-5"  # 10:45 UTC = 16:15 IST (Standard scheduled run)
+    - cron: "15 11 * * 1-5"  # 11:15 UTC = 16:45 IST (Backup safety-net run)
   workflow_dispatch:
 
 permissions:
@@ -44,6 +47,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FORCE_ALERT: "1"
           SKIP_GIT_PUSH: "1"
         run: |
           python main.py
