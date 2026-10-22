@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-21T21:11:10.076503+05:30",
+  "updated_at": "2026-10-22T15:06:11.673659+05:30",
   "market_ok": false,
   "signals": [],
   "watchlist": [
@@ -9,15 +9,15 @@
       "SectorBullish": "no",
       "Trend": "YES",
       "Coiling": "no",
-      "DistToBreakout%": 3.8,
-      "Close": 2012.5,
+      "DistToBreakout%": 4.44,
+      "Close": 2000.1,
       "VolDryup": "YES",
       "RsiInRange": "YES",
-      "RSI14": 54.4,
-      "ATR14": 53.9,
-      "score": 50,
+      "RSI14": 52.5,
+      "ATR14": 55.09,
+      "score": 47,
       "grade": "C",
-      "Score": 50,
+      "Score": 47,
       "Grade": "C",
       "rs_rating": null,
       "base_maturity": 4,
@@ -26,11 +26,40 @@
       "next_event": {
         "type": "EARNINGS",
         "date": "2026-10-29",
-        "days_to_event": 8
+        "days_to_event": 7
+      },
+      "event_blocked_reason": "Upcoming EARNINGS in 7d (2026-10-29)",
+      "mtf_confluence": true,
+      "thesis_card": "GRADE C | RS n/a | Base 4/4 (59d)\nTrend ✅ / Setup Coiling: no / Sector no\nInst: accumulation | Next event: EARNINGS in 7d\nPlan: 2R target partial + 20-EMA trail / 5d time-stop | Risk 1% (gap-capped)"
+    },
+    {
+      "Symbol": "FEDERALBNK",
+      "Sector": "^NSEBANK",
+      "SectorBullish": "no",
+      "Trend": "YES",
+      "Coiling": "no",
+      "DistToBreakout%": 2.14,
+      "Close": 348.05,
+      "VolDryup": "no",
+      "RsiInRange": "no",
+      "RSI14": 74.1,
+      "ATR14": 10.65,
+      "score": 36,
+      "grade": "C",
+      "Score": 36,
+      "Grade": "C",
+      "rs_rating": null,
+      "base_maturity": 1,
+      "days_in_base": 13,
+      "inst_footprint": "accumulation",
+      "next_event": {
+        "type": "AGM",
+        "date": "2026-11-15",
+        "days_to_event": 24
       },
       "event_blocked_reason": null,
       "mtf_confluence": true,
-      "thesis_card": "GRADE C | RS n/a | Base 4/4 (59d)\nTrend ✅ / Setup Coiling: no / Sector no\nInst: accumulation | Next event: EARNINGS in 8d\nPlan: 2R target partial + 20-EMA trail / 5d time-stop | Risk 1% (gap-capped)"
+      "thesis_card": "GRADE C | RS n/a | Base 1/4 (13d)\nTrend ✅ / Setup Coiling: no / Sector no\nInst: accumulation | Next event: AGM in 24d\nPlan: 2R target partial + 20-EMA trail / 5d time-stop | Risk 1% (gap-capped)"
     },
     {
       "Symbol": "COFORGE",
@@ -38,15 +67,15 @@
       "SectorBullish": "no",
       "Trend": "YES",
       "Coiling": "no",
-      "DistToBreakout%": 0.97,
-      "Close": 1951.0,
+      "DistToBreakout%": 3.54,
+      "Close": 1902.6,
       "VolDryup": "no",
       "RsiInRange": "no",
-      "RSI14": 78.4,
-      "ATR14": 63.01,
-      "score": 41,
+      "RSI14": 68.1,
+      "ATR14": 61.79,
+      "score": 31,
       "grade": "C",
-      "Score": 41,
+      "Score": 31,
       "Grade": "C",
       "rs_rating": null,
       "base_maturity": 4,
@@ -55,40 +84,11 @@
       "next_event": {
         "type": "EARNINGS",
         "date": "2026-10-23",
-        "days_to_event": 2
+        "days_to_event": 1
       },
-      "event_blocked_reason": "Upcoming EARNINGS in 2d (2026-10-23)",
+      "event_blocked_reason": "Upcoming EARNINGS in 1d (2026-10-23)",
       "mtf_confluence": true,
-      "thesis_card": "GRADE C | RS n/a | Base 4/4 (59d)\nTrend ✅ / Setup Coiling: no / Sector no\nInst: unknown | Next event: EARNINGS in 2d\nPlan: 2R target partial + 20-EMA trail / 5d time-stop | Risk 1% (gap-capped)"
-    },
-    {
-      "Symbol": "FEDERALBNK",
-      "Sector": "^NSEBANK",
-      "SectorBullish": "no",
-      "Trend": "YES",
-      "Coiling": "no",
-      "DistToBreakout%": 3.34,
-      "Close": 344.0,
-      "VolDryup": "no",
-      "RsiInRange": "no",
-      "RSI14": 69.1,
-      "ATR14": 10.54,
-      "score": 32,
-      "grade": "C",
-      "Score": 32,
-      "Grade": "C",
-      "rs_rating": null,
-      "base_maturity": 1,
-      "days_in_base": 12,
-      "inst_footprint": "accumulation",
-      "next_event": {
-        "type": "AGM",
-        "date": "2026-11-15",
-        "days_to_event": 25
-      },
-      "event_blocked_reason": null,
-      "mtf_confluence": true,
-      "thesis_card": "GRADE C | RS n/a | Base 1/4 (12d)\nTrend ✅ / Setup Coiling: no / Sector no\nInst: accumulation | Next event: AGM in 25d\nPlan: 2R target partial + 20-EMA trail / 5d time-stop | Risk 1% (gap-capped)"
+      "thesis_card": "GRADE C | RS n/a | Base 4/4 (59d)\nTrend ✅ / Setup Coiling: no / Sector no\nInst: unknown | Next event: EARNINGS in 1d\nPlan: 2R target partial + 20-EMA trail / 5d time-stop | Risk 1% (gap-capped)"
     }
   ],
   "on_deck": [],
@@ -99,13 +99,13 @@
     "churn": 0,
     "unknown": 0
   },
-  "deals_stale": true,
+  "deals_stale": false,
   "landmines": [
     {
       "symbol": "COFORGE",
       "type": "RECORD",
       "date": "2026-10-25",
-      "days_to_event": 4
+      "days_to_event": 3
     }
   ],
   "correlation": {
@@ -115,16 +115,16 @@
   },
   "market_summary": {
     "source": "^NSEI",
-    "last_close": 22811.35,
-    "prev_close": 22888.95,
-    "chg_pct": -0.34,
-    "last_bar_date": "2026-10-21",
-    "as_of_ist": "2026-10-21T21:11:11.072231+05:30",
+    "last_close": 22645.25,
+    "prev_close": 22811.35,
+    "chg_pct": -0.73,
+    "last_bar_date": "2026-10-22",
+    "as_of_ist": "2026-10-22T15:06:12.165084+05:30",
     "breadth_above_sma50": 12,
-    "breadth_above_sma200": 25,
+    "breadth_above_sma200": 24,
     "universe_size": 100,
-    "advancers": 15,
-    "decliners": 85,
-    "unchanged": 0
+    "advancers": 17,
+    "decliners": 82,
+    "unchanged": 1
   }
 }
