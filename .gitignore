@@ -4,3 +4,4 @@ venv/
 __pycache__/
 *.pyc
 trades.local.json
+*.log

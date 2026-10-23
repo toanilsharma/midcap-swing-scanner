@@ -2,10 +2,12 @@ name: Daily Midcap Scan
 
 on:
   schedule:
-    # Multiple staggered schedules prevent missed/delayed runs during GitHub peak queue loads:
-    - cron: "15 10 * * 1-5"  # 10:15 UTC = 15:45 IST (15 mins after NSE 15:30 close)
-    - cron: "45 10 * * 1-5"  # 10:45 UTC = 16:15 IST (Standard scheduled run)
-    - cron: "15 11 * * 1-5"  # 11:15 UTC = 16:45 IST (Backup safety-net run)
+    # Multiple jittered, non-congested schedules avoid peak queue traffic at :00, :15, :30, :45:
+    - cron: "08 10 * * 1-5"  # 10:08 UTC = 15:38 IST (8 mins after NSE 15:30 close)
+    - cron: "23 10 * * 1-5"  # 10:23 UTC = 15:53 IST (Standard evening run)
+    - cron: "41 10 * * 1-5"  # 10:41 UTC = 16:11 IST (Backup evening run)
+    - cron: "07 11 * * 1-5"  # 11:07 UTC = 16:37 IST (Late backup run)
+    - cron: "36 11 * * 1-5"  # 11:36 UTC = 17:06 IST (Safety net run)
   workflow_dispatch:
 
 permissions:
@@ -19,6 +21,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Set up Python

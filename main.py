@@ -3149,7 +3149,7 @@ def git_commit_and_push(files: List[str], commit_message: str) -> bool:
             subprocess.run(["git", "rebase", "--abort"], capture_output=True)
 
         push_proc = subprocess.run(
-            ["git", "push", "origin", "main"],
+            ["git", "push", "origin", "HEAD:main"],
             capture_output=True,
             text=True,
         )
@@ -3168,7 +3168,7 @@ def git_commit_and_push(files: List[str], commit_message: str) -> bool:
             subprocess.run(["git", "rebase", "--abort"], capture_output=True)
 
         push_retry = subprocess.run(
-            ["git", "push", "origin", "main"],
+            ["git", "push", "origin", "HEAD:main"],
             capture_output=True,
             text=True,
         )
@@ -3222,7 +3222,8 @@ if __name__ == "__main__":
         # Check if daily proactive scan alerts have already been sent for today
         today_ist_str = get_now_ist().strftime("%Y-%m-%d")
         already_alerted_today = False
-        if os.path.exists(LAST_ALERT_FILE) and os.getenv("FORCE_RESEND", "0").strip() != "1":
+        force_alert_active = (os.getenv("FORCE_ALERT", "0").strip() == "1" or os.getenv("FORCE_RESEND", "0").strip() == "1")
+        if os.path.exists(LAST_ALERT_FILE) and not force_alert_active:
             try:
                 with open(LAST_ALERT_FILE, "r", encoding="utf-8") as f:
                     already_alerted_today = (f.read().strip() == today_ist_str)
