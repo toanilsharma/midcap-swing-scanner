@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-23T20:32:21.980955+05:30",
+  "updated_at": "2026-10-23T20:55:54.584795+05:30",
   "market_ok": false,
   "signals": [],
   "watchlist": [
@@ -70,7 +70,7 @@
     "churn": 0,
     "unknown": 0
   },
-  "deals_stale": true,
+  "deals_stale": false,
   "landmines": [
     {
       "symbol": "COFORGE",
@@ -90,7 +90,7 @@
     "prev_close": 22687.65,
     "chg_pct": -0.39,
     "last_bar_date": "2026-10-23",
-    "as_of_ist": "2026-10-23T20:32:22.439267+05:30",
+    "as_of_ist": "2026-10-23T20:55:55.568217+05:30",
     "breadth_above_sma50": 8,
     "breadth_above_sma200": 22,
     "universe_size": 100,
