@@ -1,36 +1,36 @@
 {
-  "updated_at": "2026-10-22T21:24:15.649568+05:30",
+  "updated_at": "2026-10-23T15:02:28.248207+05:30",
   "market_ok": false,
   "signals": [],
   "watchlist": [
     {
-      "Symbol": "LAURUSLABS",
-      "Sector": "^CNXPHARMA",
+      "Symbol": "COFORGE",
+      "Sector": "^CNXIT",
       "SectorBullish": "no",
       "Trend": "YES",
       "Coiling": "no",
-      "DistToBreakout%": 4.32,
-      "Close": 2002.5,
-      "VolDryup": "YES",
+      "DistToBreakout%": 4.67,
+      "Close": 1898.0,
+      "VolDryup": "no",
       "RsiInRange": "YES",
-      "RSI14": 52.9,
-      "ATR14": 55.09,
-      "score": 48,
+      "RSI14": 60.2,
+      "ATR14": 63.33,
+      "score": 36,
       "grade": "C",
-      "Score": 48,
+      "Score": 36,
       "Grade": "C",
       "rs_rating": null,
       "base_maturity": 4,
-      "days_in_base": 59,
-      "inst_footprint": "accumulation",
+      "days_in_base": 57,
+      "inst_footprint": "unknown",
       "next_event": {
         "type": "EARNINGS",
-        "date": "2026-10-29",
-        "days_to_event": 7
+        "date": "2026-10-23",
+        "days_to_event": 0
       },
-      "event_blocked_reason": "Upcoming EARNINGS in 7d (2026-10-29)",
+      "event_blocked_reason": "Upcoming EARNINGS in 0d (2026-10-23)",
       "mtf_confluence": true,
-      "thesis_card": "GRADE C | RS n/a | Base 4/4 (59d)\nTrend ✅ / Setup Coiling: no / Sector no\nInst: accumulation | Next event: EARNINGS in 7d\nPlan: 2R target partial + 20-EMA trail / 5d time-stop | Risk 1% (gap-capped)"
+      "thesis_card": "GRADE C | RS n/a | Base 4/4 (57d)\nTrend ✅ / Setup Coiling: no / Sector no\nInst: unknown | Next event: EARNINGS in 0d\nPlan: 2R target partial + 20-EMA trail / 5d time-stop | Risk 1% (gap-capped)"
     },
     {
       "Symbol": "FEDERALBNK",
@@ -38,57 +38,28 @@
       "SectorBullish": "no",
       "Trend": "YES",
       "Coiling": "no",
-      "DistToBreakout%": 2.21,
-      "Close": 347.8,
+      "DistToBreakout%": 4.59,
+      "Close": 339.9,
       "VolDryup": "no",
       "RsiInRange": "no",
-      "RSI14": 74.0,
-      "ATR14": 10.65,
-      "score": 36,
+      "RSI14": 65.4,
+      "ATR14": 10.82,
+      "score": 27,
       "grade": "C",
-      "Score": 36,
+      "Score": 27,
       "Grade": "C",
       "rs_rating": null,
       "base_maturity": 1,
-      "days_in_base": 13,
+      "days_in_base": 14,
       "inst_footprint": "accumulation",
       "next_event": {
         "type": "AGM",
         "date": "2026-11-15",
-        "days_to_event": 24
+        "days_to_event": 23
       },
       "event_blocked_reason": null,
       "mtf_confluence": true,
-      "thesis_card": "GRADE C | RS n/a | Base 1/4 (13d)\nTrend ✅ / Setup Coiling: no / Sector no\nInst: accumulation | Next event: AGM in 24d\nPlan: 2R target partial + 20-EMA trail / 5d time-stop | Risk 1% (gap-capped)"
-    },
-    {
-      "Symbol": "COFORGE",
-      "Sector": "^CNXIT",
-      "SectorBullish": "no",
-      "Trend": "YES",
-      "Coiling": "no",
-      "DistToBreakout%": 3.21,
-      "Close": 1908.8,
-      "VolDryup": "no",
-      "RsiInRange": "no",
-      "RSI14": 69.1,
-      "ATR14": 61.86,
-      "score": 32,
-      "grade": "C",
-      "Score": 32,
-      "Grade": "C",
-      "rs_rating": null,
-      "base_maturity": 4,
-      "days_in_base": 59,
-      "inst_footprint": "unknown",
-      "next_event": {
-        "type": "EARNINGS",
-        "date": "2026-10-23",
-        "days_to_event": 1
-      },
-      "event_blocked_reason": "Upcoming EARNINGS in 1d (2026-10-23)",
-      "mtf_confluence": true,
-      "thesis_card": "GRADE C | RS n/a | Base 4/4 (59d)\nTrend ✅ / Setup Coiling: no / Sector no\nInst: unknown | Next event: EARNINGS in 1d\nPlan: 2R target partial + 20-EMA trail / 5d time-stop | Risk 1% (gap-capped)"
+      "thesis_card": "GRADE C | RS n/a | Base 1/4 (14d)\nTrend ✅ / Setup Coiling: no / Sector no\nInst: accumulation | Next event: AGM in 23d\nPlan: 2R target partial + 20-EMA trail / 5d time-stop | Risk 1% (gap-capped)"
     }
   ],
   "on_deck": [],
@@ -99,13 +70,13 @@
     "churn": 0,
     "unknown": 0
   },
-  "deals_stale": true,
+  "deals_stale": false,
   "landmines": [
     {
       "symbol": "COFORGE",
       "type": "RECORD",
       "date": "2026-10-25",
-      "days_to_event": 3
+      "days_to_event": 2
     }
   ],
   "correlation": {
@@ -115,16 +86,16 @@
   },
   "market_summary": {
     "source": "^NSEI",
-    "last_close": 22687.65,
-    "prev_close": 22811.35,
-    "chg_pct": -0.54,
-    "last_bar_date": "2026-10-22",
-    "as_of_ist": "2026-10-22T21:24:16.029229+05:30",
-    "breadth_above_sma50": 12,
-    "breadth_above_sma200": 24,
+    "last_close": 22515.65,
+    "prev_close": 22687.65,
+    "chg_pct": -0.76,
+    "last_bar_date": "2026-10-23",
+    "as_of_ist": "2026-10-23T15:02:28.577295+05:30",
+    "breadth_above_sma50": 9,
+    "breadth_above_sma200": 22,
     "universe_size": 100,
-    "advancers": 21,
-    "decliners": 79,
+    "advancers": 0,
+    "decliners": 100,
     "unchanged": 0
   }
 }
