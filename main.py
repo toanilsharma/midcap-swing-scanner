@@ -3222,8 +3222,8 @@ if __name__ == "__main__":
         # Check if daily proactive scan alerts have already been sent for today
         today_ist_str = get_now_ist().strftime("%Y-%m-%d")
         already_alerted_today = False
-        force_alert_active = (os.getenv("FORCE_ALERT", "0").strip() == "1" or os.getenv("FORCE_RESEND", "0").strip() == "1")
-        if os.path.exists(LAST_ALERT_FILE) and not force_alert_active:
+        force_resend_active = (os.getenv("FORCE_RESEND", "0").strip() == "1")
+        if os.path.exists(LAST_ALERT_FILE) and not force_resend_active:
             try:
                 with open(LAST_ALERT_FILE, "r", encoding="utf-8") as f:
                     already_alerted_today = (f.read().strip() == today_ist_str)

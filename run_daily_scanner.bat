@@ -6,6 +6,8 @@ echo ======================================================== >> scanner_cron.lo
 echo Daily Scan Started: %date% %time% >> scanner_cron.log
 echo ======================================================== >> scanner_cron.log
 
+git pull --rebase origin main >> scanner_cron.log 2>&1
+
 set FORCE_ALERT=1
 
 "C:\Python314\python.exe" main.py >> scanner_cron.log 2>&1

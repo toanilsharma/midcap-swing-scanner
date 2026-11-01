@@ -47,9 +47,21 @@ jobs:
 
       - name: Run scanner
         env:
-          QUIET: "1"
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SKIP_GIT_PUSH: "0"
         run: |
-          python main.py
+          python -c '
+          import os, datetime, subprocess, sys
+          now_ist = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5, minutes=30)))
+          is_market_hours = (now_ist.hour < 15) or (now_ist.hour == 15 and now_ist.minute < 30)
+          env = os.environ.copy()
+          if is_market_hours:
+              env["QUIET"] = "1"
+              print(f"Market-hours hourly run ({now_ist.strftime(\"%H:%M\")} IST): QUIET=1 (silent dashboard refresh)")
+          else:
+              env["FORCE_ALERT"] = "1"
+              print(f"Post-market hourly run ({now_ist.strftime(\"%H:%M\")} IST): Evening alert permitted if not sent today")
+          res = subprocess.run([sys.executable, "main.py"], env=env)
+          sys.exit(res.returncode)
+          '
