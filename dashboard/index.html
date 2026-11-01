@@ -2,8 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Login - Midcap Swing Dashboard</title>
+
+  <!-- PWA & Mobile Optimization -->
+  <meta name="theme-color" content="#121212">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Midcap Swing">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="alternate icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -34,10 +46,30 @@
       <button type="submit" id="loginBtn" class="btn btn-primary btn-block">
         Sign In
       </button>
+
+      <button type="button" id="pwaInstallBtn" class="btn btn-secondary btn-block" style="display: none; margin-top: 12px;">
+        📲 Install App on Phone
+      </button>
     </form>
+  </div>
+
+  <!-- PWA Install Banner -->
+  <div id="pwaInstallBanner" class="pwa-install-banner" style="display: none;">
+    <div class="pwa-install-banner-content">
+      <div class="pwa-install-icon">📲</div>
+      <div class="pwa-install-text">
+        <strong>Install Midcap Swing App</strong>
+        <span>Add to Home Screen for 1-tap instant access without Chrome URL bar.</span>
+      </div>
+      <div class="pwa-install-actions">
+        <button id="pwaBannerInstallBtn" class="btn btn-primary btn-sm">Install</button>
+        <button id="pwaBannerDismissBtn" class="btn btn-ghost btn-sm">✕</button>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
   <script src="login.js"></script>
+  <script src="pwa.js"></script>
 </body>
 </html>
