@@ -15,6 +15,7 @@
   if (isStandalone) {
     document.documentElement.classList.add('pwa-standalone');
     console.log('[PWA] Running in standalone native app mode');
+    return; // Don't show any install prompts if already running as an installed app
   }
 
   // 2. Service Worker Registration
@@ -24,13 +25,12 @@
         .register('./sw.js')
         .then((reg) => {
           console.log('[PWA] Service Worker active, scope:', reg.scope);
-          // Check for worker updates
           reg.addEventListener('updatefound', () => {
             const newWorker = reg.installing;
             if (newWorker) {
               newWorker.addEventListener('statechange', () => {
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  console.log('[PWA] New version available.');
+                  console.log('[PWA] New version cached.');
                 }
               });
             }
@@ -46,17 +46,15 @@
   let deferredPrompt = null;
 
   function initPwaInstall() {
-    if (isStandalone) return;
-
-    const installHeaderBtn = document.getElementById('pwaInstallBtn');
+    const installBtn = document.getElementById('pwaInstallBtn');
     const installBanner = document.getElementById('pwaInstallBanner');
     const bannerInstallBtn = document.getElementById('pwaBannerInstallBtn');
     const bannerDismissBtn = document.getElementById('pwaBannerDismissBtn');
 
-    // Always expose header install button on mobile/desktop browsers
-    if (installHeaderBtn) {
-      installHeaderBtn.style.display = 'inline-flex';
-      installHeaderBtn.addEventListener('click', handleInstallClick);
+    // Show button on login / header immediately on mobile browsers
+    if (installBtn) {
+      installBtn.style.display = installBtn.classList.contains('btn-block') ? 'block' : 'inline-flex';
+      installBtn.addEventListener('click', handleInstallClick);
     }
 
     // Check if dismissed recently (24 hours)
@@ -64,14 +62,25 @@
     const isDismissedRecently =
       dismissedTime && Date.now() - parseInt(dismissedTime, 10) < 24 * 60 * 60 * 1000;
 
-    // Listen for Chrome / Android beforeinstallprompt
+    // Show bottom banner after 1.5s delay if on mobile and not recently dismissed
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
+
+    if (installBanner && !isDismissedRecently && isMobileDevice) {
+      setTimeout(() => {
+        installBanner.style.display = 'block';
+      }, 1500);
+    }
+
+    // Capture Chrome / Android beforeinstallprompt event whenever it fires
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      console.log('[PWA] beforeinstallprompt captured');
+      console.log('[PWA] beforeinstallprompt captured and ready');
 
-      if (installHeaderBtn) {
-        installHeaderBtn.style.display = 'inline-flex';
+      if (installBtn) {
+        installBtn.style.display = installBtn.classList.contains('btn-block') ? 'block' : 'inline-flex';
       }
 
       if (installBanner && !isDismissedRecently) {
@@ -90,22 +99,21 @@
       });
     }
 
-    // Check when app is installed
+    // When app is successfully installed
     window.addEventListener('appinstalled', () => {
       console.log('[PWA] App successfully installed!');
       deferredPrompt = null;
       if (installBanner) installBanner.style.display = 'none';
-      if (installHeaderBtn) installHeaderBtn.style.display = 'none';
+      if (installBtn) installBtn.style.display = 'none';
     });
   }
 
   async function handleInstallClick() {
     if (deferredPrompt) {
-      // Chrome Android native prompt
       try {
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
-        console.log('[PWA] User response to install prompt:', outcome);
+        console.log('[PWA] User choice:', outcome);
         if (outcome === 'accepted') {
           const banner = document.getElementById('pwaInstallBanner');
           if (banner) banner.style.display = 'none';
@@ -115,9 +123,10 @@
         deferredPrompt = null;
       } catch (err) {
         console.warn('[PWA] Install prompt error:', err);
+        showInstallInstructionsModal();
       }
     } else {
-      // Fallback instructions modal for Android/iOS users
+      // Show instant visual 2-step tutorial modal
       showInstallInstructionsModal();
     }
   }
@@ -138,13 +147,13 @@
         <div class="pwa-modal-header">
           <div style="display:flex; align-items:center; gap: 10px;">
             <span style="font-size: 24px;">📈</span>
-            <h3 style="margin:0; font-size: 18px; color: var(--color-text-light, #fff);">Install Midcap Swing App</h3>
+            <h3 style="margin:0; font-size: 18px; color: var(--color-text-light, #fff);">Install on Your Phone</h3>
           </div>
           <button class="pwa-modal-close" id="pwaModalCloseBtn">&times;</button>
         </div>
         <div class="pwa-modal-body">
           <p style="color: var(--color-text-muted, #9e9e9e); font-size: 14px; margin-top: 4px; margin-bottom: 16px;">
-            Install to launch directly from your home screen in full screen without typing the URL in Chrome.
+            Install <strong>Midcap Swing Terminal</strong> on your Android mobile so you can open it with 1 tap from your home screen without opening Chrome or typing the URL:
           </p>
 
           ${
@@ -162,21 +171,21 @@
               : `
             <div class="pwa-step-card">
               <div class="pwa-step-num">1</div>
-              <div class="pwa-step-text">Tap the <strong>three dots menu (⋮)</strong> at the top right of Chrome.</div>
+              <div class="pwa-step-text">In <strong>Chrome</strong> on your phone, tap the <strong>three dots menu (⋮)</strong> in the top-right corner.</div>
             </div>
             <div class="pwa-step-card">
               <div class="pwa-step-num">2</div>
-              <div class="pwa-step-text">Select <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</div>
+              <div class="pwa-step-text">Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</div>
             </div>
             <div class="pwa-step-card">
               <div class="pwa-step-num">3</div>
-              <div class="pwa-step-text">Tap <strong>Install</strong>. The Midcap Swing icon will appear on your phone's home screen!</div>
+              <div class="pwa-step-text">Tap <strong>Install</strong>. The Midcap Swing app icon is immediately added to your home screen!</div>
             </div>
             `
           }
         </div>
         <div class="pwa-modal-footer">
-          <button id="pwaModalGotItBtn" class="btn btn-primary btn-block">Got It</button>
+          <button id="pwaModalGotItBtn" class="btn btn-primary btn-block">Understood</button>
         </div>
       </div>
     `;
@@ -198,4 +207,3 @@
     initPwaInstall();
   }
 })();
-
