@@ -215,7 +215,7 @@
     "churn": 0,
     "unknown": 0
   },
-  "deals_stale": false,
+  "deals_stale": true,
   "landmines": [],
   "correlation": {
     "pairs": [],
