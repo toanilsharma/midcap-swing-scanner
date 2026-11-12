@@ -1484,20 +1484,25 @@ def get_cached_index_df() -> Optional[pd.DataFrame]:
 
 def market_ok() -> bool:
     """
-    O'Neil M-rule: Benchmark index must be in a healthy uptrend.
-    Last Close > SMA50 and Last Close > SMA200 and SMA50 > SMA200.
+    O'Neil / Minervini Market Regime Filter:
+    Benchmark is in a healthy uptrend when:
+      1) Price is above intermediate 50-DMA, AND
+      2) Price is above long-term 200-DMA (early bull recovery) OR 50-DMA is above 200-DMA (mature bull).
     """
     idx_df = get_cached_index_df()
     if idx_df is None or len(idx_df) < 200:
         return False
 
     last_row = idx_df.iloc[-1]
-    is_ok = (
-        (last_row["Close"] > last_row["SMA50"])
-        and (last_row["Close"] > last_row["SMA200"])
-        and (last_row["SMA50"] > last_row["SMA200"])
-    )
+    close = float(last_row["Close"])
+    sma50 = float(last_row["SMA50"])
+    sma200 = float(last_row["SMA200"])
+
+    is_ok = (close > sma50) and ((close > sma200) or (sma50 > sma200))
     return bool(is_ok)
+
+
+_REAL_MARKET_OK = market_ok
 
 
 def index_return_50() -> Optional[float]:
@@ -2012,28 +2017,31 @@ def run_scanner() -> Tuple[List[Dict[str, Any]], int, bool]:
     is_digest = settings.get("digest", False)
 
     if not is_mkt_ok:
-        msg = "🔴 MARKET FILTER: Index not in uptrend. No new entries today (O'Neil M-rule)."
+        msg = "🔴 MARKET FILTER: Index not in uptrend. No new entries today (O'Neil M-rule). Watchlist and Leaders Board updated."
         print(msg)
         if is_digest:
             _DIGEST_MESSAGES.append(("market", msg))
         else:
             send_telegram(msg, kind="proactive", msg_type="market")
-        return [], 0, False
 
     symbols = get_symbols()
     total = len(symbols)
-    print(f"Scanning {total} symbols for swing setups...")
+    if is_mkt_ok:
+        print(f"Scanning {total} symbols for swing setups...")
+    else:
+        print(f"Market filter active: Scanning {total} symbols for diagnostics, RS ratings, and leaders...")
 
     signals: List[Dict[str, Any]] = []
     messages: List[str] = []
 
     for i, sym in enumerate(symbols, start=1):
         print(f"{i}/{total}: {sym}")
-        sig = scan_symbol(sym)
-        if sig:
-            signals.append(sig)
-            formatted = f"{format_signal(sig)}\n\n{DISCIPLINE_CARD}"
-            messages.append(formatted)
+        if is_mkt_ok:
+            sig = scan_symbol(sym)
+            if sig:
+                signals.append(sig)
+                formatted = f"{format_signal(sig)}\n\n{DISCIPLINE_CARD}"
+                messages.append(formatted)
 
         # On-deck diagnostic near-miss evaluation (does not alter signal calculation)
         try:
@@ -2314,7 +2322,16 @@ def get_watchlist_candidates() -> List[Dict[str, Any]]:
     Returns list of diagnose() dicts with Trend YES and DistToBreakout% <= 5.0,
     sorted by score descending.
     """
+    global _RS_RATINGS
     symbols = get_symbols()
+    if not _RS_RATINGS:
+        blended_returns: Dict[str, float] = {}
+        for sym in symbols:
+            df_sym = get_history(sym)
+            if df_sym is not None and len(df_sym) >= 50:
+                blended_returns[sym] = compute_blended_return(df_sym)
+        _RS_RATINGS = compute_universe_rs_ratings(blended_returns)
+
     watchlist_candidates: List[Dict[str, Any]] = []
 
     print("Building watchlist...")

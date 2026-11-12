@@ -361,14 +361,14 @@ const TERMS = {
     anchor: "glossary-mrule"
   },
   "Market regime": {
-    short: "Macro market environment filter: Uptrend (trading permitted) vs Defensive (cash only).",
-    long: "Evaluates whether NIFTY 50 is trading cleanly above its 50-day and 200-day moving averages. If market conditions deteriorate, capital preservation mandates holding cash.",
+    short: "Market Health Light: Uptrend / Green Light (buying allowed) vs Caution / Cash Mode (protect capital).",
+    long: "Evaluates whether NIFTY 50 is trading cleanly above its key moving averages. When the market is above its 50-day and 200-day averages, it gives a Green Light (Uptrend). During market drops, it switches to Caution (Defensive) to protect your money.",
     where_used: "Top Bar Header, Near Buy Tab, Help Guide",
     anchor: "glossary-mrule"
   },
   "Defensive": {
-    short: "Market regime indicating benchmark downtrend; cash is held to protect capital.",
-    long: "When NIFTY 50 breaks below key moving averages, the terminal badge displays 'Market: Defensive'. All setup scores are capped at 50 and no new purchases are allowed.",
+    short: "Caution / Cash Mode: Broader market is resting or dropping; hold cash to protect profits.",
+    long: "When NIFTY 50 pulls back, the terminal enters Caution mode. New buy orders are paused and cash is held so you don't buy into falling prices. Focus on building your watchlist.",
     where_used: "Market Badge, Regime Banner, FAQ, Help Guide",
     anchor: "glossary-mrule"
   },
@@ -717,9 +717,11 @@ function renderTodaysPlan(scanData, openPositions) {
 
   // 1. Market state bullet
   if (!isMarketOk) {
-    bullets.push("Market defensive: no new entries today - cash is a position.");
+    bullets.push("🛡️ Market in Caution: Hold cash and protect your capital. New buy entries are paused.");
+    bullets.push("👀 Watchlist Focus: Study the top RS leaders below so you are ready to pounce when the green light turns on.");
   } else {
-    bullets.push("Market uptrend confirmed: entries allowed for high-conviction Grade A/A+ setups.");
+    bullets.push("🟢 Market Uptrend Confirmed: New entries allowed for high-conviction Grade A/A+ setups.");
+    bullets.push("🎯 Sizing Discipline: Risk 0.5% - 1% of your portfolio on coiled leaders breaking out with high volume.");
   }
 
   // 2. Count of A+/A grades
@@ -888,7 +890,7 @@ function renderMarketPulse(scanData) {
     } else {
       marketBadge.className = "badge badge-danger term-lookup";
       marketBadge.setAttribute("data-term", "Market regime");
-      marketBadge.textContent = "Market: Defensive";
+      marketBadge.textContent = "Market: Caution";
     }
   }
 
@@ -1065,13 +1067,13 @@ function renderNearBuy(scanData, openPositions) {
     marketBadge.setAttribute("data-term", "Market regime");
     marketBadge.textContent = "Market: Uptrend";
     regimeBanner.className = "regime-banner uptrend";
-    regimeText.textContent = "🟢 MARKET UPTREND CONFIRMED: Normal buy entry rules active.";
+    regimeText.textContent = "🟢 MARKET UPTREND CONFIRMED: Normal buy entry rules active. Take 0.5% - 1% starter risk on Grade A leaders.";
   } else {
     marketBadge.className = "badge badge-danger term-lookup";
     marketBadge.setAttribute("data-term", "Market regime");
-    marketBadge.textContent = "Market: Defensive";
+    marketBadge.textContent = "Market: Caution";
     regimeBanner.className = "regime-banner defensive";
-    regimeText.textContent = "🔴 MARKET FILTER ACTIVE: Index in pullback/downtrend. New entry signals blocked (O'Neil M-rule).";
+    regimeText.textContent = "🛡️ MARKET CAUTION ACTIVE: Index in pullback/pause. New entry signals paused to protect capital. Watch top leaders below.";
   }
   scannedMeta.textContent = `${scanData.scanned_count || 100} midcap stocks scanned`;
   regimeBanner.style.display = "flex";
@@ -1187,7 +1189,7 @@ function renderLeadersBoard(leadersBoard) {
   }
 
   const chipsHtml = (!leadersBoard || leadersBoard.length === 0)
-    ? `<div class="leaders-board-empty">No Stage-2 leaders currently qualified (eval universe &lt; 30 or no active Stage-2 uptrends).</div>`
+    ? `<div class="leaders-board-empty">Top market leaders will appear here during the next scheduled market scan.</div>`
     : leadersBoard.map(item => {
         const sym = escapeHtml(item.symbol || "");
         const rsVal = (item.rs_rating !== null && item.rs_rating !== undefined) ? item.rs_rating : "n/a";
