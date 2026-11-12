@@ -486,17 +486,17 @@ const TERMS = {
     where_used: "Trader's Playbook (How to Buy), Help Guide",
     anchor: "glossary-gtt"
   },
-  "Pre-Flight Clearance": {
-    short: "5-point aviation-grade safety inspection confirming market regime, sector momentum, RS rank, runway event safety, and volume supply exhaustion before entry.",
-    long: "Adapted from airline pilot safety protocols: no swing trade may be entered without verifying 5 independent systems: (1) Market Green Light (Price > 50-DMA), (2) Sector Stage-2 Tailwinds, (3) Relative Strength (RS ≥ 70), (4) Event Runway (>7 days clear of earnings/AGM), and (5) Supply Dry-Up. When all 5 clear, the setup is Approved for high-probability execution.",
-    where_used: "Candidate Watchlist Table, Stock Action Advisor, Help Guide",
-    anchor: "glossary-preflight"
+  "WhatsApp Summary": {
+    short: "1-Click emoji-formatted WhatsApp morning broadcast summarizing regime, top actionable setups, sized quantities, and landmine alerts.",
+    long: "Formats the day's market regime, top 2-3 flight-approved swing breakout setups (with exact trigger, stop, target, and position sizes for your capital), event landmines, and 9:15 AM open rules for effortless 10-second review or sharing with trading partners.",
+    where_used: "Header Strip, Today's Action Center, Help Guide",
+    anchor: "glossary-whatsapp"
   },
-  "Peace-of-Mind Sizer": {
-    short: "Visual Rupee Simulator calculating exact rupee risk, 2R partial profit, 4R runner gains, and portfolio heat in real rupee amounts.",
-    long: "Translates abstract percentage concepts into tangible rupee amounts. Shows you the exact maximum rupee loss you can possibly suffer (-1% budget), guarantees that 99% of your capital remains safe, and calculates exact rupee profits banked upon hitting 2R and 4R milestones.",
-    where_used: "Position Sizer Tab, Stock Detail View",
-    anchor: "glossary-sizer"
+  "Discipline Coach": {
+    short: "Behavioral trading journal auditing compliance against the 3 Golden Rules: Hard Stop Integrity, 2R Profit Booking, and 5-Day Time Stop.",
+    long: "Calculates your Personal Discipline Score (0-100%) and tracks rule execution streaks. Proves that systematic consistency in respecting stops and locking in partial profits—not market prediction—is what generates compounded returns.",
+    where_used: "Header Strip, Trade History Tab, Help Guide",
+    anchor: "glossary-discipline"
   },
   "GTT Strategy": {
     short: "Pre-market & evening execution checklist using Good Till Triggered orders to capture clean breakouts.",
@@ -504,17 +504,17 @@ const TERMS = {
     where_used: "Trader's Playbook (How to Buy), Help Guide",
     anchor: "glossary-gtt"
   },
-  "Pre-Flight Clearance": {
-    short: "5-point aviation-grade safety inspection confirming market regime, sector momentum, RS rank, runway event safety, and volume supply exhaustion before entry.",
-    long: "Adapted from airline pilot safety protocols: no swing trade may be entered without verifying 5 independent systems: (1) Market Green Light (Price > 50-DMA), (2) Sector Stage-2 Tailwinds, (3) Relative Strength (RS ≥ 70), (4) Event Runway (>7 days clear of earnings/AGM), and (5) Supply Dry-Up. When all 5 clear, the setup is Approved for high-probability execution.",
-    where_used: "Candidate Watchlist Table, Stock Action Advisor, Help Guide",
-    anchor: "glossary-preflight"
+  "WhatsApp Summary": {
+    short: "1-Click emoji-formatted WhatsApp morning broadcast summarizing regime, top actionable setups, sized quantities, and landmine alerts.",
+    long: "Formats the day's market regime, top 2-3 flight-approved swing breakout setups (with exact trigger, stop, target, and position sizes for your capital), event landmines, and 9:15 AM open rules for effortless 10-second review or sharing with trading partners.",
+    where_used: "Header Strip, Today's Action Center, Help Guide",
+    anchor: "glossary-whatsapp"
   },
-  "Peace-of-Mind Sizer": {
-    short: "Visual Rupee Simulator calculating exact rupee risk, 2R partial profit, 4R runner gains, and portfolio heat in real rupee amounts.",
-    long: "Translates abstract percentage concepts into tangible rupee amounts. Shows you the exact maximum rupee loss you can possibly suffer (-1% budget), guarantees that 99% of your capital remains safe, and calculates exact rupee profits banked upon hitting 2R and 4R milestones.",
-    where_used: "Position Sizer Tab, Stock Detail View",
-    anchor: "glossary-sizer"
+  "Discipline Coach": {
+    short: "Behavioral trading journal auditing compliance against the 3 Golden Rules: Hard Stop Integrity, 2R Profit Booking, and 5-Day Time Stop.",
+    long: "Calculates your Personal Discipline Score (0-100%) and tracks rule execution streaks. Proves that systematic consistency in respecting stops and locking in partial profits—not market prediction—is what generates compounded returns.",
+    where_used: "Header Strip, Trade History Tab, Help Guide",
+    anchor: "glossary-discipline"
   },
   "Bracket Order": {
     short: "Multi-leg order structure simultaneously attaching profit target and stop loss legs to an entry order.",
@@ -4236,6 +4236,7 @@ function renderHistory(trades) {
         }
       });
     }
+    renderDisciplineCoachCard();
     return;
   }
 
@@ -4263,6 +4264,20 @@ function renderHistory(trades) {
 
     // Merge system tags with user local post-mortem tags
     const localPm = getTradePostMortem(t.symbol, t.entry_date) || { tags: [], notes: "" };
+    let auditBadge = "";
+    if (localPm && localPm.rules) {
+      const passCount = (localPm.rules.stop === 'yes' ? 1 : 0) + (localPm.rules.target === 'yes' ? 1 : 0) + (localPm.rules.time === 'yes' ? 1 : 0);
+      if (passCount === 3) {
+        auditBadge = `<div style="margin-top: 3px;"><span class="badge badge-success" style="font-size: 10px;" title="Discipline Audit: 100% compliance with 3 Golden Rules">🏆 3/3 Rules</span></div>`;
+      } else if (passCount === 2) {
+        auditBadge = `<div style="margin-top: 3px;"><span class="badge badge-warning" style="font-size: 10px;" title="Discipline Audit: 1 rule violation detected">⚠️ 2/3 Rules</span></div>`;
+      } else {
+        auditBadge = `<div style="margin-top: 3px;"><span class="badge badge-danger" style="font-size: 10px;" title="Discipline Audit: Critical rule violations">❌ ${passCount}/3 Rules</span></div>`;
+      }
+    } else {
+      auditBadge = `<div style="margin-top: 3px;"><span class="badge badge-neutral" style="font-size: 10px;" title="Click Audit button to review execution against 3 Golden Rules">📝 Unaudited</span></div>`;
+    }
+
     const rawTags = [...(Array.isArray(t.tags) ? t.tags : []), ...(localPm.tags || [])];
     const uniqueTags = [...new Set(rawTags.map(tag => String(tag).trim()))].filter(Boolean);
 
@@ -4297,6 +4312,7 @@ function renderHistory(trades) {
       <tr class="${rowClass}">
         <td data-label="Symbol">
           <strong>${escapeHtml(t.symbol || "")}</strong>
+          ${auditBadge}
           ${mistakeBadge}
         </td>
         <td data-label="Tags">${tagsHtml}</td>
@@ -4318,8 +4334,8 @@ function renderHistory(trades) {
             data-exit-price="${t.exit_price || 0}"
             data-pnl="${pnl}"
             data-r="${t.r_multiple !== null && t.r_multiple !== undefined ? t.r_multiple : 'N/A'}"
-            title="Add post-mortem takeaways & execution tags">
-            📝 Reflect
+            title="Audit against 3 Golden Rules & save reflections">
+            📝 Audit
           </button>
         </td>
       </tr>
@@ -4397,6 +4413,9 @@ function renderHistory(trades) {
       }
     });
   }
+
+  // Render Discipline Coach Card with latest audits (Feature 7)
+  renderDisciplineCoachCard();
 }
 
 // 4. Render Tab: Statistics
@@ -5698,6 +5717,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initPostMortemListeners();
   initCsvExportListeners();
   initMorningOpenAssistantListeners();
+  initWhatsAppSummaryListeners();
+  initDisciplineCoachListeners();
 
   // Initialize Phase 4 Backtest Listeners
   initBacktestListeners();
@@ -6844,11 +6865,16 @@ function initScanArchiveListeners() {
 }
 
 // =====================================================================
-// PHASE 3: TRADE POST-MORTEM & REFLECTION NOTES (Item #9)
+// FEATURE 7: DISCIPLINE COACH & POST-MORTEM LOGGER (Trading Journal)
 // =====================================================================
+let _activePostMortemTrade = null;
+let _activeAuditRules = { stop: "yes", target: "yes", time: "yes" };
+
 function getTradePostMortem(symbol, entryDate) {
   if (!symbol) return null;
-  const key = `midcap_pm_${String(symbol).replace(/\.NS$/i, "").toUpperCase()}_${String(entryDate).substring(0, 10)}`;
+  const symClean = String(symbol).replace(/\.NS$/i, "").toUpperCase();
+  const dateClean = String(entryDate || "").substring(0, 10);
+  const key = `midcap_pm_${symClean}_${dateClean}`;
   try {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
@@ -6859,15 +6885,187 @@ function getTradePostMortem(symbol, entryDate) {
 
 function saveTradePostMortem(symbol, entryDate, data) {
   if (!symbol) return;
-  const key = `midcap_pm_${String(symbol).replace(/\.NS$/i, "").toUpperCase()}_${String(entryDate).substring(0, 10)}`;
+  const symClean = String(symbol).replace(/\.NS$/i, "").toUpperCase();
+  const dateClean = String(entryDate || "").substring(0, 10);
+  const key = `midcap_pm_${symClean}_${dateClean}`;
   try {
     localStorage.setItem(key, JSON.stringify(data));
+
+    // Register in master index of audited trades
+    let index = [];
+    const rawIndex = localStorage.getItem("midcap_discipline_index");
+    if (rawIndex) {
+      try { index = JSON.parse(rawIndex); } catch (e) {}
+    }
+    const id = `${symClean}_${dateClean}`;
+    if (!index.includes(id)) {
+      index.push(id);
+      localStorage.setItem("midcap_discipline_index", JSON.stringify(index));
+    }
   } catch (e) {
     console.warn("Could not save post-mortem:", e);
   }
 }
 
-let _activePostMortemTrade = null;
+function updateAuditRuleButtonsUI() {
+  document.querySelectorAll(".golden-rule-btn").forEach(btn => {
+    const rule = btn.getAttribute("data-rule");
+    const val = btn.getAttribute("data-val");
+    if (_activeAuditRules[rule] === val) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+}
+
+function updateLiveTradeAuditScoreBadge() {
+  const badge = document.getElementById("auditLiveTradeScore");
+  if (!badge) return;
+  const passCount = (_activeAuditRules.stop === "yes" ? 1 : 0) +
+                    (_activeAuditRules.target === "yes" ? 1 : 0) +
+                    (_activeAuditRules.time === "yes" ? 1 : 0);
+  const scorePct = Math.round((passCount / 3) * 100);
+  if (passCount === 3) {
+    badge.className = "badge badge-success";
+    badge.textContent = `3/3 Rules (100% Score)`;
+  } else if (passCount === 2) {
+    badge.className = "badge badge-warning";
+    badge.textContent = `2/3 Rules (67% Score)`;
+  } else {
+    badge.className = "badge badge-danger";
+    badge.textContent = `${passCount}/3 Rules (${scorePct}% Score)`;
+  }
+}
+
+function calculateDisciplineMetrics(trades) {
+  const allTrades = Array.isArray(trades) && trades.length > 0 ? trades : [];
+  let totalAudited = 0;
+  let totalStopPassed = 0;
+  let totalTargetPassed = 0;
+  let totalTimePassed = 0;
+  let currentStreak = 0;
+  let streakActive = true;
+
+  // Process trades newest first for streak
+  const chronological = [...allTrades].reverse();
+
+  chronological.forEach(t => {
+    const localPm = getTradePostMortem(t.symbol, t.entry_date);
+    let stopPass = true;
+    let targetPass = true;
+    let timePass = true;
+    let isAudited = false;
+
+    if (localPm && localPm.rules) {
+      isAudited = true;
+      stopPass = localPm.rules.stop === "yes";
+      targetPass = localPm.rules.target === "yes";
+      timePass = localPm.rules.time === "yes";
+    } else {
+      // Default rule deduction from automated telemetry
+      if (t.mistake === "stop_moved" || (t.tags && t.tags.includes("#StopMoved"))) stopPass = false;
+      if (t.mistake === "time_stop_ignored") timePass = false;
+      if (parseFloat(t.pnl) < 0 && (t.tags && t.tags.includes("#GreedyExit"))) targetPass = false;
+    }
+
+    if (isAudited) totalAudited++;
+    if (stopPass) totalStopPassed++;
+    if (targetPass) totalTargetPassed++;
+    if (timePass) totalTimePassed++;
+
+    if (streakActive) {
+      if (stopPass && targetPass && timePass) {
+        currentStreak++;
+      } else {
+        streakActive = false;
+      }
+    }
+  });
+
+  const divisor = Math.max(1, allTrades.length);
+  const stopIntegrity = Math.round((totalStopPassed / divisor) * 100);
+  const targetDiscipline = Math.round((totalTargetPassed / divisor) * 100);
+  const timeDiscipline = Math.round((totalTimePassed / divisor) * 100);
+  const totalPossibleRules = divisor * 3;
+  const totalPassedRules = totalStopPassed + totalTargetPassed + totalTimePassed;
+  const overallScore = Math.round((totalPassedRules / Math.max(1, totalPossibleRules)) * 100);
+
+  let grade = "🏆 Institutional Grade";
+  let gradeClass = "badge-success";
+  let wisdom = "Flawless execution! You trade like a systematic quantitative fund. Disciplined risk management mathematically compounds capital.";
+
+  if (overallScore < 75) {
+    grade = "⚠️ Capital Leakage";
+    gradeClass = "badge-danger";
+    wisdom = "Critical rule violations detected. You are widening stops or chasing gap-ups. Cut sizing to 0.5% starter risk until discipline score recovers above 85%.";
+  } else if (overallScore < 90) {
+    grade = "🎯 Consistent Practitioner";
+    gradeClass = "badge-warning";
+    wisdom = "Solid execution. Minor emotional leaks observed in profit-taking or holding past Day 5. Focus on selling 50% shares at 2R to make every trade risk-free.";
+  }
+
+  return {
+    totalTrades: allTrades.length,
+    totalAudited,
+    overallScore,
+    stopIntegrity,
+    targetDiscipline,
+    timeDiscipline,
+    currentStreak,
+    grade,
+    gradeClass,
+    wisdom
+  };
+}
+
+function renderDisciplineCoachCard() {
+  const card = document.getElementById("disciplineCoachCard");
+  if (!card) return;
+
+  const trades = _cachedTradesData || [];
+  const metrics = calculateDisciplineMetrics(trades);
+
+  const scoreEl = document.getElementById("disciplineOverallScore");
+  const gradeEl = document.getElementById("disciplineScoreGrade");
+  const streakEl = document.getElementById("disciplineStreakBadge");
+  const countEl = document.getElementById("disciplineAuditedCount");
+  const wisdomTextEl = document.getElementById("disciplineWisdomText");
+
+  const stopPctEl = document.getElementById("meterStopPct");
+  const stopFillEl = document.getElementById("meterStopFill");
+  const targetPctEl = document.getElementById("meterTargetPct");
+  const targetFillEl = document.getElementById("meterTargetFill");
+  const timePctEl = document.getElementById("meterTimePct");
+  const timeFillEl = document.getElementById("meterTimeFill");
+
+  if (scoreEl) scoreEl.textContent = `${metrics.overallScore}%`;
+  if (gradeEl) {
+    gradeEl.textContent = metrics.grade;
+    gradeEl.className = `discipline-score-grade badge ${metrics.gradeClass}`;
+  }
+  if (streakEl) streakEl.textContent = `🔥 ${metrics.currentStreak}-Trade Discipline Streak`;
+  if (countEl) countEl.textContent = `${metrics.totalAudited} of ${metrics.totalTrades} closed trades audited`;
+  if (wisdomTextEl) wisdomTextEl.innerHTML = `<strong>Coach's Execution Insight:</strong> ${metrics.wisdom}`;
+
+  if (stopPctEl) stopPctEl.textContent = `${metrics.stopIntegrity}%`;
+  if (stopFillEl) {
+    stopFillEl.style.width = `${metrics.stopIntegrity}%`;
+    stopFillEl.style.background = metrics.stopIntegrity >= 85 ? "#10b981" : (metrics.stopIntegrity >= 70 ? "#f59e0b" : "#ef4444");
+  }
+
+  if (targetPctEl) targetPctEl.textContent = `${metrics.targetDiscipline}%`;
+  if (targetFillEl) {
+    targetFillEl.style.width = `${metrics.targetDiscipline}%`;
+    targetFillEl.style.background = metrics.targetDiscipline >= 85 ? "#38bdf8" : (metrics.targetDiscipline >= 70 ? "#f59e0b" : "#ef4444");
+  }
+
+  if (timePctEl) timePctEl.textContent = `${metrics.timeDiscipline}%`;
+  if (timeFillEl) {
+    timeFillEl.style.width = `${metrics.timeDiscipline}%`;
+    timeFillEl.style.background = metrics.timeDiscipline >= 85 ? "#a78bfa" : (metrics.timeDiscipline >= 70 ? "#f59e0b" : "#ef4444");
+  }
+}
 
 function openPostMortemModal(trade) {
   _activePostMortemTrade = trade;
@@ -6879,7 +7077,7 @@ function openPostMortemModal(trade) {
 
   if (!modal) return;
 
-  const sym = (trade.symbol || "").replace(/\.NS$/i, "").toUpperCase();
+  const sym = (trade.symbol || "MANUAL").replace(/\.NS$/i, "").toUpperCase();
   if (title) title.textContent = `Trade Post-Mortem: ${sym}`;
 
   const pnl = parseFloat(trade.pnl) || 0;
@@ -6903,8 +7101,23 @@ function openPostMortemModal(trade) {
     `;
   }
 
-  const saved = getTradePostMortem(sym, trade.entryDate) || { tags: [], notes: "" };
+  const saved = getTradePostMortem(sym, trade.entryDate) || { tags: [], notes: "", rules: null };
   if (notesInput) notesInput.value = saved.notes || "";
+
+  // Set active rules state
+  if (saved.rules) {
+    _activeAuditRules = { ...saved.rules };
+  } else {
+    const hadStopMistake = trade.mistake === "stop_moved" || (trade.tags && trade.tags.includes("#StopMoved"));
+    const hadTimeMistake = trade.mistake === "time_stop_ignored";
+    _activeAuditRules = {
+      stop: hadStopMistake ? "no" : "yes",
+      target: "yes",
+      time: hadTimeMistake ? "no" : "yes"
+    };
+  }
+  updateAuditRuleButtonsUI();
+  updateLiveTradeAuditScoreBadge();
 
   if (chipContainer) {
     const buttons = chipContainer.querySelectorAll(".pm-tag-btn");
@@ -6948,6 +7161,17 @@ function initPostMortemListeners() {
     }
   });
 
+  // Handle 3 Golden Rules Toggle Buttons
+  document.querySelectorAll(".golden-rule-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const rule = btn.getAttribute("data-rule");
+      const val = btn.getAttribute("data-val");
+      _activeAuditRules[rule] = val;
+      updateAuditRuleButtonsUI();
+      updateLiveTradeAuditScoreBadge();
+    });
+  });
+
   if (chipContainer) {
     chipContainer.addEventListener("click", (e) => {
       const btn = e.target.closest(".pm-tag-btn");
@@ -6970,16 +7194,28 @@ function initPostMortemListeners() {
         });
       }
 
+      // Automatically add mistake tags if a rule was failed
+      if (_activeAuditRules.stop === "no" && !activeTags.includes("#StopMoved")) {
+        activeTags.push("#StopMoved");
+      }
+      if (_activeAuditRules.time === "no" && !activeTags.includes("#TimeStopIgnored")) {
+        activeTags.push("#TimeStopIgnored");
+      }
+      if (_activeAuditRules.stop === "yes" && _activeAuditRules.target === "yes" && _activeAuditRules.time === "yes") {
+        if (!activeTags.includes("#FollowedPlan")) activeTags.push("#FollowedPlan");
+      }
+
       const notes = notesInput ? notesInput.value.trim() : "";
 
       saveTradePostMortem(sym, entryDate, {
         tags: activeTags,
         notes: notes,
+        rules: { ..._activeAuditRules },
         updated_at: new Date().toISOString()
       });
 
       closePostMortemModal();
-      showToast(`Saved reflection for ${sym}`, "💾");
+      showToast(`Saved audit & discipline score for ${sym}`, "🧠");
 
       if (_cachedTradesData) {
         renderHistory(_cachedTradesData);
@@ -7001,6 +7237,289 @@ function initPostMortemListeners() {
       });
     }
   });
+}
+
+function initDisciplineCoachListeners() {
+  const headerBtn = document.getElementById("disciplineCoachBtn");
+  if (headerBtn) {
+    headerBtn.addEventListener("click", () => {
+      // Switch to Trade History Tab
+      const historyTabBtn = document.querySelector('.tab-btn[data-tab="tabHistory"]');
+      if (historyTabBtn) historyTabBtn.click();
+
+      // Scroll to coach card with highlight flash
+      const card = document.getElementById("disciplineCoachCard");
+      if (card) {
+        card.scrollIntoView({ behavior: "smooth", block: "start" });
+        card.classList.add("highlight-flash");
+        setTimeout(() => card.classList.remove("highlight-flash"), 1500);
+      }
+    });
+  }
+
+  const manualAuditBtn = document.getElementById("openManualAuditBtn");
+  if (manualAuditBtn) {
+    manualAuditBtn.addEventListener("click", () => {
+      const trades = _cachedTradesData || [];
+      if (trades.length > 0) {
+        const latest = trades[trades.length - 1];
+        openPostMortemModal({
+          symbol: latest.symbol,
+          entryDate: latest.entry_date,
+          exitDate: latest.exit_date,
+          pnl: latest.pnl,
+          r: latest.r_multiple
+        });
+      } else {
+        openPostMortemModal({
+          symbol: "CUSTOM_TRADE",
+          entryDate: new Date().toISOString().substring(0, 10),
+          exitDate: new Date().toISOString().substring(0, 10),
+          pnl: 0,
+          r: 0
+        });
+      }
+    });
+  }
+
+  const resetBtn = document.getElementById("resetDisciplineJournalBtn");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      if (confirm("Reset all local trade audits and start a fresh discipline streak?")) {
+        const rawIndex = localStorage.getItem("midcap_discipline_index");
+        if (rawIndex) {
+          try {
+            const index = JSON.parse(rawIndex);
+            index.forEach(id => localStorage.removeItem(`midcap_pm_${id}`));
+          } catch (e) {}
+        }
+        localStorage.removeItem("midcap_discipline_index");
+        showToast("Discipline journal reset. Ready for a clean streak!", "🔄");
+        renderDisciplineCoachCard();
+        if (_cachedTradesData) renderHistory(_cachedTradesData);
+      }
+    });
+  }
+}
+
+// =====================================================================
+// FEATURE 6: 1-CLICK WHATSAPP MORNING SUMMARY & BROADCAST GENERATOR
+// =====================================================================
+let _activeWaCapital = 100000;
+let _activeWaRiskPct = 1.0;
+
+function generateWhatsAppSummaryText(scanData, capital = 100000, riskPct = 1.0) {
+  const currentScan = scanData || _cachedScanData;
+  const now = new Date();
+  const dateFormatted = now.toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  });
+
+  const isMarketOk = Boolean(currentScan && currentScan.market_ok);
+  const mktRegimeText = isMarketOk
+    ? "🟢 *GREEN LIGHT: Uptrend Active* (NIFTY 50 > 50-DMA)\nMacro tailwinds aligned for high-probability swing breakouts."
+    : "🛡️ *CAUTION: Market Defensive* (Index in pullback)\nPreserve cash. Focus only on top RS coiled leaders with tight stops.";
+
+  // Find top actionable watchlist candidates
+  let actionableStocks = [];
+  const watchlist = (currentScan && (currentScan.watchlist || currentScan.signals)) || [];
+  if (Array.isArray(watchlist) && watchlist.length > 0) {
+    const candidates = [...watchlist].filter(item => {
+      const dist = parseFloat(item["DistToBreakout%"]) || 0;
+      return dist <= 3.5 && dist >= -3.5;
+    });
+
+    candidates.sort((a, b) => {
+      const scoreA = parseFloat(a.SetupScore || a.Score || 0);
+      const scoreB = parseFloat(b.SetupScore || b.Score || 0);
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      const distA = Math.abs(parseFloat(a["DistToBreakout%"]) || 0);
+      const distB = Math.abs(parseFloat(b["DistToBreakout%"]) || 0);
+      return distA - distB;
+    });
+
+    actionableStocks = candidates.slice(0, 3);
+  }
+
+  // Build stock bullets
+  let stocksText = "";
+  if (actionableStocks.length > 0) {
+    stocksText = actionableStocks.map((item, idx) => {
+      const sym = (item.Symbol || "").replace(/\.NS$/i, "").toUpperCase();
+      const close = parseFloat(item.Close) || 0;
+      const dist = parseFloat(item["DistToBreakout%"]) || 0;
+      const breakoutLevel = item.Breakout ? parseFloat(item.Breakout) : (item.Entry ? parseFloat(item.Entry) : Number((close * (1 + dist / 100)).toFixed(2)));
+      const atr = parseFloat(item.ATR14) || Number((close * 0.025).toFixed(2));
+      const stopPrice = item.Stop ? parseFloat(item.Stop) : Number(Math.max(1, breakoutLevel - 1.5 * atr).toFixed(2));
+      const riskPerShare = Math.max(0.01, breakoutLevel - stopPrice);
+      const riskPctStock = ((riskPerShare / (breakoutLevel || 1)) * 100).toFixed(1);
+      const targetPrice = item.Target ? parseFloat(item.Target) : Number((breakoutLevel + 2 * riskPerShare).toFixed(2));
+      const targetPctStock = (((targetPrice - breakoutLevel) / (breakoutLevel || 1)) * 100).toFixed(1);
+
+      const maxRiskBudget = capital * (riskPct / 100);
+      const qty = Math.max(1, Math.floor(maxRiskBudget / riskPerShare));
+      const actualLoss = Math.round(qty * riskPerShare);
+      const sector = item.Sector ? ` (${item.Sector})` : "";
+
+      const clearance = computeFlightClearance(item, currentScan);
+      const clearPill = clearance.passedCount === 5 ? "✈️ 5/5 Clear" : (clearance.passedCount === 4 ? "⚠️ 4/5 Clear" : "🚫 Grounded");
+
+      return `${idx + 1}️⃣ *${sym}*${sector} • ${clearPill}\n` +
+             `• Trigger Entry: *₹${breakoutLevel.toFixed(2)}*\n` +
+             `• Protective Stop: *₹${stopPrice.toFixed(2)}* (-${riskPctStock}% | ₹${riskPerShare.toFixed(2)} risk/sh)\n` +
+             `• Initial 2R Target: *₹${targetPrice.toFixed(2)}* (+${targetPctStock}%)\n` +
+             `• Suggested Sizing: *${qty} shares* (Max loss: -₹${actualLoss.toLocaleString("en-IN")} | 99% capital safe)`;
+    }).join("\n\n");
+  } else {
+    stocksText = "⏳ *No immediate breakouts triggering today.* Keep watchlist on radar.";
+  }
+
+  // Find landmine / blackout events
+  const landmines = [];
+  if (Array.isArray(watchlist)) {
+    watchlist.forEach(item => {
+      const nextEv = item.next_event;
+      if (item.event_blocked_reason || (nextEv && nextEv.days_to_event <= 7)) {
+        const sym = (item.Symbol || "").replace(/\.NS$/i, "").toUpperCase();
+        const evType = nextEv ? nextEv.type : "EVENT";
+        const evDays = nextEv ? nextEv.days_to_event : "≤7";
+        landmines.push(`• *${sym}*: ${evType} in ${evDays} days (Overnight gap risk - DO NOT BUY)`);
+      }
+    });
+  }
+
+  let landmineText = "";
+  if (landmines.length > 0) {
+    landmineText = `\n\n🚫 *LANDMINE EVENTS (DO NOT BUY TODAY):*\n` + landmines.slice(0, 3).join("\n");
+  }
+
+  const message =
+`⚡ *MIDCAP SWING RADAR & MORNING BRIEF*
+📅 *${dateFormatted}* • Pre-Market Action Brief
+
+🚦 *MARKET REGIME:*
+${mktRegimeText}
+
+🎯 *TOP ACTIONABLE BREAKOUT SETUPS:*
+(Calculated for *₹${capital.toLocaleString("en-IN")}* capital at *${riskPct}%* risk)
+
+${stocksText}${landmineText}
+
+🌅 *9:15 AM MARKET-OPEN PROTOCOL:*
+• Normal Open (0% to +1.5%): Let your automated broker GTT order fill.
+• Dangerous Gap (> +2.0%): *CANCEL GTT immediately!* Never chase an extended gap-up.
+
+📊 *Live Terminal & Real-Time Charts:*
+https://midcapswing.netlify.app/app.html`;
+
+  return message;
+}
+
+function updateWhatsAppPreview() {
+  const box = document.getElementById("whatsappPreviewBox");
+  if (!box) return;
+  const text = generateWhatsAppSummaryText(_cachedScanData, _activeWaCapital, _activeWaRiskPct);
+  box.textContent = text;
+}
+
+function openWhatsAppSummaryModal() {
+  const modal = document.getElementById("whatsappSummaryModal");
+  if (!modal) return;
+  updateWhatsAppPreview();
+  modal.style.display = "flex";
+  document.body.style.overflow = "hidden";
+}
+
+function closeWhatsAppSummaryModal() {
+  const modal = document.getElementById("whatsappSummaryModal");
+  if (modal) modal.style.display = "none";
+  document.body.style.overflow = "";
+}
+
+function initWhatsAppSummaryListeners() {
+  const modal = document.getElementById("whatsappSummaryModal");
+  const backdrop = document.getElementById("whatsappSummaryBackdrop");
+  const closeBtn = document.getElementById("whatsappSummaryCloseBtn");
+  const headerBtn = document.getElementById("whatsappSummaryBtn");
+  const planBtn = document.getElementById("todaysPlanWhatsappShareBtn");
+  const copyBtn = document.getElementById("whatsappCopyBtn");
+  const sendBtn = document.getElementById("whatsappSendBtn");
+  const telegramBtn = document.getElementById("telegramSendBtn");
+  const riskSelect = document.getElementById("waRiskSelect");
+
+  if (headerBtn) headerBtn.addEventListener("click", openWhatsAppSummaryModal);
+  if (planBtn) planBtn.addEventListener("click", openWhatsAppSummaryModal);
+  if (closeBtn) closeBtn.addEventListener("click", closeWhatsAppSummaryModal);
+  if (backdrop) backdrop.addEventListener("click", closeWhatsAppSummaryModal);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal && modal.style.display === "flex") {
+      closeWhatsAppSummaryModal();
+    }
+  });
+
+  // Capital Presets
+  const capButtons = document.querySelectorAll(".wa-cap-btn");
+  capButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      capButtons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      _activeWaCapital = parseFloat(btn.getAttribute("data-cap")) || 100000;
+      updateWhatsAppPreview();
+    });
+  });
+
+  // Risk selector
+  if (riskSelect) {
+    riskSelect.addEventListener("change", () => {
+      _activeWaRiskPct = parseFloat(riskSelect.value) || 1.0;
+      updateWhatsAppPreview();
+    });
+  }
+
+  // Copy to clipboard
+  if (copyBtn) {
+    copyBtn.addEventListener("click", async () => {
+      const text = generateWhatsAppSummaryText(_cachedScanData, _activeWaCapital, _activeWaRiskPct);
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        showToast("WhatsApp summary copied to clipboard!", "📋");
+      } catch (err) {
+        showToast("Summary copied to clipboard!", "📋");
+      }
+    });
+  }
+
+  // Share directly to WhatsApp
+  if (sendBtn) {
+    sendBtn.addEventListener("click", () => {
+      const text = generateWhatsAppSummaryText(_cachedScanData, _activeWaCapital, _activeWaRiskPct);
+      const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+      window.open(url, "_blank");
+    });
+  }
+
+  // Share to Telegram
+  if (telegramBtn) {
+    telegramBtn.addEventListener("click", () => {
+      const text = generateWhatsAppSummaryText(_cachedScanData, _activeWaCapital, _activeWaRiskPct);
+      const appUrl = "https://midcapswing.netlify.app/app.html";
+      const url = `https://t.me/share/url?url=${encodeURIComponent(appUrl)}&text=${encodeURIComponent(text)}`;
+      window.open(url, "_blank");
+    });
+  }
 }
 
 // =====================================================================
