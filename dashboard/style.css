@@ -6138,3 +6138,391 @@ html.pwa-standalone body {
   line-height: 1.45;
   margin: 0;
 }
+
+
+/* =====================================================================
+   FEATURE 4: PRE-FLIGHT CLEARANCE CHECKLIST (TRADE APPROVAL ENGINE)
+   ===================================================================== */
+.preflight-card {
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.preflight-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.preflight-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.preflight-icon {
+  font-size: 24px;
+}
+
+.preflight-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.preflight-subtitle {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  display: block;
+  margin-top: 2px;
+}
+
+.preflight-verdict-badge {
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 14px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.preflight-verdict-badge.verdict-approved {
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid #10b981;
+  color: #34d399;
+}
+
+.preflight-verdict-badge.verdict-conditional {
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid #f59e0b;
+  color: #fbbf24;
+}
+
+.preflight-verdict-badge.verdict-aborted {
+  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid #ef4444;
+  color: #f87171;
+}
+
+.preflight-progress-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.preflight-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: #cbd5e1;
+}
+
+.preflight-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.preflight-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.preflight-progress-fill.verdict-approved {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.preflight-progress-fill.verdict-conditional {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.preflight-progress-fill.verdict-aborted {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.preflight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.preflight-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.preflight-item.pass {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.04);
+}
+
+.preflight-item.warn {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.04);
+}
+
+.preflight-item.fail {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.preflight-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.preflight-item-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f1f5f9;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.preflight-item-cat {
+  font-size: 10.5px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.preflight-item-desc {
+  font-size: 11px;
+  line-height: 1.45;
+  color: #cbd5e1;
+}
+
+/* =====================================================================
+   FEATURE 5: VISUAL RUPEE SIMULATOR & PEACE-OF-MIND SIZER
+   ===================================================================== */
+.rupee-simulator-card {
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.05) 0%, rgba(20, 24, 33, 0.95) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rupee-sim-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.rupee-sim-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rupee-sim-icon {
+  font-size: 24px;
+}
+
+.rupee-sim-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.rupee-sim-subtitle {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  display: block;
+  margin-top: 2px;
+}
+
+.rupee-sim-preset-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chip-label {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.sim-cap-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sim-cap-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.sim-cap-btn.active {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+  color: #34d399;
+}
+
+.rupee-sim-controls-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.sim-control-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sim-control-item label {
+  font-size: 10.5px;
+  color: #94a3b8;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.sim-input-cap,
+.sim-select-risk {
+  background: #11141b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #f8fafc;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 5px 8px;
+}
+
+.sim-control-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sim-control-metric .sub-label {
+  font-size: 10px;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.sim-control-metric.highlight {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+.rupee-scenarios-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.rupee-scenario-box {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.rupee-scenario-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.scenario-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #94a3b8;
+}
+
+.scenario-amount {
+  font-size: 20px;
+  font-weight: 800;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.scenario-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.scenario-desc {
+  font-size: 11px;
+  line-height: 1.5;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.scenario-desc strong {
+  color: #ffffff;
+}
+
+.rupee-scenario-box.scenario-loss {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.06) 0%, rgba(20, 24, 33, 0.4) 100%);
+}
+.rupee-scenario-box.scenario-loss .scenario-badge { color: #f87171; }
+
+.rupee-scenario-box.scenario-profit {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.06) 0%, rgba(20, 24, 33, 0.4) 100%);
+}
+.rupee-scenario-box.scenario-profit .scenario-badge { color: #34d399; }
+
+.rupee-scenario-box.scenario-runner {
+  border-color: rgba(56, 189, 248, 0.3);
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.06) 0%, rgba(20, 24, 33, 0.4) 100%);
+}
+.rupee-scenario-box.scenario-runner .scenario-badge { color: #38bdf8; }
+
+.rupee-scenario-box.scenario-allocation {
+  border-color: rgba(129, 140, 248, 0.3);
+  background: linear-gradient(180deg, rgba(129, 140, 248, 0.06) 0%, rgba(20, 24, 33, 0.4) 100%);
+}
+.rupee-scenario-box.scenario-allocation .scenario-badge { color: #818cf8; }

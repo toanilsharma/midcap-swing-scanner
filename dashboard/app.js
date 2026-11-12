@@ -486,11 +486,35 @@ const TERMS = {
     where_used: "Trader's Playbook (How to Buy), Help Guide",
     anchor: "glossary-gtt"
   },
+  "Pre-Flight Clearance": {
+    short: "5-point aviation-grade safety inspection confirming market regime, sector momentum, RS rank, runway event safety, and volume supply exhaustion before entry.",
+    long: "Adapted from airline pilot safety protocols: no swing trade may be entered without verifying 5 independent systems: (1) Market Green Light (Price > 50-DMA), (2) Sector Stage-2 Tailwinds, (3) Relative Strength (RS ≥ 70), (4) Event Runway (>7 days clear of earnings/AGM), and (5) Supply Dry-Up. When all 5 clear, the setup is Approved for high-probability execution.",
+    where_used: "Candidate Watchlist Table, Stock Action Advisor, Help Guide",
+    anchor: "glossary-preflight"
+  },
+  "Peace-of-Mind Sizer": {
+    short: "Visual Rupee Simulator calculating exact rupee risk, 2R partial profit, 4R runner gains, and portfolio heat in real rupee amounts.",
+    long: "Translates abstract percentage concepts into tangible rupee amounts. Shows you the exact maximum rupee loss you can possibly suffer (-1% budget), guarantees that 99% of your capital remains safe, and calculates exact rupee profits banked upon hitting 2R and 4R milestones.",
+    where_used: "Position Sizer Tab, Stock Detail View",
+    anchor: "glossary-sizer"
+  },
   "GTT Strategy": {
     short: "Pre-market & evening execution checklist using Good Till Triggered orders to capture clean breakouts.",
     long: "Our systematic entry checklist: verify Grade A/A+, check breakout distance <1%, confirm no binary events within 3 days, calculate exact 1% risk position size, and queue a passive GTT order. If morning opens gap up >2%, cancel immediately.",
     where_used: "Trader's Playbook (How to Buy), Help Guide",
     anchor: "glossary-gtt"
+  },
+  "Pre-Flight Clearance": {
+    short: "5-point aviation-grade safety inspection confirming market regime, sector momentum, RS rank, runway event safety, and volume supply exhaustion before entry.",
+    long: "Adapted from airline pilot safety protocols: no swing trade may be entered without verifying 5 independent systems: (1) Market Green Light (Price > 50-DMA), (2) Sector Stage-2 Tailwinds, (3) Relative Strength (RS ≥ 70), (4) Event Runway (>7 days clear of earnings/AGM), and (5) Supply Dry-Up. When all 5 clear, the setup is Approved for high-probability execution.",
+    where_used: "Candidate Watchlist Table, Stock Action Advisor, Help Guide",
+    anchor: "glossary-preflight"
+  },
+  "Peace-of-Mind Sizer": {
+    short: "Visual Rupee Simulator calculating exact rupee risk, 2R partial profit, 4R runner gains, and portfolio heat in real rupee amounts.",
+    long: "Translates abstract percentage concepts into tangible rupee amounts. Shows you the exact maximum rupee loss you can possibly suffer (-1% budget), guarantees that 99% of your capital remains safe, and calculates exact rupee profits banked upon hitting 2R and 4R milestones.",
+    where_used: "Position Sizer Tab, Stock Detail View",
+    anchor: "glossary-sizer"
   },
   "Bracket Order": {
     short: "Multi-leg order structure simultaneously attaching profit target and stop loss legs to an entry order.",
@@ -1819,6 +1843,391 @@ function renderSectorLeadership(watchlist) {
   }
 }
 
+// =====================================================================
+// FEATURE 4: PRE-FLIGHT CLEARANCE CHECKLIST (TRADE APPROVAL ENGINE)
+// =====================================================================
+function computeFlightClearance(item, scanData) {
+  const isMarketOk = Boolean(scanData && scanData.market_ok);
+  const isSectorOk = item.SectorBullish === "YES";
+  const rsVal = (item.rs_rating !== undefined && item.rs_rating !== null) ? item.rs_rating : (item.RS_Rating ?? 50);
+  const isRsOk = (rsVal >= 65);
+  const isEventBlocked = Boolean(item.event_blocked_reason);
+  const nextEv = item.next_event;
+  const isEventOk = !isEventBlocked && (!nextEv || parseInt(nextEv.days_to_event, 10) > 7);
+  const isSupplyOk = (item.VolDryup === "YES" || item.Coiling === "YES");
+
+  const systems = [
+    {
+      id: "market",
+      name: "Market Green Light",
+      category: "Macro Filter (M-Rule)",
+      passed: isMarketOk,
+      critical: true,
+      desc: isMarketOk ? "NIFTY 50 Benchmark is in a healthy uptrend (above 50-DMA)." : "NIFTY 50 in defensive pullback. New entries restricted to preserve capital.",
+      icon: isMarketOk ? "🟢" : "🔴"
+    },
+    {
+      id: "sector",
+      name: "Sector Tailwinds",
+      category: `${item.Sector || "^NSEI"} Index`,
+      passed: isSectorOk,
+      critical: false,
+      desc: isSectorOk ? "Sector index in active Stage 2 uptrend, providing group momentum." : "Sector index is neutral/lagging; stock must push through group drag.",
+      icon: isSectorOk ? "🟢" : "🟡"
+    },
+    {
+      id: "rs",
+      name: "Relative Strength Rank",
+      category: `RS ${rsVal} Score`,
+      passed: isRsOk,
+      critical: false,
+      desc: isRsOk ? `RS ${rsVal}: Stock is outperforming ${rsVal}% of all NSE stocks over 12 months.` : `RS ${rsVal}: Below preferred 65+ threshold. Modest relative strength.`,
+      icon: isRsOk ? "🟢" : "🟡"
+    },
+    {
+      id: "event",
+      name: "Event Runway Safety",
+      category: "Binary Gap Risk",
+      passed: isEventOk,
+      critical: true,
+      desc: isEventOk ? "Clear runway: No earnings, board meeting, AGM, or corporate event in next 7 days." : `CRITICAL LOCKOUT: ${nextEv ? nextEv.type : 'Event'} in ${nextEv ? nextEv.days_to_event : '≤7'} days. Overnight gap risk bypasses stop loss!`,
+      icon: isEventOk ? "🟢" : "🔴"
+    },
+    {
+      id: "supply",
+      name: "Supply Dry-Up & Coiling",
+      category: "VCP / Volume Base",
+      passed: isSupplyOk,
+      critical: false,
+      desc: isSupplyOk ? "Volume dried up or coiling tightly, proving selling resistance is exhausted." : "Consolidation base still forming; volume has not yet completed dry-up cycle.",
+      icon: isSupplyOk ? "🟢" : "🟡"
+    }
+  ];
+
+  const passedCount = systems.filter(s => s.passed).length;
+  const isGrounded = (!isEventOk) || (!isMarketOk && (passedCount <= 3));
+  const isApproved = (passedCount === 5);
+  const isConditional = (passedCount >= 4 && isEventOk);
+
+  let verdictType = "approved";
+  let verdictTitle = "🟢 FLIGHT APPROVED: High-Probability Setup (5/5 Cleared)";
+  let verdictClass = "verdict-approved";
+  let badgeHtml = `<span class="badge badge-success flight-badge" style="font-size: 9.5px; padding: 2px 6px; cursor: pointer;" title="Pre-Flight Clearance: 5/5 systems cleared! High-probability setup.">✈️ 5/5 Clear</span>`;
+
+  if (!isEventOk) {
+    verdictType = "aborted";
+    verdictTitle = "🔴 TAKEOFF ABORTED: Grounded (Event Gap Hazard)";
+    verdictClass = "verdict-aborted";
+    badgeHtml = `<span class="badge badge-danger flight-badge" style="font-size: 9.5px; padding: 2px 6px; cursor: pointer;" title="Pre-Flight Clearance: Grounded! Event within 7 days.">🚫 Grounded</span>`;
+  } else if (!isMarketOk) {
+    verdictType = "conditional";
+    verdictTitle = "🟡 CONDITIONAL CLEARANCE: Defensive Market Warning (4/5 Cleared)";
+    verdictClass = "verdict-conditional";
+    badgeHtml = `<span class="badge badge-warning flight-badge" style="font-size: 9.5px; padding: 2px 6px; cursor: pointer;" title="Pre-Flight Clearance: 4/5 cleared (Market defensive).">⚠️ 4/5 Clear</span>`;
+  } else if (passedCount === 4) {
+    verdictType = "conditional";
+    verdictTitle = "🟡 CONDITIONAL CLEARANCE: Acceptable Setup (4/5 Cleared)";
+    verdictClass = "verdict-conditional";
+    badgeHtml = `<span class="badge badge-warning flight-badge" style="font-size: 9.5px; padding: 2px 6px; cursor: pointer;" title="Pre-Flight Clearance: 4/5 systems cleared. Conditional entry.">⚠️ 4/5 Clear</span>`;
+  } else if (passedCount < 4) {
+    verdictType = "aborted";
+    verdictTitle = `🔴 TAKEOFF ABORTED: Grounded (${passedCount}/5 Cleared)`;
+    verdictClass = "verdict-aborted";
+    badgeHtml = `<span class="badge badge-danger flight-badge" style="font-size: 9.5px; padding: 2px 6px; cursor: pointer;" title="Pre-Flight Clearance: ${passedCount}/5 cleared. Fails minimum safety threshold.">🚫 Grounded</span>`;
+  }
+
+  return {
+    passedCount,
+    totalCount: systems.length,
+    pctScore: Math.round((passedCount / systems.length) * 100),
+    isApproved,
+    isConditional,
+    isGrounded,
+    verdictType,
+    verdictTitle,
+    verdictClass,
+    badgeHtml,
+    systems
+  };
+}
+
+function generatePreFlightClearanceHtml(item, scanData, breakoutLevel, stopPrice) {
+  const clearance = computeFlightClearance(item, scanData);
+  const cleanSym = (item.Symbol || "").replace(/\.NS$/i, "");
+
+  const gridItems = clearance.systems.map(s => {
+    const statusClass = s.passed ? "pass" : (s.critical ? "fail" : "warn");
+    const statusLabel = s.passed ? "Cleared (Pass)" : (s.critical ? "Critical Violation" : "Caution (Advisory)");
+    const badgeBg = s.passed ? "badge-success" : (s.critical ? "badge-danger" : "badge-warning");
+
+    return `
+      <div class="preflight-item ${statusClass}">
+        <div class="preflight-item-header">
+          <div class="preflight-item-name">
+            <span>${s.icon}</span>
+            <span>${escapeHtml(s.name)}</span>
+          </div>
+          <span class="badge ${badgeBg}" style="font-size: 9px; padding: 1px 5px;">${statusLabel}</span>
+        </div>
+        <div class="preflight-item-cat">${escapeHtml(s.category)}</div>
+        <div class="preflight-item-desc">${escapeHtml(s.desc)}</div>
+      </div>
+    `;
+  }).join("");
+
+  return `
+    <div class="preflight-card">
+      <div class="preflight-header">
+        <div class="preflight-title-group">
+          <span class="preflight-icon">🛡️</span>
+          <div>
+            <h4 class="preflight-title">Pre-Flight Clearance Inspection</h4>
+            <span class="preflight-subtitle">Aviation-grade 5-system safety check before risking capital</span>
+          </div>
+        </div>
+        <div class="preflight-verdict-badge ${clearance.verdictClass}">
+          ${clearance.verdictTitle}
+        </div>
+      </div>
+
+      <div class="preflight-progress-bar-wrap">
+        <div class="preflight-progress-label">
+          <span>Systems Operational: <strong>${clearance.passedCount} of ${clearance.totalCount} (${clearance.pctScore}%)</strong></span>
+          <span>${clearance.isApproved ? 'All Safety Systems Go' : (clearance.isConditional ? 'Cautionary Advisory' : 'Safety Violation')}</span>
+        </div>
+        <div class="preflight-progress-track">
+          <div class="preflight-progress-fill ${clearance.verdictClass}" style="width: ${clearance.pctScore}%;"></div>
+        </div>
+      </div>
+
+      <div class="preflight-grid">
+        ${gridItems}
+      </div>
+    </div>
+  `;
+}
+
+// =====================================================================
+// FEATURE 5: VISUAL RUPEE SIMULATOR & PEACE-OF-MIND SIZER
+// =====================================================================
+function generateRupeeSimulatorHtml(symbol, breakoutLevel, stopPrice, targetPrice, initialCapital, initialRiskPct) {
+  const cleanSym = (symbol || "").replace(/\.NS$/i, "").toUpperCase();
+  const cap = initialCapital || 100000;
+  const riskPct = initialRiskPct || 1.0;
+  const entry = Number(breakoutLevel) || 100;
+  const stop = Number(stopPrice) || Number((entry * 0.965).toFixed(2));
+  const target = Number(targetPrice) || Number((entry + 2 * Math.max(0.01, entry - stop)).toFixed(2));
+  const riskPerShare = Math.max(0.01, entry - stop);
+  const maxRiskBudget = Math.round(cap * (riskPct / 100));
+  const qty = Math.max(1, Math.floor(maxRiskBudget / riskPerShare));
+  const actualLoss = Math.round(qty * riskPerShare);
+  const totalOutlay = Math.round(qty * entry);
+  const outlayPct = ((totalOutlay / (cap || 1)) * 100).toFixed(1);
+  const sellQty = Math.max(1, Math.floor(qty / 2));
+  const runnerQty = Math.max(1, qty - sellQty);
+  const targetProfit = Math.round(sellQty * (target - entry));
+  const targetPct = (((target - entry) / (entry || 1)) * 100).toFixed(1);
+  const riskPctDist = (((entry - stop) / (entry || 1)) * 100).toFixed(1);
+  const runner4R = Number((entry + 4 * riskPerShare).toFixed(2));
+  const runnerProfit = Math.round(runnerQty * (runner4R - entry));
+  const totalSwingProfit = targetProfit + runnerProfit;
+  const totalWinPct = ((totalSwingProfit / (cap || 1)) * 100).toFixed(1);
+  const safePct = (100 - riskPct).toFixed(1);
+
+  return `
+    <div class="rupee-simulator-card" id="rupee-sim-${cleanSym}" data-symbol="${cleanSym}" data-entry="${entry.toFixed(2)}" data-stop="${stop.toFixed(2)}" data-target="${target.toFixed(2)}">
+      <div class="rupee-sim-header">
+        <div class="rupee-sim-title-group">
+          <span class="rupee-sim-icon">💰</span>
+          <div>
+            <h4 class="rupee-sim-title">Visual Rupee Simulator &amp; Peace-of-Mind Sizer for ${cleanSym}</h4>
+            <span class="rupee-sim-subtitle">Translate abstract percentages into concrete rupee numbers. Eliminate fear before you trade.</span>
+          </div>
+        </div>
+        <div class="rupee-sim-preset-chips">
+          <span class="chip-label">Quick Capital:</span>
+          <button type="button" class="sim-cap-btn ${cap === 25000 ? 'active' : ''}" data-cap="25000">₹25K</button>
+          <button type="button" class="sim-cap-btn ${cap === 50000 ? 'active' : ''}" data-cap="50000">₹50K</button>
+          <button type="button" class="sim-cap-btn ${cap === 100000 ? 'active' : ''}" data-cap="100000">₹1 Lakh</button>
+          <button type="button" class="sim-cap-btn ${cap === 200000 ? 'active' : ''}" data-cap="200000">₹2 Lakh</button>
+          <button type="button" class="sim-cap-btn ${cap === 500000 ? 'active' : ''}" data-cap="500000">₹5 Lakh</button>
+          <button type="button" class="sim-cap-btn ${cap === 1000000 ? 'active' : ''}" data-cap="1000000">₹10 Lakh</button>
+        </div>
+      </div>
+
+      <div class="rupee-sim-controls-strip">
+        <div class="sim-control-item">
+          <label>Your Capital (₹):</label>
+          <input type="number" class="sim-input-cap" value="${cap}" min="5000" step="5000">
+        </div>
+        <div class="sim-control-item">
+          <label>Risk Per Trade (%):</label>
+          <select class="sim-select-risk form-select-sm">
+            <option value="0.5" ${riskPct === 0.5 ? 'selected' : ''}>0.5% (Conservative Defense)</option>
+            <option value="1.0" ${riskPct === 1.0 ? 'selected' : ''}>1.0% (Professional Standard)</option>
+            <option value="1.5" ${riskPct === 1.5 ? 'selected' : ''}>1.5% (High Conviction)</option>
+            <option value="2.0" ${riskPct === 2.0 ? 'selected' : ''}>2.0% (Aggressive Ceiling)</option>
+          </select>
+        </div>
+        <div class="sim-control-metric">
+          <span class="sub-label">Trigger Entry</span>
+          <strong>₹${entry.toFixed(2)}</strong>
+        </div>
+        <div class="sim-control-metric">
+          <span class="sub-label">Stop Distance</span>
+          <strong class="text-loss">₹${riskPerShare.toFixed(2)} (-${riskPctDist}%)</strong>
+        </div>
+        <div class="sim-control-metric highlight">
+          <span class="sub-label">Suggested Qty</span>
+          <strong class="sim-metric-qty text-profit">${qty} shares</strong>
+        </div>
+      </div>
+
+      <div class="rupee-scenarios-grid">
+        <div class="rupee-scenario-box scenario-loss">
+          <div class="scenario-badge">🛡️ SCENARIO 1: DEFENSIVE WORST CASE</div>
+          <div class="scenario-amount text-loss sim-val-loss">-₹${actualLoss.toLocaleString("en-IN")}</div>
+          <div class="scenario-title">Hard Stop-Loss at ₹${stop.toFixed(2)}</div>
+          <p class="scenario-desc sim-desc-loss">
+            Even if this breakout fails completely, your total rupee loss is strictly capped at <strong>₹${actualLoss.toLocaleString("en-IN")}</strong>.
+            <strong>${safePct}% of your capital remains completely safe</strong> in your account. You can take 10 losses like this in a row without denting your trading journey!
+          </p>
+        </div>
+
+        <div class="rupee-scenario-box scenario-profit">
+          <div class="scenario-badge">🎯 SCENARIO 2: INITIAL 2R PROFIT BOOKING</div>
+          <div class="scenario-amount text-profit sim-val-profit">+₹${targetProfit.toLocaleString("en-IN")}</div>
+          <div class="scenario-title">Sell 50% (${sellQty} shares) at ₹${target.toFixed(2)} (+${targetPct}%)</div>
+          <p class="scenario-desc sim-desc-profit">
+            Selling 50% shares banks <strong>+₹${targetProfit.toLocaleString("en-IN")} cash profit</strong> into your account, fully offsetting initial trade risk. Move stop on remaining shares to entry (₹${entry.toFixed(2)}). <strong>Trade is now 100% RISK-FREE!</strong>
+          </p>
+        </div>
+
+        <div class="rupee-scenario-box scenario-runner">
+          <div class="scenario-badge">🚀 SCENARIO 3: MULTI-WEEK 4R RUNNER</div>
+          <div class="scenario-amount text-accent sim-val-runner">+₹${runnerProfit.toLocaleString("en-IN")}</div>
+          <div class="scenario-title">Remaining ${runnerQty} Shares Ride 20-DMA to 4R</div>
+          <p class="scenario-desc sim-desc-runner">
+            As institutional buyers continue driving momentum, ride the remaining risk-free shares along the 20-DMA to ₹${runner4R.toFixed(2)}. Total swing profit reaches <strong>+₹${totalSwingProfit.toLocaleString("en-IN")} (+${totalWinPct}% account boost)</strong>.
+          </p>
+        </div>
+
+        <div class="rupee-scenario-box scenario-allocation">
+          <div class="scenario-badge">💼 SCENARIO 4: ALLOCATION &amp; HEAT CHECK</div>
+          <div class="scenario-amount text-neutral sim-val-outlay">₹${totalOutlay.toLocaleString("en-IN")} (${outlayPct}%)</div>
+          <div class="scenario-title">Total Trade Capital Deployed</div>
+          <p class="scenario-desc sim-desc-outlay">
+            ${outlayPct <= 25 ? `Optimal allocation: This trade consumes <strong>${outlayPct}%</strong> of your total portfolio, leaving ample cash for other leading sector breakouts.` : (outlayPct <= 35 ? `Moderate allocation: Sized for conviction (<strong>${outlayPct}%</strong>); keep maximum concurrent open trades to 3–4.` : `⚠️ High concentration warning: Consumes <strong>${outlayPct}%</strong> of your portfolio. Consider reducing quantity to prevent single-stock drag.`)}
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function updateStockRupeeSimulator(cardEl) {
+  if (!cardEl) return;
+
+  const capInput = cardEl.querySelector(".sim-input-cap");
+  const riskSelect = cardEl.querySelector(".sim-select-risk");
+  const cap = parseFloat(capInput ? capInput.value : 100000) || 100000;
+  const riskPct = parseFloat(riskSelect ? riskSelect.value : 1.0) || 1.0;
+
+  const entry = parseFloat(cardEl.getAttribute("data-entry")) || 100;
+  const stop = parseFloat(cardEl.getAttribute("data-stop")) || (entry * 0.965);
+  const target = parseFloat(cardEl.getAttribute("data-target")) || (entry * 1.07);
+
+  const riskPerShare = Math.max(0.01, entry - stop);
+  const maxRiskBudget = Math.round(cap * (riskPct / 100));
+  const qty = Math.max(1, Math.floor(maxRiskBudget / riskPerShare));
+  const actualLoss = Math.round(qty * riskPerShare);
+  const totalOutlay = Math.round(qty * entry);
+  const outlayPct = ((totalOutlay / (cap || 1)) * 100).toFixed(1);
+  const sellQty = Math.max(1, Math.floor(qty / 2));
+  const runnerQty = Math.max(1, qty - sellQty);
+  const targetProfit = Math.round(sellQty * (target - entry));
+  const targetPct = (((target - entry) / (entry || 1)) * 100).toFixed(1);
+  const runner4R = Number((entry + 4 * riskPerShare).toFixed(2));
+  const runnerProfit = Math.round(runnerQty * (runner4R - entry));
+  const totalSwingProfit = targetProfit + runnerProfit;
+  const totalWinPct = ((totalSwingProfit / (cap || 1)) * 100).toFixed(1);
+  const safePct = (100 - riskPct).toFixed(1);
+
+  // Update DOM elements in cardEl
+  const qtyEl = cardEl.querySelector(".sim-metric-qty");
+  if (qtyEl) qtyEl.textContent = `${qty} shares`;
+
+  const lossValEl = cardEl.querySelector(".sim-val-loss");
+  if (lossValEl) lossValEl.textContent = `-₹${actualLoss.toLocaleString("en-IN")}`;
+
+  const lossDescEl = cardEl.querySelector(".sim-desc-loss");
+  if (lossDescEl) {
+    lossDescEl.innerHTML = `Even if this breakout fails completely, your total rupee loss is strictly capped at <strong>₹${actualLoss.toLocaleString("en-IN")}</strong>. <strong>${safePct}% of your capital remains completely safe</strong> in your account. You can take 10 losses like this in a row without denting your trading journey!`;
+  }
+
+  const profitValEl = cardEl.querySelector(".sim-val-profit");
+  if (profitValEl) profitValEl.textContent = `+₹${targetProfit.toLocaleString("en-IN")}`;
+
+  const profitDescEl = cardEl.querySelector(".sim-desc-profit");
+  if (profitDescEl) {
+    profitDescEl.innerHTML = `Selling 50% shares banks <strong>+₹${targetProfit.toLocaleString("en-IN")} cash profit</strong> into your account, fully offsetting initial trade risk. Move stop on remaining shares to entry (₹${entry.toFixed(2)}). <strong>Trade is now 100% RISK-FREE!</strong>`;
+  }
+
+  const runnerValEl = cardEl.querySelector(".sim-val-runner");
+  if (runnerValEl) runnerValEl.textContent = `+₹${runnerProfit.toLocaleString("en-IN")}`;
+
+  const runnerDescEl = cardEl.querySelector(".sim-desc-runner");
+  if (runnerDescEl) {
+    runnerDescEl.innerHTML = `As institutional buyers continue driving momentum, ride the remaining risk-free shares along the 20-DMA to ₹${runner4R.toFixed(2)}. Total swing profit reaches <strong>+₹${totalSwingProfit.toLocaleString("en-IN")} (+${totalWinPct}% account boost)</strong>.`;
+  }
+
+  const outlayValEl = cardEl.querySelector(".sim-val-outlay");
+  if (outlayValEl) outlayValEl.textContent = `₹${totalOutlay.toLocaleString("en-IN")} (${outlayPct}%)`;
+
+  const outlayDescEl = cardEl.querySelector(".sim-desc-outlay");
+  if (outlayDescEl) {
+    outlayDescEl.innerHTML = outlayPct <= 25
+      ? `Optimal allocation: This trade consumes <strong>${outlayPct}%</strong> of your total portfolio, leaving ample cash for other leading sector breakouts.`
+      : (outlayPct <= 35
+        ? `Moderate allocation: Sized for conviction (<strong>${outlayPct}%</strong>); keep maximum concurrent open trades to 3–4.`
+        : `⚠️ High concentration warning: Consumes <strong>${outlayPct}%</strong> of your portfolio. Consider reducing quantity to prevent single-stock drag.`);
+  }
+}
+
+function initStockRupeeSimulator(cardEl) {
+  if (!cardEl) return;
+
+  // Preset Capital Chips
+  cardEl.querySelectorAll(".sim-cap-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      cardEl.querySelectorAll(".sim-cap-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const capVal = btn.getAttribute("data-cap");
+      const capInput = cardEl.querySelector(".sim-input-cap");
+      if (capInput) capInput.value = capVal;
+      updateStockRupeeSimulator(cardEl);
+    });
+  });
+
+  // Capital input
+  const capInput = cardEl.querySelector(".sim-input-cap");
+  if (capInput) {
+    capInput.addEventListener("input", () => {
+      const currentVal = parseFloat(capInput.value);
+      cardEl.querySelectorAll(".sim-cap-btn").forEach(b => {
+        b.classList.toggle("active", parseFloat(b.getAttribute("data-cap")) === currentVal);
+      });
+      updateStockRupeeSimulator(cardEl);
+    });
+  }
+
+  // Risk select
+  const riskSelect = cardEl.querySelector(".sim-select-risk");
+  if (riskSelect) {
+    riskSelect.addEventListener("change", () => updateStockRupeeSimulator(cardEl));
+  }
+}
+
 // 2. Watchlist Filter & Sort State Manager (Item #1)
 function applyWatchlistFiltering(watchlist, scanData) {
   const watchlistBody = document.getElementById("watchlistBody");
@@ -1972,6 +2381,8 @@ function applyWatchlistFiltering(watchlist, scanData) {
       actionPillHtml = `<span class="badge badge-neutral" style="font-size: 9.5px; padding: 2px 6px; font-weight: 600;" title="Base still forming: Monitor from a distance">⏳ Developing</span>`;
     }
 
+    const clearance = computeFlightClearance(item, scanData);
+
     return `
       <tr class="watchlist-row ${rowClass}" data-symbol="${item.Symbol}" title="Click to view full action advisor, chart & checklist">
         <td data-label="Symbol">
@@ -1979,6 +2390,7 @@ function applyWatchlistFiltering(watchlist, scanData) {
             <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
               <strong>${item.Symbol}</strong>
               ${actionPillHtml}
+              ${clearance.badgeHtml}
               <span class="badge ${item.mtf_confluence ? 'badge-success' : 'badge-neutral'} term-lookup" data-term="Multi-Timeframe Confluence" style="font-size: 9.5px; padding: 2px 5px;" title="Multi-Timeframe Confluence (Daily Trend + Weekly Stage 2)">MTF ${item.mtf_confluence ? '✅' : '—'}</span>
             </div>
             <span class="chevron" style="font-size: 10px; color: var(--text-dim); padding: 4px 8px;">▼</span>
@@ -2684,7 +3096,7 @@ async function toggleWatchlistDetail(row, item, scanData) {
 
   const detailHtml = `
     <tr class="detail-row" id="detail-${symbol}">
-      <td colspan="10">
+      <td colspan="11">
         <div class="stock-detail-panel">
           <div class="detail-header">
             <div class="detail-title-group">
@@ -2864,6 +3276,12 @@ async function toggleWatchlistDetail(row, item, scanData) {
             </div>
           </div>
 
+          <!-- FEATURE 4: PRE-FLIGHT CLEARANCE CHECKLIST (Trade Approval Engine) -->
+          ${generatePreFlightClearanceHtml(item, scanData, breakoutLevel, stopPrice)}
+
+          <!-- FEATURE 5: VISUAL RUPEE SIMULATOR & PEACE-OF-MIND SIZER -->
+          ${generateRupeeSimulatorHtml(symbol, breakoutLevel, stopPrice, targetPrice, 100000, 1.0)}
+
           <!-- Rules Checklist -->
           <div class="checklist-title">Setup Criteria Checklist</div>
           <div class="checklist-grid" id="checklist-${symbol}">
@@ -2963,6 +3381,13 @@ ${item.thesis_card}
   `;
 
   row.insertAdjacentHTML("afterend", detailHtml);
+
+  // Initialize stock rupee simulator for this detail card (Feature 5)
+  const cleanSymForSim = (symbol || "").replace(/\.NS$/i, "").toUpperCase();
+  const simCard = document.getElementById(`rupee-sim-${cleanSymForSim}`);
+  if (simCard) {
+    initStockRupeeSimulator(simCard);
+  }
 
   // Attach listener to all "Size this trade" buttons inside the detail panel
   const detailEl = document.getElementById(`detail-${symbol}`);
@@ -3172,6 +3597,14 @@ function updatePositionSizer() {
     if (exposureEl) exposureEl.textContent = "₹0.00";
     if (cmdPreviewEl) cmdPreviewEl.textContent = `/buy ${symbol || "SYMBOL"} ${entry || 0} 0 ${stop || 0} 0`;
     if (errorEl) errorEl.style.display = "none";
+    const tab2SimStrip = document.getElementById("tab2RupeeSimulatorStrip");
+    if (tab2SimStrip) {
+      tab2SimStrip.innerHTML = `
+        <div style="grid-column: 1 / -1; padding: 14px; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-color); border-radius: 8px; text-align: center; color: var(--text-muted); font-size: 13px;">
+          💡 Enter an <strong>Entry Price</strong> and <strong>Stop Loss</strong> above (or click <em>🎯 Size this trade</em> on any watchlist stock) to calculate concrete Rupee P&amp;L outcomes.
+        </div>
+      `;
+    }
     return;
   }
 
@@ -3186,6 +3619,14 @@ function updatePositionSizer() {
       errorEl.style.display = "block";
     }
     if (cmdPreviewEl) cmdPreviewEl.textContent = `/buy ${symbol || "SYMBOL"} ${entry} 0 ${stop} 0`;
+    const tab2SimStrip = document.getElementById("tab2RupeeSimulatorStrip");
+    if (tab2SimStrip) {
+      tab2SimStrip.innerHTML = `
+        <div style="grid-column: 1 / -1; padding: 14px; background: rgba(239,68,68,0.05); border: 1px dashed var(--danger-color); border-radius: 8px; text-align: center; color: var(--danger-color); font-size: 13px;">
+          ⚠️ Stop Loss must be lower than Entry Price to simulate rupee scenarios.
+        </div>
+      `;
+    }
     return;
   }
 
@@ -3210,6 +3651,82 @@ function updatePositionSizer() {
 
   const cmdString = `/buy ${symbol || "SYMBOL"} ${cleanEntry} ${suggestedQty} ${cleanStop} ${cleanTarget}`;
   if (cmdPreviewEl) cmdPreviewEl.textContent = cmdString;
+
+  // Sync Quick Capital Presets active button in Tab 2
+  const presetBtns = document.querySelectorAll(".tab2-cap-preset");
+  presetBtns.forEach(btn => {
+    const bCap = parseFloat(btn.getAttribute("data-cap")) || 0;
+    if (Math.abs(bCap - capital) < 1) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+
+  // Render Visual Rupee Simulator Strip for Tab 2 (Feature 5)
+  const tab2SimStrip = document.getElementById("tab2RupeeSimulatorStrip");
+  if (tab2SimStrip) {
+    if (suggestedQty > 0) {
+      const actualLoss = Math.round(suggestedQty * riskPerUnit);
+      const totalOutlay = Math.round(suggestedQty * entry);
+      const outlayPct = ((totalOutlay / (capital || 1)) * 100).toFixed(1);
+      const sellQty = Math.max(1, Math.floor(suggestedQty / 2));
+      const runnerQty = Math.max(1, suggestedQty - sellQty);
+      const target2R = Number((entry + 2 * riskPerUnit).toFixed(2));
+      const targetProfit = Math.round(sellQty * (target2R - entry));
+      const targetPct = (((target2R - entry) / (entry || 1)) * 100).toFixed(1);
+      const runner4R = Number((entry + 4 * riskPerUnit).toFixed(2));
+      const runnerProfit = Math.round(runnerQty * (runner4R - entry));
+      const totalSwingProfit = targetProfit + runnerProfit;
+      const totalWinPct = ((totalSwingProfit / (capital || 1)) * 100).toFixed(1);
+      const safePct = (100 - riskPct).toFixed(1);
+
+      tab2SimStrip.innerHTML = `
+        <div class="rupee-scenario-box scenario-loss">
+          <div class="scenario-badge">🛡️ SCENARIO 1: DEFENSIVE WORST CASE</div>
+          <div class="scenario-amount text-loss">-₹${actualLoss.toLocaleString("en-IN")}</div>
+          <div class="scenario-title">Hard Stop at ₹${stop.toFixed(2)} (-${((riskPerUnit / entry) * 100).toFixed(1)}%)</div>
+          <p class="scenario-desc">
+            Even on total breakout failure, your maximum loss is strictly capped at <strong>-₹${actualLoss.toLocaleString("en-IN")}</strong>.
+            <strong>${safePct}% of your capital remains completely safe</strong>.
+          </p>
+        </div>
+
+        <div class="rupee-scenario-box scenario-profit">
+          <div class="scenario-badge">🎯 SCENARIO 2: +2R TARGET PROFIT</div>
+          <div class="scenario-amount text-profit">+₹${targetProfit.toLocaleString("en-IN")}</div>
+          <div class="scenario-title">Sell 50% (${sellQty} sh) at ₹${target2R.toFixed(2)} (+${targetPct}%)</div>
+          <p class="scenario-desc">
+            Banks <strong>+₹${targetProfit.toLocaleString("en-IN")} cash profit</strong>. Move stop on remaining ${runnerQty} shares to entry (₹${entry.toFixed(2)}). <strong>100% Risk-Free!</strong>
+          </p>
+        </div>
+
+        <div class="rupee-scenario-box scenario-runner">
+          <div class="scenario-badge">🚀 SCENARIO 3: +4R TREND RUNNER</div>
+          <div class="scenario-amount text-accent">+₹${runnerProfit.toLocaleString("en-IN")}</div>
+          <div class="scenario-title">Remaining ${runnerQty} sh ride 20-DMA to ₹${runner4R.toFixed(2)}</div>
+          <p class="scenario-desc">
+            Total swing profit reaches <strong>+₹${totalSwingProfit.toLocaleString("en-IN")} (+${totalWinPct}% portfolio boost)</strong>.
+          </p>
+        </div>
+
+        <div class="rupee-scenario-box scenario-allocation">
+          <div class="scenario-badge">💼 SCENARIO 4: ALLOCATION &amp; HEAT CHECK</div>
+          <div class="scenario-amount text-neutral">₹${totalOutlay.toLocaleString("en-IN")} (${outlayPct}%)</div>
+          <div class="scenario-title">Total Trade Capital Deployed</div>
+          <p class="scenario-desc">
+            ${outlayPct <= 25 ? `Optimal allocation: Uses <strong>${outlayPct}%</strong> of portfolio, keeping cash for other setups.` : (outlayPct <= 35 ? `Conviction size: Uses <strong>${outlayPct}%</strong> of portfolio; keep max 3-4 open positions.` : `⚠️ Concentration alert: Uses <strong>${outlayPct}%</strong> of portfolio. Consider reducing risk % to prevent single-stock drag.`)}
+          </p>
+        </div>
+      `;
+    } else {
+      tab2SimStrip.innerHTML = `
+        <div style="grid-column: 1 / -1; padding: 14px; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-color); border-radius: 8px; text-align: center; color: var(--text-muted); font-size: 13px;">
+          💡 Capital ₹${capital.toLocaleString("en-IN")} at ${riskPct}% risk is insufficient to buy 1 full share with stop at ₹${stop.toFixed(2)}. Adjust capital or risk % above.
+        </div>
+      `;
+    }
+  }
 }
 
 // Copy /buy command string to clipboard and show toast
@@ -3302,6 +3819,20 @@ function initPositionSizer() {
   if (copyBtn) {
     copyBtn.addEventListener("click", copyBuyCommand);
   }
+
+  // Quick capital presets for Tab 2 Position Sizer
+  const presetBtns = document.querySelectorAll(".tab2-cap-preset");
+  presetBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      presetBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const capVal = btn.getAttribute("data-cap");
+      if (capitalInput && capVal) {
+        capitalInput.value = capVal;
+        updatePositionSizer();
+      }
+    });
+  });
 
   updatePositionSizer();
 }
