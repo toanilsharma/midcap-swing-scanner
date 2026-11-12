@@ -420,6 +420,24 @@ const TERMS = {
     where_used: "Position Sizer, Open Positions, Help Guide",
     anchor: "glossary-2rtarget"
   },
+  "2R Target": {
+    short: "Profit target delivering twice the rupee risk: sell 50% shares to lock in gains and move stop to breakeven.",
+    long: "A 2R target produces asymmetric returns. In our strategy, reaching 2R triggers a partial 50% profit-take and ratchets stop loss to entry price, guaranteeing a risk-free trade.",
+    where_used: "Trade Management, Position Sizer, Help Guide",
+    anchor: "glossary-2rtarget"
+  },
+  "Stage 2": {
+    short: "Confirmed institutional uptrend: Price > 50-DMA > 200-DMA, with higher highs and higher lows.",
+    long: "Stan Weinstein & Mark Minervini Stage-2 represents the explosive accumulation phase where big mutual funds and institutions drive stock prices steadily higher over weeks and months. We only buy stocks in confirmed Stage 2.",
+    where_used: "Near Buy (Trend Filter), Help Guide",
+    anchor: "glossary-stage2"
+  },
+  "Stage-2": {
+    short: "Confirmed institutional uptrend: Price > 50-DMA > 200-DMA, with higher highs and higher lows.",
+    long: "Stan Weinstein & Mark Minervini Stage-2 represents the explosive accumulation phase where big mutual funds and institutions drive stock prices steadily higher over weeks and months. We only buy stocks in confirmed Stage 2.",
+    where_used: "Near Buy (Trend Filter), Help Guide",
+    anchor: "glossary-stage2"
+  },
   "R-multiple": {
     short: "Trade outcome expressed as a multiple of initial risk (1R = Risk Budget).",
     long: "Normalizes performance across different stocks and account sizes. A win of +₹2,000 on a ₹1,000 risk trade is scored as +2.0R, while a stop loss is -1.0R.",
@@ -699,6 +717,8 @@ function renderTodaysPlan(scanData, openPositions) {
   const bulletsList = document.getElementById("todaysPlanBullets");
   const planMetaTime = document.getElementById("planMetaTime");
   const planStatusPill = document.getElementById("planStatusPill");
+  const pillarsContainer = document.getElementById("todaysPlanPillars");
+  const shortcutsContainer = document.getElementById("todaysPlanShortcuts");
 
   if (!planContainer || !bulletsList) return;
 
@@ -712,19 +732,79 @@ function renderTodaysPlan(scanData, openPositions) {
     planMetaTime.textContent = `Scan Date: ${formatDateTime(currentScan.updated_at)}`;
   }
 
-  const bullets = [];
   const isMarketOk = Boolean(currentScan && currentScan.market_ok);
 
-  // 1. Market state bullet
-  if (!isMarketOk) {
-    bullets.push("🛡️ Market in Caution: Hold cash and protect your capital. New buy entries are paused.");
-    bullets.push("👀 Watchlist Focus: Study the top RS leaders below so you are ready to pounce when the green light turns on.");
-  } else {
-    bullets.push("🟢 Market Uptrend Confirmed: New entries allowed for high-conviction Grade A/A+ setups.");
-    bullets.push("🎯 Sizing Discipline: Risk 0.5% - 1% of your portfolio on coiled leaders breaking out with high volume.");
+  // 1. Executive Action 4-Pillars Grid
+  if (pillarsContainer) {
+    if (isMarketOk) {
+      pillarsContainer.innerHTML = `
+        <div class="action-pillar-box success">
+          <div class="pillar-header"><span>🎯</span><span>What to do as of now?</span></div>
+          <div class="pillar-content"><strong>Active Buying Allowed:</strong> Review Grade A/A+ leaders near breakout below. Place <span class="term-lookup" data-term="GTT">GTT Buy Orders</span> with <strong>0.5%–1% portfolio risk</strong> per trade.</div>
+        </div>
+        <div class="action-pillar-box warning">
+          <div class="pillar-header"><span>👁️</span><span>What to observe?</span></div>
+          <div class="pillar-content"><strong>Price &amp; Volume:</strong> Keep an eye on the breakout trigger price and watch for a <span class="term-lookup" data-term="Volume spike">volume spike (&gt;1.5× avg)</span> confirming institutional buying.</div>
+        </div>
+        <div class="action-pillar-box primary">
+          <div class="pillar-header"><span>⏳</span><span>What to wait for?</span></div>
+          <div class="pillar-content"><strong>Clean Triggers:</strong> Wait for price to naturally cross resistance. <strong>Never chase</strong> any stock that opens &gt;2% gap up at 9:15 AM.</div>
+        </div>
+        <div class="action-pillar-box success">
+          <div class="pillar-header"><span>⚡</span><span>When to take action?</span></div>
+          <div class="pillar-content"><strong>Automated Execution:</strong> Let GTT execute automatically on breakout. Immediately set a <span class="term-lookup" data-term="Stop loss">hard stop-loss</span> at 1.5× ATR below entry.</div>
+        </div>
+      `;
+    } else {
+      pillarsContainer.innerHTML = `
+        <div class="action-pillar-box danger">
+          <div class="pillar-header"><span>🎯</span><span>What to do as of now?</span></div>
+          <div class="pillar-content"><strong>Hold Cash &amp; Stand Aside:</strong> Do NOT buy new stocks today. Broader market benchmark is pulling back. Cash is an active position.</div>
+        </div>
+        <div class="action-pillar-box warning">
+          <div class="pillar-header"><span>👁️</span><span>What to observe?</span></div>
+          <div class="pillar-content"><strong>Relative Strength Leaders:</strong> Observe stocks holding steady while the index pulls back. High RS leaders will jump first when market recovers.</div>
+        </div>
+        <div class="action-pillar-box primary">
+          <div class="pillar-header"><span>⏳</span><span>What to wait for?</span></div>
+          <div class="pillar-content"><strong>Market Recovery:</strong> Wait for NIFTY 50 to reclaim its moving averages before committing capital to new swing buys.</div>
+        </div>
+        <div class="action-pillar-box primary">
+          <div class="pillar-header"><span>⚡</span><span>When to take action?</span></div>
+          <div class="pillar-content"><strong>Patience:</strong> Do not buy today. Focus strictly on curating your watchlist for when the market turns green.</div>
+        </div>
+      `;
+    }
   }
 
-  // 2. Count of A+/A grades
+  // 2. Definition Shortcuts Strip
+  if (shortcutsContainer) {
+    shortcutsContainer.innerHTML = `
+      <span class="shortcuts-label">📚 Quick Explanations:</span>
+      <button class="shortcut-pill term-lookup" data-term="GTT">🛒 How GTT Works</button>
+      <button class="shortcut-pill term-lookup" data-term="breakout">📈 Breakout Rules</button>
+      <button class="shortcut-pill term-lookup" data-term="RS Rating">⚡ What is RS Rating?</button>
+      <button class="shortcut-pill term-lookup" data-term="Stop loss">🛑 Stop Loss Protection</button>
+      <button class="shortcut-pill term-lookup" data-term="2R Target">🎯 2R Profit Target</button>
+      <button class="shortcut-pill term-lookup" data-term="Market regime">🛡️ Market Regime</button>
+      <button class="shortcut-pill term-lookup" data-term="Event Radar / Gap Risk">🗓️ Event Blackout Rule</button>
+    `;
+  }
+
+  const bullets = [];
+
+  // Market diagnostic justification
+  if (currentScan && currentScan.market_summary) {
+    const ms = currentScan.market_summary;
+    const nClose = ms.last_close ? `₹${Number(ms.last_close).toLocaleString('en-IN')}` : "N/A";
+    const nChg = ms.chg_pct !== undefined ? `${ms.chg_pct >= 0 ? '+' : ''}${ms.chg_pct}%` : "";
+    const adv = ms.advancers || 0;
+    const dec = ms.decliners || 0;
+    const b50 = ms.breadth_above_sma50 || 0;
+    bullets.push(`💡 <strong>Market Logic:</strong> NIFTY 50 is at ${nClose} (${nChg}) with ${adv} advancers vs ${dec} decliners. ${b50}% of midcap stocks trade above their 50-DMA, indicating broad-based participation.`);
+  }
+
+  // Count of A+/A grades
   const watchlist = (currentScan && currentScan.watchlist) || [];
   const topGradeItems = watchlist.filter(item => {
     const g = String(item.grade ?? item.Grade ?? "").toUpperCase();
@@ -732,16 +812,16 @@ function renderTodaysPlan(scanData, openPositions) {
   });
 
   if (topGradeItems.length > 0) {
-    const syms = topGradeItems.map(i => i.Symbol || "").filter(Boolean);
-    bullets.push(`${topGradeItems.length} A-grade setup${topGradeItems.length > 1 ? "s" : ""}: ${syms.join(", ")} - review their charts before entry.`);
+    const syms = topGradeItems.map(i => (i.Symbol || "").replace(".NS", "")).filter(Boolean);
+    bullets.push(`⭐ <strong>${topGradeItems.length} Grade A Setup${topGradeItems.length > 1 ? "s" : ""} Ready:</strong> ${syms.join(", ")} — review their detailed action blueprint below before setting GTT orders.`);
   }
 
-  // 3. Open positions near stop or target
+  // Open positions near stop or target
   let positionActions = 0;
   let nearStopCount = 0;
   if (Array.isArray(currentPositions) && currentPositions.length > 0) {
     currentPositions.forEach(pos => {
-      const sym = pos.symbol || pos.Symbol || "Position";
+      const sym = (pos.symbol || pos.Symbol || "Position").replace(".NS", "");
       const entry = parseFloat(pos.entry_price || pos.Entry || 0);
       const stop = pos.stop ? parseFloat(pos.stop) : null;
       const target = pos.target ? parseFloat(pos.target) : null;
@@ -753,7 +833,7 @@ function renderTodaysPlan(scanData, openPositions) {
         nearStop = (pctToStop <= 2.0);
       }
       if (nearStop) {
-        bullets.push(`Defend or exit ${sym} - price near stop.`);
+        bullets.push(`🛑 <strong>Defend ${sym}:</strong> Price is within 2% of your planned stop loss (₹${stop}). Prepare to exit if triggered.`);
         positionActions++;
         nearStopCount++;
       }
@@ -764,13 +844,13 @@ function renderTodaysPlan(scanData, openPositions) {
         nearTarget = (pctToTarget <= 2.0);
       }
       if (nearTarget) {
-        bullets.push(`Consider booking part of ${sym} near target.`);
+        bullets.push(`🎯 <strong>Take Profit on ${sym}:</strong> Price is within 2% of target (₹${target}). Book 50% partial profit and move stop to breakeven.`);
         positionActions++;
       }
     });
   }
 
-  // 3b. Event Radar warnings on open positions (hold review)
+  // Event Radar warnings on open positions
   let eventWarnCount = 0;
   if (Array.isArray(currentPositions) && currentPositions.length > 0) {
     currentPositions.forEach(pos => {
@@ -778,26 +858,28 @@ function renderTodaysPlan(scanData, openPositions) {
       if (pos.warn_event || (pos.next_event && pos.next_event.days_to_event <= 3)) {
         const evType = (pos.next_event && pos.next_event.type) || "EVENT";
         const evDays = pos.next_event ? pos.next_event.days_to_event : "≤3";
-        bullets.push(`🔔 ${sym} event (${evType}) in ${evDays} days — review hold.`);
+        bullets.push(`🔔 <strong>${sym} Event Warning:</strong> ${evType} in ${evDays} days — review your position stop to prevent unexpected gap risk.`);
         positionActions++;
         eventWarnCount++;
       }
     });
   }
 
-  // 3c. Event Radar entry blocks on watchlist
+  // Event Radar entry blocks on watchlist
   const blockedEntries = (watchlist || []).filter(item => item.event_blocked_reason);
   blockedEntries.forEach(item => {
     const sym = (item.Symbol || "").replace(".NS", "");
     const ev = item.next_event;
     const evType = ev ? ev.type : "EVENT";
     const evDays = ev ? ev.days_to_event : "≤7";
-    bullets.push(`⚠️ ${sym} event (${evType}) in ${evDays} days — entry blocked (gap risk).`);
+    bullets.push(`🚫 <strong>${sym} Entry Blocked:</strong> ${evType} in ${evDays} days — new trade entries paused to eliminate binary gap-down risk.`);
   });
 
-  // 4. Fallback if nothing applies
-  if (topGradeItems.length === 0 && positionActions === 0 && blockedEntries.length === 0) {
-    bullets.push("No action needed. Review again after tomorrow's 4:15 PM scan.");
+  // Forward Path summary
+  if (isMarketOk) {
+    bullets.push(`🚀 <strong>Forward Path:</strong> Once entered, take 50% partial profit at +8% (2R target), ratchet stop to entry (risk-free runner), and trail along the 20-day line. Exit if trade stays flat for 5 days.`);
+  } else {
+    bullets.push(`🚀 <strong>Forward Path:</strong> Protect capital in cash until NIFTY re-establishes a confirmed upward trend. Focus on studying RS 80+ leaders on the Leaders Board.`);
   }
 
   // Status pill update
@@ -821,7 +903,7 @@ function renderTodaysPlan(scanData, openPositions) {
   bulletsList.innerHTML = bullets.map(b => `
     <li class="todays-plan-item">
       <span class="todays-plan-bullet-icon">•</span>
-      <span class="todays-plan-bullet-text">${escapeHtml(b)}</span>
+      <span class="todays-plan-bullet-text">${b}</span>
     </li>
   `).join("");
 }
@@ -1876,12 +1958,25 @@ function applyWatchlistFiltering(watchlist, scanData) {
     const instFp = item.inst_footprint || "unknown";
     const instBadge = getInstFootprintBadge(instFp);
 
+    const isBlocked = Boolean(item.event_blocked_reason);
+    let actionPillHtml = "";
+    if (isBlocked) {
+      actionPillHtml = `<span class="badge badge-danger" style="font-size: 9.5px; padding: 2px 6px; font-weight: 600;" title="Event within 7 days: New buy entry strictly blocked">🚫 Stand Aside</span>`;
+    } else if (dist <= 1.5 && (grade === "A+" || grade === "A")) {
+      actionPillHtml = `<span class="badge badge-success" style="font-size: 9.5px; padding: 2px 6px; font-weight: 600;" title="Prime buy zone: Set GTT order at breakout level">⚡ Set GTT</span>`;
+    } else if (dist <= 3.5) {
+      actionPillHtml = `<span class="badge badge-info" style="font-size: 9.5px; padding: 2px 6px; font-weight: 600;" title="Approaching trigger: Observe price & volume">👀 Watch</span>`;
+    } else {
+      actionPillHtml = `<span class="badge badge-neutral" style="font-size: 9.5px; padding: 2px 6px; font-weight: 600;" title="Base still forming: Monitor from a distance">⏳ Developing</span>`;
+    }
+
     return `
-      <tr class="watchlist-row ${rowClass}" data-symbol="${item.Symbol}" title="Click to view 6-month chart & checklist">
+      <tr class="watchlist-row ${rowClass}" data-symbol="${item.Symbol}" title="Click to view full action advisor, chart & checklist">
         <td data-label="Symbol">
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;">
-            <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
               <strong>${item.Symbol}</strong>
+              ${actionPillHtml}
               <span class="badge ${item.mtf_confluence ? 'badge-success' : 'badge-neutral'} term-lookup" data-term="Multi-Timeframe Confluence" style="font-size: 9.5px; padding: 2px 5px;" title="Multi-Timeframe Confluence (Daily Trend + Weekly Stage 2)">MTF ${item.mtf_confluence ? '✅' : '—'}</span>
             </div>
             <span class="chevron" style="font-size: 10px; color: var(--text-dim); padding: 4px 8px;">▼</span>
@@ -2378,6 +2473,161 @@ function drawMiniChart(canvas, candles, breakoutLevel, symbol) {
   }
 }
 
+// =====================================================================
+// PLAIN-LANGUAGE DECISION & ACTION ADVISOR GENERATOR
+// =====================================================================
+function generateStockActionAdvisor(item, scanData, breakoutLevel, stopPrice, targetPrice, riskPct, targetPct, riskAmt, daysInBase) {
+  const symbol = (item.Symbol || "").replace(".NS", "");
+  const dist = parseFloat(item["DistToBreakout%"]) || 0;
+  const grade = item.grade ?? item.Grade ?? "C";
+  const rsVal = (item.rs_rating !== undefined && item.rs_rating !== null) ? item.rs_rating : (item.RS_Rating ?? null);
+  const nextEv = item.next_event;
+  const isBlocked = Boolean(item.event_blocked_reason);
+  const isMarketOk = Boolean(scanData && scanData.market_ok);
+  const volPass = item.VolDryup === "YES";
+  const mtfPass = Boolean(item.mtf_confluence);
+
+  let statusBadge = "";
+  let whatToDo = "";
+  let whatToObserve = "";
+  let whatToWaitFor = "";
+  let whenToAct = "";
+  let whyLogic = [];
+  let forwardPath = "";
+
+  if (isBlocked) {
+    const evType = (nextEv && nextEv.type) || "Corporate Event";
+    const evDays = nextEv ? nextEv.days_to_event : "≤7";
+    const evDate = nextEv ? nextEv.date : "";
+    statusBadge = `<span class="badge badge-danger" style="font-size: 12px; padding: 4px 10px;">🚫 STAND ASIDE: Imminent Event Blackout</span>`;
+    whatToDo = `<strong>DO NOT BUY RIGHT NOW.</strong> ${escapeHtml(symbol)} has an upcoming <strong>${escapeHtml(evType)}</strong> on <strong>${escapeHtml(evDate)}</strong> (in ${evDays} days). Corporate events create massive binary gap-down risk that bypasses stop-losses. Even if the chart looks great, protect your money by staying out.`;
+    whatToObserve = `Observe how the stock behaves <em>after</em> the ${escapeHtml(evType)} announcements. If it opens strong and big institutional buyers step in post-earnings, it may offer a safe, verified post-event breakout.`;
+    whatToWaitFor = `Wait until ${escapeHtml(evDate)} has passed and the market has digested the news before committing any money.`;
+    whenToAct = `Only consider buying 2 sessions after the event, provided price cleanly breaks resistance on heavy volume.`;
+    whyLogic.push(`<strong>Gap Risk Rule:</strong> Our strict discipline forbids buying within 7 days of binary announcements (<span class="term-lookup" data-term="Event Radar / Gap Risk">Gap Risk</span>). Earnings and AGMs are unpredictable coin-flips; we trade technical momentum, not corporate gambling.`);
+    whyLogic.push(`<strong>Capital Preservation:</strong> Sitting in cash preserves 100% of your capital for clean setups without binary event hazards.`);
+    forwardPath = `Stand aside. Keep ${escapeHtml(symbol)} on your radar for post-event analysis.`;
+  } else if (!isMarketOk) {
+    statusBadge = `<span class="badge badge-warning" style="font-size: 12px; padding: 4px 10px;">🛡️ DEFENSIVE: Market Filter Active</span>`;
+    whatToDo = `<strong>WAIT IN CASH.</strong> The broader market benchmark (NIFTY 50) is in caution/pullback mode. Do not execute new swing buys today. Cash is also an active position.`;
+    whatToObserve = `Observe if ${escapeHtml(symbol)} holds its ground while the broader market pulls back. Stocks that refuse to drop during market pullbacks are the next explosive leaders.`;
+    whatToWaitFor = `Wait for the benchmark market indicator to switch back to <span class="term-lookup" data-term="Market regime">Uptrend (Green Light)</span>.`;
+    whenToAct = `Do not buy today. When market uptrend is restored, top-rated Grade A setups will be unlocked for execution.`;
+    whyLogic.push(`<strong>Market Direction (M-Rule):</strong> Over 75% of stocks follow the general market direction. Buying during pullbacks sharply increases failure rates.`);
+    whyLogic.push(`<strong>Relative Strength Test:</strong> If ${escapeHtml(symbol)} stays tight and coiled while the index drops, its <span class="term-lookup" data-term="RS Rating">Strength Rank (RS ${rsVal || 'High'})</span> is proven genuine.`);
+    forwardPath = `Add to observation list. If NIFTY regains its moving averages, this stock will be at the front of the buy queue.`;
+  } else if (dist <= 1.5 && (grade === "A+" || grade === "A")) {
+    statusBadge = `<span class="badge badge-success" style="font-size: 12px; padding: 4px 10px;">⚡ ACTION READY: Prepare GTT Buy Order</span>`;
+    whatToDo = `<strong>BE READY TO BUY (SET GTT).</strong> ${escapeHtml(symbol)} is in the prime buy pocket (${dist.toFixed(2)}% below breakout). Do NOT buy with market order right now. Place a <span class="term-lookup" data-term="GTT">GTT Limit Buy Order</span> at <strong>₹${breakoutLevel.toFixed(2)}</strong> with your broker.`;
+    whatToObserve = `• <strong>Volume:</strong> On breakout day, watch for a <span class="term-lookup" data-term="Volume spike">Volume Spike</span> (at least 1.5× normal 50-day average volume), proving big mutual funds are entering.<br>• <strong>Price Open:</strong> Check 9:15 AM opening price. If it opens >2% gap up above ₹${breakoutLevel.toFixed(2)}, CANCEL the GTT order immediately (do not chase extended prices!).`;
+    whatToWaitFor = `Wait for price to naturally reach and cross ₹${breakoutLevel.toFixed(2)}. Do not anticipate or jump in early; waiting for resistance to break confirms sellers are exhausted.`;
+    whenToAct = `Your broker executes the GTT buy order automatically when ₹${breakoutLevel.toFixed(2)} triggers. Immediately set your hard <span class="term-lookup" data-term="Stop loss">Stop Loss</span> at <strong>₹${stopPrice.toFixed(2)}</strong> (-${riskPct}%). Risk strictly 0.5%–1% of your total trading capital.`;
+    whyLogic.push(`<strong>Stage-2 Uptrend:</strong> ${escapeHtml(symbol)} is trading above its rising 50-day and 200-day moving averages, confirming institutional accumulation.`);
+    whyLogic.push(`<strong>High Relative Strength:</strong> RS Rating of <strong>${rsVal || 'High'}</strong> means it is outperforming ${rsVal || 'most'}% of all Indian stocks over the past 12 months.`);
+    whyLogic.push(`<strong>Supply Exhaustion:</strong> Volume has dried up (${volPass ? 'Sellers completely exhausted' : 'Low selling pressure'}), meaning there are few shares left for sale. Modest buying will launch price higher.`);
+    whyLogic.push(`<strong>Base Maturity:</strong> The stock has spent ${daysInBase} days tightly consolidating (<span class="term-lookup" data-term="VCP / coiling">Coiling</span>), spring-loading for expansion.`);
+    forwardPath = `• <strong>Profit Target (+2R):</strong> When price hits <strong>₹${targetPrice.toFixed(2)}</strong> (+${targetPct}%), sell 50% shares to lock in profits. Move your stop-loss on the remaining shares to your entry price (₹${breakoutLevel.toFixed(2)}) — making the rest 100% risk-free!<br>• <strong>Trailing Runner:</strong> Ride the remaining 50% shares along the <span class="term-lookup" data-term="EMA20">20-day moving average</span> for multi-week momentum.<br>• <strong>Downside Defense:</strong> If the breakout fails and price touches ₹${stopPrice.toFixed(2)}, exit immediately. Max loss is capped at ₹${riskAmt.toFixed(2)}/share.<br>• <strong>Time Stop:</strong> If gain is less than +3% after 5 trading days, exit to free capital.`;
+  } else if (dist <= 3.5) {
+    statusBadge = `<span class="badge badge-info" style="font-size: 12px; padding: 4px 10px;">👀 ON WATCH: Approaching Trigger Level</span>`;
+    whatToDo = `<strong>WATCH &amp; WAIT.</strong> ${escapeHtml(symbol)} is ${dist.toFixed(2)}% away from its breakout ceiling. It is not ready for immediate buy today. Do NOT buy early in anticipation; wait until it tightens closer to the trigger.`;
+    whatToObserve = `Observe daily candle ranges and trading volume. Watch if daily volatility contracts further (<span class="term-lookup" data-term="price contraction">Price Contraction</span>) and volume stays low.`;
+    whatToWaitFor = `Wait for the stock to move within 1.5% of ₹${breakoutLevel.toFixed(2)}. Once it enters the buy pocket, you can place your GTT order.`;
+    whenToAct = `Do not act today. Set a price alert at ₹${(breakoutLevel * 0.985).toFixed(2)} to notify you when it gets close.`;
+    whyLogic.push(`<strong>Patience Advantage:</strong> Buying before resistance is cleared exposes you to pullbacks inside the base. Entering only at the breakout pivot minimizes holding time.`);
+    whyLogic.push(`<strong>Healthy Consolidation:</strong> The stock is in an active Stage-2 trend (${mtfPass ? 'confirmed on both Daily & Weekly charts' : 'Daily uptrend'}), but needs another session or two to finish coiling.`);
+    forwardPath = `Keep on watch. Check the scanner again tomorrow evening post-market.`;
+  } else {
+    statusBadge = `<span class="badge badge-neutral" style="font-size: 12px; padding: 4px 10px;">⏳ DEVELOPING: Base Construction in Progress</span>`;
+    whatToDo = `<strong>MONITOR ONLY.</strong> ${escapeHtml(symbol)} is ${dist.toFixed(2)}% away from its 20-day high resistance. The setup is still building its foundation. Keep capital free for faster-moving setups.`;
+    whatToObserve = `Observe whether price respects the 50-day moving average as support during market dips.`;
+    whatToWaitFor = `Wait for the stock to complete its base pattern and curl upward toward resistance.`;
+    whenToAct = `No action required today. Focus on setups that are within 1.5% of breakout.`;
+    whyLogic.push(`<strong>Opportunity Cost:</strong> Capital tied up in distant stocks cannot be deployed into immediate breakouts.`);
+    whyLogic.push(`<strong>Base Development:</strong> Stocks require time to absorb overhead sellers before they can launch sustainable rallies.`);
+    forwardPath = `Leave on watchlist radar. Re-evaluate as the base matures.`;
+  }
+
+  return `
+    <div class="action-advisor-card">
+      <div class="action-advisor-header">
+        <div class="action-advisor-title-group">
+          <h4>📢 Decision &amp; Action Advisor for ${escapeHtml(symbol)}</h4>
+          <div class="action-advisor-subtitle">Direct, plain-language guidance: what to do, what to observe, when to act, and why.</div>
+        </div>
+        <div>${statusBadge}</div>
+      </div>
+
+      <div class="action-pillar-grid">
+        <div class="action-pillar-box ${isBlocked ? 'danger' : (dist <= 1.5 && (grade === 'A+' || grade === 'A') ? 'success' : 'primary')}">
+          <div class="pillar-header">
+            <span>🎯</span>
+            <span>What to do as of now?</span>
+          </div>
+          <div class="pillar-content">${whatToDo}</div>
+        </div>
+
+        <div class="action-pillar-box warning">
+          <div class="pillar-header">
+            <span>👁️</span>
+            <span>What to observe?</span>
+          </div>
+          <div class="pillar-content">${whatToObserve}</div>
+        </div>
+
+        <div class="action-pillar-box primary">
+          <div class="pillar-header">
+            <span>⏳</span>
+            <span>What to wait for?</span>
+          </div>
+          <div class="pillar-content">${whatToWaitFor}</div>
+        </div>
+
+        <div class="action-pillar-box ${isBlocked ? 'danger' : 'success'}">
+          <div class="pillar-header">
+            <span>⚡</span>
+            <span>When to take action?</span>
+          </div>
+          <div class="pillar-content">${whenToAct}</div>
+        </div>
+      </div>
+
+      <div class="action-deep-dive-grid">
+        <div class="action-deep-box">
+          <div class="action-deep-title">
+            <span>💡</span>
+            <span>Why this recommendation? (Logical Justification)</span>
+          </div>
+          <ul class="action-deep-list">
+            ${whyLogic.map(l => `<li>${l}</li>`).join("")}
+          </ul>
+        </div>
+
+        <div class="action-deep-box">
+          <div class="action-deep-title">
+            <span>🚀</span>
+            <span>The Forward Path (What happens next?)</span>
+          </div>
+          <div class="pillar-content" style="font-size: 12px; line-height: 1.6;">
+            ${forwardPath}
+          </div>
+        </div>
+      </div>
+
+      <div class="action-shortcuts-strip">
+        <span class="shortcuts-label">📚 Shortcut Definitions:</span>
+        <button class="shortcut-pill term-lookup" data-term="GTT">🛒 How GTT Works</button>
+        <button class="shortcut-pill term-lookup" data-term="breakout">📈 What is Breakout?</button>
+        <button class="shortcut-pill term-lookup" data-term="RS Rating">⚡ What is RS Rating?</button>
+        <button class="shortcut-pill term-lookup" data-term="Stop loss">🛑 How Stop Loss Protects</button>
+        <button class="shortcut-pill term-lookup" data-term="2R Target">🎯 2R Profit Target</button>
+        <button class="shortcut-pill term-lookup" data-term="Volume dry-up">💧 Volume Dry-Up</button>
+        <button class="shortcut-pill term-lookup" data-term="Base Maturity">📦 Base Consolidation</button>
+        <button class="shortcut-pill term-lookup" data-term="Event Radar / Gap Risk">🗓️ Event Blackout Rule</button>
+      </div>
+    </div>
+  `;
+}
+
 // Toggle detail row below the clicked stock row
 async function toggleWatchlistDetail(row, item, scanData) {
   const symbol = item.Symbol;
@@ -2457,6 +2707,9 @@ async function toggleWatchlistDetail(row, item, scanData) {
             </div>
             <div id="earnings-warn-${symbol}"></div>
           </div>
+
+          <!-- Plain-Language Decision & Action Advisor -->
+          ${generateStockActionAdvisor(item, scanData, breakoutLevel, stopPrice, targetPrice, riskPct, targetPct, riskAmt, daysInBase)}
 
           <!-- Event Radar Timeline Strip (Item #7) -->
           ${(() => {
