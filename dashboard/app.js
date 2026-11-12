@@ -781,6 +781,7 @@ function renderTodaysPlan(scanData, openPositions) {
   if (shortcutsContainer) {
     shortcutsContainer.innerHTML = `
       <span class="shortcuts-label">📚 Quick Explanations:</span>
+      <button class="shortcut-pill morning-open-check-btn">🌅 9:15 AM Open Protocol</button>
       <button class="shortcut-pill term-lookup" data-term="GTT">🛒 How GTT Works</button>
       <button class="shortcut-pill term-lookup" data-term="breakout">📈 Breakout Rules</button>
       <button class="shortcut-pill term-lookup" data-term="RS Rating">⚡ What is RS Rating?</button>
@@ -1133,6 +1134,7 @@ function renderNearBuy(scanData, openPositions) {
 
   // Render Today's Plan box
   renderTodaysPlan(scanData, openPositions);
+  renderMorningOpenAssistant(scanData);
 
   if (!scanData) {
     document.getElementById("watchlistBody").innerHTML = `
@@ -1963,9 +1965,9 @@ function applyWatchlistFiltering(watchlist, scanData) {
     if (isBlocked) {
       actionPillHtml = `<span class="badge badge-danger" style="font-size: 9.5px; padding: 2px 6px; font-weight: 600;" title="Event within 7 days: New buy entry strictly blocked">🚫 Stand Aside</span>`;
     } else if (dist <= 1.5 && (grade === "A+" || grade === "A")) {
-      actionPillHtml = `<span class="badge badge-success" style="font-size: 9.5px; padding: 2px 6px; font-weight: 600;" title="Prime buy zone: Set GTT order at breakout level">⚡ Set GTT</span>`;
+      actionPillHtml = `<span class="badge badge-success gtt-slip-modal-btn" data-symbol="${item.Symbol}" style="font-size: 9.5px; padding: 2px 6px; font-weight: 600; cursor: pointer;" title="Prime buy zone: Click to open 1-Click Broker GTT Slip">⚡ Set GTT</span>`;
     } else if (dist <= 3.5) {
-      actionPillHtml = `<span class="badge badge-info" style="font-size: 9.5px; padding: 2px 6px; font-weight: 600;" title="Approaching trigger: Observe price & volume">👀 Watch</span>`;
+      actionPillHtml = `<span class="badge badge-info morning-open-check-btn" data-symbol="${item.Symbol}" style="font-size: 9.5px; padding: 2px 6px; font-weight: 600; cursor: pointer;" title="Approaching trigger: Check 9:15 AM Open Gap & Rules">👀 Watch</span>`;
     } else {
       actionPillHtml = `<span class="badge badge-neutral" style="font-size: 9.5px; padding: 2px 6px; font-weight: 600;" title="Base still forming: Monitor from a distance">⏳ Developing</span>`;
     }
@@ -2614,7 +2616,9 @@ function generateStockActionAdvisor(item, scanData, breakoutLevel, stopPrice, ta
       </div>
 
       <div class="action-shortcuts-strip">
-        <span class="shortcuts-label">📚 Shortcut Definitions:</span>
+        <span class="shortcuts-label">📚 Quick Actions &amp; Definitions:</span>
+        <button class="shortcut-pill gtt-slip-modal-btn" data-symbol="${symbol}" data-entry="${breakoutLevel}" data-stop="${stopPrice}" data-target="${targetPrice}">⚡ Open Broker GTT Slip</button>
+        <button class="shortcut-pill morning-open-check-btn" data-symbol="${symbol}" data-trigger="${breakoutLevel}">🌅 9:15 AM Open Check</button>
         <button class="shortcut-pill term-lookup" data-term="GTT">🛒 How GTT Works</button>
         <button class="shortcut-pill term-lookup" data-term="breakout">📈 What is Breakout?</button>
         <button class="shortcut-pill term-lookup" data-term="RS Rating">⚡ What is RS Rating?</button>
@@ -2694,14 +2698,20 @@ async function toggleWatchlistDetail(row, item, scanData) {
               <button class="btn btn-sm btn-secondary tv-chart-trigger-btn" data-symbol="${symbol}" title="Open interactive TradingView chart">
                 📊 Interactive Chart
               </button>
-              <button class="btn btn-sm btn-secondary gtt-copy-btn"
+              <button class="btn btn-sm btn-primary gtt-slip-modal-btn"
                 data-symbol="${symbol}"
                 data-entry="${breakoutLevel}"
                 data-stop="${stopPrice}"
                 data-target="${targetPrice}"
                 data-qty="10"
-                title="Copy GTT Breakout & Stop order parameters for Zerodha Kite / Groww">
-                📋 GTT
+                title="Open 1-Click Broker GTT Slip for Zerodha Kite, Groww, Dhan, Angel One">
+                ⚡ Broker GTT Slip
+              </button>
+              <button class="btn btn-sm btn-outline-warning morning-open-check-btn"
+                data-symbol="${symbol}"
+                data-trigger="${breakoutLevel}"
+                title="Check 9:15 AM Market Open gap and anti-chase rules for ${symbol}">
+                🌅 9:15 AM Open Check
               </button>
               <span class="detail-hint">(Click row to collapse)</span>
             </div>
@@ -2786,14 +2796,20 @@ async function toggleWatchlistDetail(row, item, scanData) {
                 <button class="btn btn-xs btn-outline-primary size-trade-btn" data-symbol="${symbol}" title="Size this trade with Position Sizer">
                   🎯 Size at 1% Risk
                 </button>
-                <button class="btn btn-xs btn-outline-secondary gtt-copy-btn"
+                <button class="btn btn-xs btn-outline-secondary gtt-slip-modal-btn"
                   data-symbol="${symbol}"
                   data-entry="${breakoutLevel}"
                   data-stop="${stopPrice}"
                   data-target="${targetPrice}"
                   data-qty="10"
-                  title="Copy GTT Breakout & Stop order parameters for Zerodha Kite / Groww">
-                  📋 Copy GTT
+                  title="Open 1-Click Broker GTT Slip for Zerodha Kite, Groww, Dhan, Angel One">
+                  ⚡ Broker GTT Slip
+                </button>
+                <button class="btn btn-xs btn-outline-warning morning-open-check-btn"
+                  data-symbol="${symbol}"
+                  data-trigger="${breakoutLevel}"
+                  title="Test 9:15 AM Open Gap & Anti-Chase Rule">
+                  🌅 9:15 AM Open Check
                 </button>
               </div>
             </div>
@@ -3557,6 +3573,7 @@ async function renderOpenPositions(positions) {
   _cachedOpenPositions = positions;
   if (_cachedScanData) {
     renderTodaysPlan(_cachedScanData, _cachedOpenPositions);
+    renderMorningOpenAssistant(_cachedScanData);
   }
 }
 
@@ -5149,6 +5166,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initScanArchiveListeners();
   initPostMortemListeners();
   initCsvExportListeners();
+  initMorningOpenAssistantListeners();
 
   // Initialize Phase 4 Backtest Listeners
   initBacktestListeners();
@@ -5263,41 +5281,505 @@ function showToast(message, icon = "✅", duration = 3000) {
 }
 
 // =====================================================================
-// PHASE 3: BROKER GTT ORDER COPY ASSISTANT (Item #7)
+// FEATURE 1: 1-CLICK BROKER GTT SLIP & DEEP-LINK LAUNCHER MODAL
 // =====================================================================
-function copyGttParameters(symbol, entry, stop, target, qty) {
+let _currentGttSymbol = "";
+let _currentGttEntry = 0;
+let _currentGttStop = 0;
+let _currentGttTarget = 0;
+let _currentGttQty = 1;
+let _currentBrokerTab = "zerodha";
+
+function openGttSlipModal(symbol, entry, stop, target, qty) {
   const sym = (symbol || "").replace(/\.NS$/i, "").toUpperCase();
-  const ePrice = parseFloat(entry) || 0;
-  const sPrice = parseFloat(stop) || 0;
-  const tPrice = parseFloat(target) || 0;
-  const q = parseInt(qty, 10) || 1;
+  _currentGttSymbol = sym;
 
-  // Buffer: Stop limit 0.5% below trigger for fast market depth protection
-  const stopLimit = (sPrice * 0.995).toFixed(2);
-  const targetTrigger = tPrice.toFixed(2);
+  // Attempt to find stock in cached scan data to ensure accurate levels
+  let item = null;
+  if (_cachedScanData) {
+    if (_cachedScanData.watchlist) item = _cachedScanData.watchlist.find(x => (x.Symbol || "").replace(/\.NS$/i, "").toUpperCase() === sym);
+    if (!item && _cachedScanData.signals) item = _cachedScanData.signals.find(x => (x.Symbol || "").replace(/\.NS$/i, "").toUpperCase() === sym);
+  }
 
-  const gttText = `[GTT ORDER: NSE:${sym}]
-Broker: Zerodha Kite / Groww / Upstox
-• Stop Loss Trigger: ₹${sPrice.toFixed(2)}
-• Stop Loss Limit: ₹${stopLimit} (0.5% buffer)
-• Target Trigger: ₹${targetTrigger}
-• Qty: ${q}
-• Entry Ref: ₹${ePrice.toFixed(2)}`;
+  let ePrice = parseFloat(entry) || 0;
+  let sPrice = parseFloat(stop) || 0;
+  let tPrice = parseFloat(target) || 0;
 
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(gttText).then(() => {
-      showToast(`Copied GTT Stop for ${sym}: Trigger ₹${sPrice.toFixed(2)}`, "📋");
-    }).catch(() => {
-      prompt("Copy GTT snippet:", gttText);
-    });
-  } else {
-    prompt("Copy GTT snippet:", gttText);
+  if (item) {
+    const close = parseFloat(item.Close) || 0;
+    const dist = parseFloat(item["DistToBreakout%"]) || 0;
+    const atr = parseFloat(item.ATR14) || Number((close * 0.025).toFixed(2));
+    if (!ePrice) {
+      ePrice = item.Breakout ? parseFloat(item.Breakout) : (item.Entry ? parseFloat(item.Entry) : Number((close * (1 + dist / 100)).toFixed(2)));
+    }
+    if (!sPrice) {
+      sPrice = item.Stop ? parseFloat(item.Stop) : Number(Math.max(1, ePrice - 1.5 * atr).toFixed(2));
+    }
+    if (!tPrice) {
+      const risk = Math.max(0.01, ePrice - sPrice);
+      tPrice = item.Target ? parseFloat(item.Target) : Number((ePrice + 2 * risk).toFixed(2));
+    }
+  }
+
+  if (!ePrice) ePrice = 100;
+  if (!sPrice) sPrice = Number((ePrice * 0.965).toFixed(2));
+  if (!tPrice) tPrice = Number((ePrice + 2 * Math.max(0.01, ePrice - sPrice)).toFixed(2));
+
+  _currentGttEntry = Number(ePrice.toFixed(2));
+  _currentGttStop = Number(sPrice.toFixed(2));
+  _currentGttTarget = Number(tPrice.toFixed(2));
+
+  // Update modal title
+  const titleEl = document.getElementById("gttSlipTitle");
+  if (titleEl) titleEl.textContent = `Broker GTT Order Slip: NSE:${sym}`;
+
+  // Sync capital & risk from position sizer or defaults
+  const sizerCap = document.getElementById("sizerCapital");
+  const sizerRisk = document.getElementById("sizerRiskPct");
+  const modalCap = document.getElementById("gttModalCapital");
+  const modalRisk = document.getElementById("gttModalRiskPct");
+
+  if (modalCap) {
+    if (sizerCap && parseFloat(sizerCap.value)) modalCap.value = sizerCap.value;
+    else if (!modalCap.value) modalCap.value = 100000;
+  }
+  if (modalRisk) {
+    if (sizerRisk && parseFloat(sizerRisk.value)) modalRisk.value = sizerRisk.value;
+    else if (!modalRisk.value) modalRisk.value = 1.0;
+  }
+
+  recalculateGttSizer();
+
+  const modal = document.getElementById("gttSlipModal");
+  if (modal) {
+    modal.style.display = "flex";
+    document.body.style.overflow = "hidden";
   }
 }
 
+function closeGttSlipModal() {
+  const modal = document.getElementById("gttSlipModal");
+  if (modal) {
+    modal.style.display = "none";
+    document.body.style.overflow = "";
+  }
+}
+
+function recalculateGttSizer() {
+  const capInput = document.getElementById("gttModalCapital");
+  const riskInput = document.getElementById("gttModalRiskPct");
+  const capital = parseFloat(capInput ? capInput.value : 100000) || 100000;
+  const riskPct = parseFloat(riskInput ? riskInput.value : 1.0) || 1.0;
+
+  const maxRiskAmt = Math.round(capital * (riskPct / 100));
+  const riskPerShare = Math.max(0.01, _currentGttEntry - _currentGttStop);
+  const stopDistPct = ((riskPerShare / _currentGttEntry) * 100).toFixed(1);
+  const qty = Math.max(1, Math.floor(maxRiskAmt / riskPerShare));
+  _currentGttQty = qty;
+  const totalOutlay = Math.round(qty * _currentGttEntry);
+  const antiChasePrice = (_currentGttEntry * 1.02).toFixed(2);
+
+  const riskAmtEl = document.getElementById("gttModalMaxRiskAmt");
+  if (riskAmtEl) riskAmtEl.textContent = `₹${maxRiskAmt.toLocaleString("en-IN")}`;
+
+  const stopDistEl = document.getElementById("gttModalStopDist");
+  if (stopDistEl) stopDistEl.textContent = `₹${riskPerShare.toFixed(2)} (${stopDistPct}%)`;
+
+  const qtyEl = document.getElementById("gttModalCalculatedQty");
+  if (qtyEl) qtyEl.textContent = `${qty} shares`;
+
+  const outlayEl = document.getElementById("gttModalTotalOutlay");
+  if (outlayEl) outlayEl.textContent = `₹${totalOutlay.toLocaleString("en-IN")}`;
+
+  const ceilingEl = document.getElementById("gttSlip2PctPrice");
+  if (ceilingEl) ceilingEl.textContent = antiChasePrice;
+
+  renderGttBrokerPanels();
+}
+
+function renderGttBrokerPanels() {
+  const container = document.getElementById("gttBrokerPanels");
+  if (!container) return;
+
+  const sym = _currentGttSymbol;
+  const entry = _currentGttEntry;
+  const stop = _currentGttStop;
+  const target = _currentGttTarget;
+  const qty = _currentGttQty;
+  const limitBuffer = Number((entry * 1.005).toFixed(2));
+  const stopLimit = Number((stop * 0.995).toFixed(2));
+  const riskPct = (((entry - stop) / (entry || 1)) * 100).toFixed(1);
+  const targetPct = (((target - entry) / (entry || 1)) * 100).toFixed(1);
+  const rr = (entry - stop) > 0 ? ((target - entry) / (entry - stop)).toFixed(1) : "2.0";
+  const capInput = document.getElementById("gttModalCapital");
+  const riskInput = document.getElementById("gttModalRiskPct");
+  const capital = parseFloat(capInput ? capInput.value : 100000) || 100000;
+  const riskPctVal = parseFloat(riskInput ? riskInput.value : 1.0) || 1.0;
+  const maxRisk = Math.round(capital * (riskPctVal / 100));
+  const totalOutlay = Math.round(qty * entry);
+  const antiChase = (entry * 1.02).toFixed(2);
+
+  if (_currentBrokerTab === "zerodha") {
+    container.innerHTML = `
+      <div class="gtt-ticket-card">
+        <div class="gtt-ticket-header">
+          <div class="gtt-ticket-symbol">
+            <span>🟠 Zerodha Kite</span>
+            <span class="badge badge-neutral">NSE:${sym}</span>
+            <span class="badge badge-success">BUY CNC</span>
+          </div>
+          <span class="badge badge-primary">GTT Single Trigger</span>
+        </div>
+        <div class="gtt-ticket-grid">
+          <div class="gtt-ticket-item">
+            <label>Transaction &amp; Product</label>
+            <div class="value">BUY &bull; CNC (Longterm)</div>
+            <div class="sub">Cash equity delivery order</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Order Type</label>
+            <div class="value accent">GTT &bull; Single Trigger</div>
+            <div class="sub">Valid 1 Year on Kite</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Trigger Price (Breakout)</label>
+            <div class="value accent">₹${entry.toFixed(2)}</div>
+            <div class="sub">Order activates when hit</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Order &amp; Price (+0.5% buffer)</label>
+            <div class="value profit">LIMIT &bull; ₹${limitBuffer.toFixed(2)}</div>
+            <div class="sub">Protects against opening slippage</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Quantity</label>
+            <div class="value profit">${qty} shares</div>
+            <div class="sub">At ${riskPctVal}% portfolio risk (₹${maxRisk.toLocaleString("en-IN")})</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Post-Fill Stop Loss (OCO Trigger)</label>
+            <div class="value loss">₹${stop.toFixed(2)} (-${riskPct}%)</div>
+            <div class="sub">Stop limit: ₹${stopLimit.toFixed(2)}</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Post-Fill 2R Target</label>
+            <div class="value profit">₹${target.toFixed(2)} (+${targetPct}%)</div>
+            <div class="sub">Planned R:R = 1 : ${rr}</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Anti-Chase Warning Ceiling</label>
+            <div class="value loss">&le; ₹${antiChase} (+2%)</div>
+            <div class="sub">If opens higher, cancel!</div>
+          </div>
+        </div>
+        <div class="gtt-ticket-actions">
+          <button class="btn btn-primary btn-copy-broker-gtt" data-format="zerodha">
+            📋 Copy Zerodha GTT Format
+          </button>
+          <a href="https://kite.zerodha.com/marketwatch" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary">
+            🚀 Open Zerodha Kite ↗
+          </a>
+        </div>
+      </div>
+    `;
+  } else if (_currentBrokerTab === "groww") {
+    container.innerHTML = `
+      <div class="gtt-ticket-card">
+        <div class="gtt-ticket-header">
+          <div class="gtt-ticket-symbol">
+            <span>🟢 Groww Stocks</span>
+            <span class="badge badge-neutral">NSE:${sym}</span>
+            <span class="badge badge-success">DELIVERY GTT</span>
+          </div>
+          <span class="badge badge-primary">Valid 1 Year</span>
+        </div>
+        <div class="gtt-ticket-grid">
+          <div class="gtt-ticket-item">
+            <label>Order Type</label>
+            <div class="value">Delivery &bull; GTT Order</div>
+            <div class="sub">Creates conditional GTT on Groww</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Trigger Price</label>
+            <div class="value accent">₹${entry.toFixed(2)}</div>
+            <div class="sub">Breakout level</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Limit Price (+0.5% Buffer)</label>
+            <div class="value profit">₹${limitBuffer.toFixed(2)}</div>
+            <div class="sub">Maximum price to pay</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Quantity</label>
+            <div class="value profit">${qty} shares</div>
+            <div class="sub">Auto-sized for 1% risk</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Stop Loss Trigger (Sell GTT)</label>
+            <div class="value loss">₹${stop.toFixed(2)} (-${riskPct}%)</div>
+            <div class="sub">Protective exit stop</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Target Price (Sell GTT)</label>
+            <div class="value profit">₹${target.toFixed(2)} (+${targetPct}%)</div>
+            <div class="sub">2R profit target</div>
+          </div>
+        </div>
+        <div class="gtt-ticket-actions">
+          <button class="btn btn-primary btn-copy-broker-gtt" data-format="groww">
+            📋 Copy Groww GTT Format
+          </button>
+          <a href="https://groww.in/stocks" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary">
+            🚀 Open Groww App ↗
+          </a>
+        </div>
+      </div>
+    `;
+  } else if (_currentBrokerTab === "dhan") {
+    container.innerHTML = `
+      <div class="gtt-ticket-card">
+        <div class="gtt-ticket-header">
+          <div class="gtt-ticket-symbol">
+            <span>🟣 Dhan</span>
+            <span class="badge badge-neutral">NSE:${sym}</span>
+            <span class="badge badge-success">FOREVER ORDER</span>
+          </div>
+          <span class="badge badge-primary">Cash CNC</span>
+        </div>
+        <div class="gtt-ticket-grid">
+          <div class="gtt-ticket-item">
+            <label>Product &amp; Type</label>
+            <div class="value">Cash (CNC) &bull; Forever (GTT)</div>
+            <div class="sub">Single Order</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Trigger Price</label>
+            <div class="value accent">₹${entry.toFixed(2)}</div>
+            <div class="sub">Breakout trigger</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Order Price (Limit)</label>
+            <div class="value profit">₹${limitBuffer.toFixed(2)}</div>
+            <div class="sub">+0.5% limit buffer</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Quantity</label>
+            <div class="value profit">${qty} shares</div>
+            <div class="sub">Auto-sized for risk</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Stop Loss Price</label>
+            <div class="value loss">₹${stop.toFixed(2)}</div>
+            <div class="sub">1.5x ATR protection</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Target Price</label>
+            <div class="value profit">₹${target.toFixed(2)}</div>
+            <div class="sub">2R swing target</div>
+          </div>
+        </div>
+        <div class="gtt-ticket-actions">
+          <button class="btn btn-primary btn-copy-broker-gtt" data-format="dhan">
+            📋 Copy Dhan Format
+          </button>
+          <a href="https://web.dhan.co" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary">
+            🚀 Open Dhan Web ↗
+          </a>
+        </div>
+      </div>
+    `;
+  } else if (_currentBrokerTab === "angel") {
+    container.innerHTML = `
+      <div class="gtt-ticket-card">
+        <div class="gtt-ticket-header">
+          <div class="gtt-ticket-symbol">
+            <span>🔵 Angel One</span>
+            <span class="badge badge-neutral">NSE:${sym}</span>
+            <span class="badge badge-success">SMART ORDER</span>
+          </div>
+          <span class="badge badge-primary">GTT Delivery</span>
+        </div>
+        <div class="gtt-ticket-grid">
+          <div class="gtt-ticket-item">
+            <label>Product &amp; Order</label>
+            <div class="value">Delivery &bull; GTT Smart Order</div>
+            <div class="sub">Automated equity buy</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Trigger Price</label>
+            <div class="value accent">₹${entry.toFixed(2)}</div>
+            <div class="sub">Breakout level</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Limit Price</label>
+            <div class="value profit">₹${limitBuffer.toFixed(2)}</div>
+            <div class="sub">+0.5% buffer</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Quantity</label>
+            <div class="value profit">${qty} shares</div>
+            <div class="sub">1% risk position size</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Stop Loss Trigger</label>
+            <div class="value loss">₹${stop.toFixed(2)}</div>
+            <div class="sub">Protective floor</div>
+          </div>
+          <div class="gtt-ticket-item">
+            <label>Target Level</label>
+            <div class="value profit">₹${target.toFixed(2)}</div>
+            <div class="sub">2R profit milestone</div>
+          </div>
+        </div>
+        <div class="gtt-ticket-actions">
+          <button class="btn btn-primary btn-copy-broker-gtt" data-format="angel">
+            📋 Copy Angel One Format
+          </button>
+          <a href="https://trade.angelone.in" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary">
+            🚀 Open Angel One ↗
+          </a>
+        </div>
+      </div>
+    `;
+  } else {
+    // Universal Slip
+    const universalText = `⚡ MIDCAP SWING GTT ORDER SLIP: NSE:${sym}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Symbol & Exchange   : NSE:${sym}
+• Action & Product    : BUY (CNC / Delivery)
+• Breakout Trigger    : ₹${entry.toFixed(2)}
+• Limit Price (+0.5%) : ₹${limitBuffer.toFixed(2)}
+• Strict Stop Loss    : ₹${stop.toFixed(2)} (-${riskPct}%)
+• Profit Target (2R)  : ₹${target.toFixed(2)} (+${targetPct}%)
+• Risk-Reward Ratio   : 1 : ${rr}
+• Position Size (Qty) : ${qty} shares
+• Total Capital Outlay: ₹${totalOutlay.toLocaleString("en-IN")}
+• Max Rupee Risk (1%) : ₹${maxRisk.toLocaleString("en-IN")}
+• Order Validity      : GTC (Good Till Cancelled / 1 Year)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ 9:15 AM Anti-Chase Guard: If stock opens tomorrow > ₹${antiChase} (+2%), CANCEL GTT immediately!`;
+
+    container.innerHTML = `
+      <div class="gtt-ticket-card">
+        <div class="gtt-ticket-header">
+          <div class="gtt-ticket-symbol">
+            <span>📋 Universal Trading Slip</span>
+            <span class="badge badge-neutral">NSE:${sym}</span>
+          </div>
+          <span class="badge badge-success">Ready to Paste</span>
+        </div>
+        <pre class="gtt-universal-pre">${escapeHtml(universalText)}</pre>
+        <div class="gtt-ticket-actions">
+          <button class="btn btn-primary btn-copy-broker-gtt" data-format="universal">
+            📋 Copy Complete Trading Slip
+          </button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function copyBrokerGttFormat(format) {
+  const sym = _currentGttSymbol;
+  const entry = _currentGttEntry;
+  const stop = _currentGttStop;
+  const target = _currentGttTarget;
+  const qty = _currentGttQty;
+  const limitBuffer = Number((entry * 1.005).toFixed(2));
+  const stopLimit = Number((stop * 0.995).toFixed(2));
+  const riskPct = (((entry - stop) / (entry || 1)) * 100).toFixed(1);
+  const targetPct = (((target - entry) / (entry || 1)) * 100).toFixed(1);
+  const antiChase = (entry * 1.02).toFixed(2);
+
+  let textToCopy = "";
+  let brokerName = "Broker";
+
+  if (format === "zerodha") {
+    brokerName = "Zerodha Kite";
+    textToCopy = `[ZERODHA KITE GTT: NSE:${sym}]
+Product: CNC | Order: BUY GTT (Single)
+Trigger Price: ₹${entry.toFixed(2)}
+Limit Price (+0.5%): ₹${limitBuffer.toFixed(2)}
+Quantity: ${qty}
+Stop Loss Trigger: ₹${stop.toFixed(2)} (Limit: ₹${stopLimit.toFixed(2)})
+Target Trigger: ₹${target.toFixed(2)}
+Anti-Chase Guard: Cancel if opens > ₹${antiChase} (+2%)`;
+  } else if (format === "groww") {
+    brokerName = "Groww";
+    textToCopy = `[GROWW GTT: NSE:${sym}]
+Type: Delivery GTT (Buy)
+Trigger Price: ₹${entry.toFixed(2)}
+Limit Price: ₹${limitBuffer.toFixed(2)}
+Quantity: ${qty}
+Stop Loss: ₹${stop.toFixed(2)}
+Target: ₹${target.toFixed(2)}
+Anti-Chase Guard: Cancel if opens > ₹${antiChase} (+2%)`;
+  } else if (format === "dhan") {
+    brokerName = "Dhan";
+    textToCopy = `[DHAN FOREVER GTT: NSE:${sym}]
+Order: Cash CNC Forever Buy
+Trigger: ₹${entry.toFixed(2)}
+Limit: ₹${limitBuffer.toFixed(2)}
+Qty: ${qty}
+Stop Loss: ₹${stop.toFixed(2)}
+Target: ₹${target.toFixed(2)}
+Anti-Chase Guard: Cancel if opens > ₹${antiChase} (+2%)`;
+  } else if (format === "angel") {
+    brokerName = "Angel One";
+    textToCopy = `[ANGEL ONE SMART GTT: NSE:${sym}]
+Order: Delivery GTT Buy
+Trigger: ₹${entry.toFixed(2)}
+Limit: ₹${limitBuffer.toFixed(2)}
+Qty: ${qty}
+Stop Loss: ₹${stop.toFixed(2)}
+Anti-Chase Guard: Cancel if opens > ₹${antiChase} (+2%)`;
+  } else {
+    brokerName = "Universal";
+    const capInput = document.getElementById("gttModalCapital");
+    const riskInput = document.getElementById("gttModalRiskPct");
+    const capital = parseFloat(capInput ? capInput.value : 100000) || 100000;
+    const riskPctVal = parseFloat(riskInput ? riskInput.value : 1.0) || 1.0;
+    const maxRisk = Math.round(capital * (riskPctVal / 100));
+    const totalOutlay = Math.round(qty * entry);
+    const rr = (entry - stop) > 0 ? ((target - entry) / (entry - stop)).toFixed(1) : "2.0";
+
+    textToCopy = `⚡ MIDCAP SWING GTT ORDER SLIP: NSE:${sym}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Symbol & Exchange   : NSE:${sym}
+• Action & Product    : BUY (CNC / Delivery)
+• Breakout Trigger    : ₹${entry.toFixed(2)}
+• Limit Price (+0.5%) : ₹${limitBuffer.toFixed(2)}
+• Strict Stop Loss    : ₹${stop.toFixed(2)} (-${riskPct}%)
+• Profit Target (2R)  : ₹${target.toFixed(2)} (+${targetPct}%)
+• Risk-Reward Ratio   : 1 : ${rr}
+• Position Size (Qty) : ${qty} shares
+• Total Capital Outlay: ₹${totalOutlay.toLocaleString("en-IN")}
+• Max Rupee Risk (1%) : ₹${maxRisk.toLocaleString("en-IN")}
+• Order Validity      : GTC (Good Till Cancelled / 1 Year)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ 9:15 AM Anti-Chase Guard: If stock opens tomorrow > ₹${antiChase} (+2%), CANCEL GTT immediately!`;
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      showToast(`Copied ${brokerName} GTT Slip for ${sym}!`, "📋");
+    }).catch(() => {
+      prompt(`Copy ${brokerName} GTT text:`, textToCopy);
+    });
+  } else {
+    prompt(`Copy ${brokerName} GTT text:`, textToCopy);
+  }
+}
+
+// Backward-compatible copy function
+function copyGttParameters(symbol, entry, stop, target, qty) {
+  openGttSlipModal(symbol, entry, stop, target, qty);
+}
+
 function initGttListeners() {
+  // Listen for clicks on GTT buttons (both .gtt-copy-btn and .gtt-slip-modal-btn)
   document.addEventListener("click", (e) => {
-    const btn = e.target.closest(".gtt-copy-btn");
+    const btn = e.target.closest(".gtt-copy-btn, .gtt-slip-modal-btn");
     if (btn) {
       e.stopPropagation();
       const sym = btn.getAttribute("data-symbol");
@@ -5305,7 +5787,424 @@ function initGttListeners() {
       const stop = btn.getAttribute("data-stop");
       const target = btn.getAttribute("data-target");
       const qty = btn.getAttribute("data-qty") || 1;
-      copyGttParameters(sym, entry, stop, target, qty);
+      openGttSlipModal(sym, entry, stop, target, qty);
+    }
+  });
+
+  // Modal close buttons & backdrop
+  const closeBtn = document.getElementById("gttSlipCloseBtn");
+  if (closeBtn) closeBtn.addEventListener("click", closeGttSlipModal);
+
+  const backdrop = document.getElementById("gttSlipBackdrop");
+  if (backdrop) backdrop.addEventListener("click", closeGttSlipModal);
+
+  // Esc key closes GTT slip modal
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const modal = document.getElementById("gttSlipModal");
+      if (modal && modal.style.display !== "none") {
+        closeGttSlipModal();
+      }
+    }
+  });
+
+  // Broker Tab Switching
+  document.querySelectorAll(".gtt-tab-btn").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".gtt-tab-btn").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      _currentBrokerTab = tab.getAttribute("data-broker") || "zerodha";
+      renderGttBrokerPanels();
+    });
+  });
+
+  // Modal Sizer Inputs
+  const capInput = document.getElementById("gttModalCapital");
+  if (capInput) capInput.addEventListener("input", recalculateGttSizer);
+
+  const riskInput = document.getElementById("gttModalRiskPct");
+  if (riskInput) riskInput.addEventListener("input", recalculateGttSizer);
+
+  // Broker format copy button inside modal
+  document.addEventListener("click", (e) => {
+    const copyBtn = e.target.closest(".btn-copy-broker-gtt");
+    if (copyBtn) {
+      e.stopPropagation();
+      const format = copyBtn.getAttribute("data-format");
+      copyBrokerGttFormat(format);
+      const originalText = copyBtn.innerHTML;
+      copyBtn.innerHTML = "✅ Copied to Clipboard!";
+      setTimeout(() => { copyBtn.innerHTML = originalText; }, 1600);
+    }
+  });
+
+  // Launch morning gap assistant from GTT modal
+  const morningLaunchBtn = document.getElementById("gttLaunchMorningCheckBtn");
+  if (morningLaunchBtn) {
+    morningLaunchBtn.addEventListener("click", () => {
+      closeGttSlipModal();
+      focusMorningOpenAssistant(_currentGttSymbol, _currentGttEntry);
+    });
+  }
+}
+
+// =====================================================================
+// FEATURE 2: MORNING 9:15 AM MARKET-OPEN DECISION ASSISTANT
+// =====================================================================
+let _morningClockInterval = null;
+
+function renderMorningOpenAssistant(scanData) {
+  const card = document.getElementById("morningOpenAssistantCard");
+  if (!card) return;
+
+  const data = scanData || _cachedScanData;
+  if (!data) return;
+
+  const stockSelect = document.getElementById("morningStockSelect");
+  if (!stockSelect) return;
+
+  const prevSelected = stockSelect.value;
+  stockSelect.innerHTML = "";
+
+  const items = [];
+  if (data.watchlist && Array.isArray(data.watchlist)) {
+    data.watchlist.forEach(w => items.push(w));
+  }
+  if (data.signals && Array.isArray(data.signals)) {
+    data.signals.forEach(s => {
+      if (!items.some(x => (x.Symbol || "").replace(/\.NS$/i, "") === (s.Symbol || "").replace(/\.NS$/i, ""))) {
+        items.push(s);
+      }
+    });
+  }
+
+  // Sort items: Grade A/A+ first, then by distance to breakout
+  items.sort((a, b) => {
+    const ga = (a.grade || a.Grade || "C").startsWith("A") ? 1 : 0;
+    const gb = (b.grade || b.Grade || "C").startsWith("A") ? 1 : 0;
+    if (ga !== gb) return gb - ga;
+    const da = parseFloat(a["DistToBreakout%"]) || 0;
+    const db = parseFloat(b["DistToBreakout%"]) || 0;
+    return da - db;
+  });
+
+  if (items.length === 0) {
+    stockSelect.innerHTML = `<option value="">No candidates available in current scan</option>`;
+    calculateAndRenderMorningVerdict();
+    return;
+  }
+
+  items.forEach(item => {
+    const sym = (item.Symbol || "").replace(/\.NS$/i, "").toUpperCase();
+    const close = parseFloat(item.Close) || 0;
+    const dist = parseFloat(item["DistToBreakout%"]) || 0;
+    const breakout = item.Breakout ? parseFloat(item.Breakout) : (item.Entry ? parseFloat(item.Entry) : Number((close * (1 + dist / 100)).toFixed(2)));
+    const grade = item.grade || item.Grade || "C";
+    const opt = document.createElement("option");
+    opt.value = sym;
+    opt.textContent = `${sym} (Grade ${grade}) — Trigger: ₹${breakout.toFixed(2)}`;
+    opt.setAttribute("data-trigger", breakout.toFixed(2));
+    opt.setAttribute("data-close", close.toFixed(2));
+    opt.setAttribute("data-grade", grade);
+    stockSelect.appendChild(opt);
+  });
+
+  if (prevSelected && Array.from(stockSelect.options).some(o => o.value === prevSelected)) {
+    stockSelect.value = prevSelected;
+  }
+
+  // Sync open price input with currently selected stock
+  syncMorningOpenInputWithSelectedStock();
+  updateMorningClock();
+}
+
+function syncMorningOpenInputWithSelectedStock() {
+  const stockSelect = document.getElementById("morningStockSelect");
+  const openInput = document.getElementById("morningOpenPriceInput");
+  if (!stockSelect || !openInput) return;
+
+  const selectedOpt = stockSelect.options[stockSelect.selectedIndex];
+  if (selectedOpt) {
+    const trigger = parseFloat(selectedOpt.getAttribute("data-trigger")) || 0;
+    openInput.value = trigger.toFixed(2);
+    openInput.placeholder = `e.g. ₹${trigger.toFixed(2)}`;
+  }
+  calculateAndRenderMorningVerdict();
+}
+
+function updateMorningClock() {
+  const clockText = document.getElementById("morningLiveClockText");
+  const clockBadge = document.getElementById("morningLiveClockBadge");
+  const sessionRibbon = document.getElementById("morningSessionRibbon");
+  if (!clockText || !clockBadge) return;
+
+  const now = new Date();
+  const istStr = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+  const istDate = new Date(istStr);
+  const hours = istDate.getHours();
+  const minutes = istDate.getMinutes();
+  const day = istDate.getDay(); // 0 = Sun, 6 = Sat
+  const timeFormatted = istDate.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+
+  const totalMins = hours * 60 + minutes;
+  const isWeekend = (day === 0 || day === 6);
+
+  clockBadge.className = "morning-live-badge";
+
+  if (isWeekend) {
+    clockBadge.classList.add("standby");
+    clockText.textContent = `${timeFormatted} IST • Weekend (Market Closed)`;
+    if (sessionRibbon) {
+      sessionRibbon.innerHTML = `<strong>🕒 Weekend Rehearsal Mode:</strong> The Indian stock market is closed. Review watchlist setups and test 9:15 AM gap scenarios below so you are prepared for Monday morning open.`;
+    }
+  } else if (totalMins >= 540 && totalMins < 548) {
+    // 09:00 - 09:08 AM IST: Pre-market auction
+    clockBadge.classList.add("premarket");
+    clockText.textContent = `${timeFormatted} IST • Pre-Market Discovery`;
+    if (sessionRibbon) {
+      sessionRibbon.innerHTML = `<strong>🟠 Pre-Market Discovery Window (9:00 – 9:08 AM):</strong> NSE is discovering indicative open prices. Check your watchlist candidates on NSE or your broker app. If indicative price is &gt;2% above trigger, get ready to cancel GTT.`;
+    }
+  } else if (totalMins >= 548 && totalMins < 555) {
+    // 09:08 - 09:15 AM IST: Pre-market order freeze
+    clockBadge.classList.add("premarket");
+    clockText.textContent = `${timeFormatted} IST • Pre-Open Equilibrium Freeze`;
+    if (sessionRibbon) {
+      sessionRibbon.innerHTML = `<strong>🔒 Pre-Open Frozen (9:08 – 9:15 AM):</strong> Final opening prices are determined. Prepare to act the instant market bells ring at 9:15 AM.`;
+    }
+  } else if (totalMins >= 555 && totalMins < 570) {
+    // 09:15 - 09:30 AM IST: Live Market Open Action Zone
+    clockBadge.classList.add("live");
+    clockText.textContent = `${timeFormatted} IST • 🟢 LIVE MARKET OPEN`;
+    if (sessionRibbon) {
+      sessionRibbon.innerHTML = `<strong>🟢 Active Market Open Window (9:15 – 9:30 AM):</strong> Execute opening protocol now! Verify open prices against your breakout triggers. Strictly enforce the Anti-Chase rule (Cancel GTT on &gt;2% gaps).`;
+    }
+  } else if (totalMins >= 570 && totalMins < 930) {
+    // 09:30 AM - 03:30 PM: Regular Market Hours
+    clockBadge.classList.add("live");
+    clockText.textContent = `${timeFormatted} IST • Regular Trading Hours`;
+    if (sessionRibbon) {
+      sessionRibbon.innerHTML = `<strong>📈 Regular Trading Hours (9:30 AM – 3:30 PM):</strong> Opening volatility settled. Monitor 15-minute volume bars on triggered trades and let trailing stops work.`;
+    }
+  } else {
+    // Market Closed
+    clockBadge.classList.add("standby");
+    clockText.textContent = `${timeFormatted} IST • Standby (Market Closed)`;
+    if (sessionRibbon) {
+      sessionRibbon.innerHTML = `<strong>🕒 Evening Standby Mode:</strong> Markets closed. Set your passive GTT orders tonight. Review the 9:15 AM checklist below so you never panic at the opening bell.`;
+    }
+  }
+}
+
+function calculateAndRenderMorningVerdict() {
+  const stockSelect = document.getElementById("morningStockSelect");
+  const openInput = document.getElementById("morningOpenPriceInput");
+  const verdictContainer = document.getElementById("morningDecisionVerdict");
+  if (!verdictContainer) return;
+
+  if (!stockSelect || !stockSelect.value) {
+    verdictContainer.className = "morning-verdict-card";
+    verdictContainer.innerHTML = `<div class="verdict-detail-text">No candidate selected. Choose a stock to evaluate open gap.</div>`;
+    return;
+  }
+
+  const selectedOpt = stockSelect.options[stockSelect.selectedIndex];
+  const sym = stockSelect.value;
+  const triggerPrice = parseFloat(selectedOpt.getAttribute("data-trigger")) || 0;
+  const openPrice = parseFloat(openInput ? openInput.value : 0) || 0;
+
+  if (!triggerPrice || !openPrice) {
+    verdictContainer.className = "morning-verdict-card";
+    verdictContainer.innerHTML = `<div class="verdict-detail-text">Enter the 9:15 AM opening price above to see the instant GO / NO-GO verdict.</div>`;
+    return;
+  }
+
+  const gapPct = ((openPrice - triggerPrice) / triggerPrice) * 100;
+  const gapStr = (gapPct >= 0 ? `+${gapPct.toFixed(2)}%` : `${gapPct.toFixed(2)}%`);
+
+  if (gapPct >= 2.0) {
+    // Case 1: Gap >= +2.0% (DANGER - CHASE TRAP)
+    verdictContainer.className = "morning-verdict-card verdict-danger";
+    verdictContainer.innerHTML = `
+      <div class="verdict-header">
+        <span class="verdict-badge">🔴 DANGER: CHASE TRAP! CANCEL GTT NOW!</span>
+        <span class="verdict-gap-tag">${gapStr} Gap</span>
+      </div>
+      <div class="verdict-detail-text">
+        <strong>What happened:</strong> ${escapeHtml(sym)} opened at <strong>₹${openPrice.toFixed(2)}</strong>, which is <strong>${gapStr}</strong> above the breakout trigger (₹${triggerPrice.toFixed(2)}).
+      </div>
+      <div class="verdict-detail-text">
+        <strong>Why this is dangerous:</strong> Rule #1 of professional swing trading is <em>Never chase a &gt;2% gap-up at the open</em>. Large gaps are driven by retail morning emotion. In over 80% of cases, institutional traders sell into this morning euphoria, causing an intraday reversal that immediately hits your stop-loss.
+      </div>
+      <div class="verdict-action-steps">
+        <div class="action-steps-title">Immediate Action Steps for You:</div>
+        <div class="action-step-item"><span>1.</span><span>Open your broker app (Zerodha / Groww / Dhan / Angel One) right now.</span></div>
+        <div class="action-step-item"><span>2.</span><span>Navigate to your <strong>GTT Orders</strong> and <strong>CANCEL the buy order immediately</strong>.</span></div>
+        <div class="action-step-item"><span>3.</span><span><strong>Stand Aside:</strong> Do not place a market buy order. Wait 2 to 3 days for the stock to pull back and retest the ₹${triggerPrice.toFixed(2)} level before touching it.</span></div>
+      </div>
+    `;
+  } else if (gapPct >= 0 && gapPct <= 1.5) {
+    // Case 2: Normal Clean Breakout (0% to +1.5%)
+    verdictContainer.className = "morning-verdict-card verdict-success";
+    verdictContainer.innerHTML = `
+      <div class="verdict-header">
+        <span class="verdict-badge">🟢 GREEN LIGHT: CLEAN BREAKOUT — LET GTT EXECUTE</span>
+        <span class="verdict-gap-tag">${gapStr} Gap</span>
+      </div>
+      <div class="verdict-detail-text">
+        <strong>What happened:</strong> ${escapeHtml(sym)} opened cleanly at <strong>₹${openPrice.toFixed(2)}</strong>, within <strong>${gapStr}</strong> of the breakout trigger (₹${triggerPrice.toFixed(2)}).
+      </div>
+      <div class="verdict-detail-text">
+        <strong>Why this is ideal:</strong> Opening within 1.5% of resistance allows price to absorb overhead supply in an orderly fashion without paying a dangerous gap premium. Your +0.5% Limit buffer will guarantee execution without slippage.
+      </div>
+      <div class="verdict-action-steps">
+        <div class="action-steps-title">What to do as of now:</div>
+        <div class="action-step-item"><span>1.</span><span><strong>Leave GTT Active:</strong> No manual intervention required. Your order will fill automatically.</span></div>
+        <div class="action-step-item"><span>2.</span><span><strong>Confirm Stop Loss:</strong> Once your fill confirmation arrives, ensure your protective stop loss order is active.</span></div>
+        <div class="action-step-item"><span>3.</span><span><strong>Do Not Micromanage:</strong> Avoid watching 1-minute candles. Check back after 3:00 PM.</span></div>
+      </div>
+    `;
+  } else if (gapPct > 1.5 && gapPct < 2.0) {
+    // Case 3: Extended Open (+1.5% to +2.0%)
+    verdictContainer.className = "morning-verdict-card verdict-warning";
+    verdictContainer.innerHTML = `
+      <div class="verdict-header">
+        <span class="verdict-badge">🟡 CAUTION: EXTENDED OPEN — REDUCE POSITION SIZE</span>
+        <span class="verdict-gap-tag">${gapStr} Gap</span>
+      </div>
+      <div class="verdict-detail-text">
+        <strong>What happened:</strong> ${escapeHtml(sym)} opened at <strong>₹${openPrice.toFixed(2)}</strong>, which is <strong>${gapStr}</strong> above trigger (₹${triggerPrice.toFixed(2)}), right at the edge of the 2% ceiling.
+      </div>
+      <div class="verdict-detail-text">
+        <strong>Why you must be cautious:</strong> Buying near +2% stretches your distance to the stop-loss, reducing your risk-to-reward ratio.
+      </div>
+      <div class="verdict-action-steps">
+        <div class="action-steps-title">Recommended Action:</div>
+        <div class="action-step-item"><span>1.</span><span>If you choose to take this trade, <strong>cut your share quantity by 30% to 50%</strong> to keep total rupee risk within your 1% portfolio limit.</span></div>
+        <div class="action-step-item"><span>2.</span><span>Maintain a strict, non-negotiable stop loss. Never widen your stop!</span></div>
+      </div>
+    `;
+  } else if (gapPct < 0 && gapPct >= -1.5) {
+    // Case 4: Pre-Trigger Open (-1.5% to 0%)
+    verdictContainer.className = "morning-verdict-card verdict-dormant";
+    verdictContainer.innerHTML = `
+      <div class="verdict-header">
+        <span class="verdict-badge">⏳ DORMANT: BELOW TRIGGER — NO ACTION NEEDED</span>
+        <span class="verdict-gap-tag">${gapStr} Open</span>
+      </div>
+      <div class="verdict-detail-text">
+        <strong>What happened:</strong> ${escapeHtml(sym)} opened at <strong>₹${openPrice.toFixed(2)}</strong>, slightly below the breakout resistance of ₹${triggerPrice.toFixed(2)}.
+      </div>
+      <div class="verdict-detail-text">
+        <strong>Why this is normal:</strong> Breakouts frequently do not happen on the very first tick of the day. The stock is still trading inside its base consolidation.
+      </div>
+      <div class="verdict-action-steps">
+        <div class="action-steps-title">What to do:</div>
+        <div class="action-step-item"><span>1.</span><span><strong>Do Nothing:</strong> Keep your GTT order active. It stays dormant until price crosses ₹${triggerPrice.toFixed(2)}.</span></div>
+        <div class="action-step-item"><span>2.</span><span><strong>Do NOT Buy Early:</strong> Never anticipate a breakout before resistance is cleared.</span></div>
+      </div>
+    `;
+  } else {
+    // Case 5: Gap Down (< -1.5%)
+    verdictContainer.className = "morning-verdict-card verdict-down";
+    verdictContainer.innerHTML = `
+      <div class="verdict-header">
+        <span class="verdict-badge">⚠️ WEAK OPEN: MORNING SELLING PRESSURE</span>
+        <span class="verdict-gap-tag">${gapStr} Gap Down</span>
+      </div>
+      <div class="verdict-detail-text">
+        <strong>What happened:</strong> ${escapeHtml(sym)} opened at <strong>₹${openPrice.toFixed(2)}</strong>, which is <strong>${gapStr}</strong> below the trigger level (₹${triggerPrice.toFixed(2)}).
+      </div>
+      <div class="verdict-detail-text">
+        <strong>What to observe:</strong> Heavy opening supply or broader market weakness is pushing price down. Your GTT buy order will remain safely untouched. If price continues dropping, the breakout setup may be invalidated for the week.
+      </div>
+      <div class="verdict-action-steps">
+        <div class="action-steps-title">What to do:</div>
+        <div class="action-step-item"><span>1.</span><span>Leave GTT in place (it will not trigger unless an intraday reversal occurs).</span></div>
+        <div class="action-step-item"><span>2.</span><span>Check if NIFTY 50 is falling. If the broader market is defensive, keep capital preserved in cash.</span></div>
+      </div>
+    `;
+  }
+}
+
+function focusMorningOpenAssistant(symbol, triggerPrice) {
+  const card = document.getElementById("morningOpenAssistantCard");
+  if (!card) return;
+
+  const stockSelect = document.getElementById("morningStockSelect");
+  const openInput = document.getElementById("morningOpenPriceInput");
+
+  if (symbol && stockSelect) {
+    const sym = symbol.replace(/\.NS$/i, "").toUpperCase();
+    const opt = Array.from(stockSelect.options).find(o => o.value === sym);
+    if (opt) {
+      stockSelect.value = sym;
+    }
+  }
+
+  if (triggerPrice && openInput) {
+    openInput.value = parseFloat(triggerPrice).toFixed(2);
+  } else {
+    syncMorningOpenInputWithSelectedStock();
+  }
+
+  calculateAndRenderMorningVerdict();
+
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  card.classList.add("pulse-highlight");
+  setTimeout(() => card.classList.remove("pulse-highlight"), 2200);
+}
+
+function initMorningOpenAssistantListeners() {
+  const stockSelect = document.getElementById("morningStockSelect");
+  if (stockSelect) {
+    stockSelect.addEventListener("change", syncMorningOpenInputWithSelectedStock);
+  }
+
+  const openInput = document.getElementById("morningOpenPriceInput");
+  if (openInput) {
+    openInput.addEventListener("input", calculateAndRenderMorningVerdict);
+  }
+
+  // Preset Scenario Chips
+  document.querySelectorAll(".preset-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      const scenario = chip.getAttribute("data-scenario");
+      const stockSelect = document.getElementById("morningStockSelect");
+      const openInput = document.getElementById("morningOpenPriceInput");
+      if (!stockSelect || !openInput) return;
+
+      const selectedOpt = stockSelect.options[stockSelect.selectedIndex];
+      const trigger = parseFloat(selectedOpt ? selectedOpt.getAttribute("data-trigger") : 0) || 100;
+
+      if (scenario === "flat") {
+        openInput.value = trigger.toFixed(2);
+      } else if (scenario === "normal") {
+        openInput.value = (trigger * 1.006).toFixed(2);
+      } else if (scenario === "caution") {
+        openInput.value = (trigger * 1.018).toFixed(2);
+      } else if (scenario === "danger") {
+        openInput.value = (trigger * 1.030).toFixed(2);
+      } else if (scenario === "dormant") {
+        openInput.value = (trigger * 0.990).toFixed(2);
+      }
+      calculateAndRenderMorningVerdict();
+    });
+  });
+
+  // Clock interval
+  updateMorningClock();
+  if (!_morningClockInterval) {
+    _morningClockInterval = setInterval(updateMorningClock, 15000);
+  }
+
+  // Delegation for morning open check buttons across the page
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".morning-open-check-btn");
+    if (btn) {
+      e.stopPropagation();
+      const sym = btn.getAttribute("data-symbol");
+      const trigger = btn.getAttribute("data-trigger");
+      focusMorningOpenAssistant(sym, trigger);
     }
   });
 }

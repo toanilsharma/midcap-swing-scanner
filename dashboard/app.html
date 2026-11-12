@@ -171,6 +171,102 @@
             <div id="todaysPlanShortcuts" class="action-shortcuts-strip" style="margin-top: 14px;"></div>
           </div>
 
+          <!-- MORNING 9:15 AM MARKET-OPEN DECISION ASSISTANT (Feature 2) -->
+          <div id="morningOpenAssistantCard" class="morning-assistant-card">
+            <div class="morning-assistant-header">
+              <div class="morning-assistant-title-group">
+                <span class="morning-assistant-icon">🌅</span>
+                <div>
+                  <h3 class="morning-assistant-title">Morning 9:15 AM Market-Open Decision Assistant</h3>
+                  <span class="morning-assistant-subtitle">Real-time open gap evaluator, pre-market protocol &amp; anti-chase guard</span>
+                </div>
+              </div>
+              <div id="morningLiveClockBadge" class="morning-live-badge standby">
+                <span class="live-dot"></span>
+                <span id="morningLiveClockText">Checking Market Time...</span>
+              </div>
+            </div>
+
+            <!-- Session Mode Guidance Ribbon -->
+            <div id="morningSessionRibbon" class="morning-session-ribbon">
+              <!-- Populated by JS based on IST time -->
+            </div>
+
+            <div class="morning-assistant-content">
+              <!-- Interactive Gap Calculator Grid -->
+              <div class="morning-calculator-panel">
+                <div class="morning-calc-header">
+                  <div class="morning-calc-title">
+                    <span>⚡</span>
+                    <strong>9:15 AM Breakout Gap &amp; Anti-Chase Evaluator</strong>
+                  </div>
+                  <span class="calc-sub">Select candidate stock and enter the 9:15 AM open price to get an instant GO / NO-GO decision.</span>
+                </div>
+
+                <div class="morning-calc-inputs">
+                  <div class="calc-field-group">
+                    <label for="morningStockSelect">Select Watchlist Candidate:</label>
+                    <select id="morningStockSelect" class="form-select"></select>
+                  </div>
+
+                  <div class="calc-field-group">
+                    <label for="morningOpenPriceInput">9:15 AM Open Price (or Pre-Market Price):</label>
+                    <div class="input-with-currency">
+                      <span class="currency-prefix">₹</span>
+                      <input type="number" id="morningOpenPriceInput" step="any" placeholder="Enter opening price..." autocomplete="off">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Quick Preset Simulation Buttons -->
+                <div class="calc-preset-bar">
+                  <span class="preset-label">Simulate Scenarios:</span>
+                  <button type="button" class="preset-chip" data-scenario="flat">Flat Open (0%)</button>
+                  <button type="button" class="preset-chip" data-scenario="normal">Clean Breakout (+0.6%)</button>
+                  <button type="button" class="preset-chip" data-scenario="caution">Extended (+1.8%)</button>
+                  <button type="button" class="preset-chip chip-danger" data-scenario="danger">Dangerous Gap (+3.0%)</button>
+                  <button type="button" class="preset-chip" data-scenario="dormant">Pre-Trigger (-1.0%)</button>
+                </div>
+
+                <!-- Real-Time Decision Verdict Card -->
+                <div id="morningDecisionVerdict" class="morning-verdict-card">
+                  <!-- Rendered dynamically by JS on change/keystroke -->
+                </div>
+              </div>
+
+              <!-- 3-Step Morning Open Protocol -->
+              <div class="morning-protocol-panel">
+                <div class="protocol-header">
+                  <span>⏱️</span>
+                  <strong>The 3-Step 9:15 AM Open Protocol:</strong>
+                </div>
+                <div class="protocol-steps-list">
+                  <div class="protocol-step-box">
+                    <div class="step-time">09:00 &ndash; 09:08 AM</div>
+                    <div class="step-content">
+                      <strong>Check Pre-Market Equilibrium</strong>
+                      <p>Check the indicative open price on NSE. If it is already indicated &gt;2% above the trigger, have your broker app open ready to cancel the GTT.</p>
+                    </div>
+                  </div>
+                  <div class="protocol-step-box">
+                    <div class="step-time">09:15 &ndash; 09:20 AM</div>
+                    <div class="step-content">
+                      <strong>Observe Opening Tick &amp; NIFTY 50</strong>
+                      <p>If NIFTY opens green or flat and your stock opens within 0% to +1.5% of trigger, let the GTT order fill naturally. If it gaps &ge;2%, cancel immediately.</p>
+                    </div>
+                  </div>
+                  <div class="protocol-step-box">
+                    <div class="step-time">09:30 AM</div>
+                    <div class="step-content">
+                      <strong>Confirm 15-Minute Volume Spike</strong>
+                      <p>Verify that the first 15-minute volume bar is pacing higher than normal 20-day average volume (institutions participating).</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- GLOBAL LANDMINES PANEL (Event Radar) -->
           <div id="landminesPanel" class="landmines-card" style="display: none;">
             <div class="landmines-header" id="landminesToggle" style="cursor: pointer;">
@@ -2175,6 +2271,7 @@
         <div id="tvWidgetContainer" class="tv-widget-container"></div>
       </div>
     </div>
+  </div>
   <!-- TRADE POST-MORTEM & LESSON MODAL (Item #9) -->
   <div id="postMortemModal" class="tv-modal" style="display: none;">
     <div class="tv-modal-backdrop" id="postMortemBackdrop"></div>
@@ -2211,6 +2308,85 @@
         <div class="postmortem-footer">
           <button id="postMortemSaveBtn" class="btn btn-primary btn-sm">💾 Save Reflection</button>
           <button id="postMortemCancelBtn" class="btn btn-secondary btn-sm">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1-CLICK BROKER GTT SLIP & DEEP-LINK LAUNCHER MODAL (Feature 1) -->
+  <div id="gttSlipModal" class="tv-modal" style="display: none;">
+    <div class="tv-modal-backdrop" id="gttSlipBackdrop"></div>
+    <div class="tv-modal-dialog gtt-slip-dialog" role="dialog" aria-modal="true" aria-label="1-Click Broker GTT Order Slip">
+      <div class="tv-modal-header">
+        <div class="tv-modal-title-group">
+          <span style="font-size: 20px;">⚡</span>
+          <div>
+            <h3 id="gttSlipTitle" class="tv-modal-title">Broker GTT Order Slip: NSE:SYMBOL</h3>
+            <span class="gtt-slip-subtitle">Pre-filled order parameters for Zerodha Kite, Groww, Dhan &amp; Angel One</span>
+          </div>
+        </div>
+        <button id="gttSlipCloseBtn" class="tv-modal-close" title="Close (Esc)">&times;</button>
+      </div>
+
+      <div class="gtt-slip-body">
+        <!-- Capital & Risk Position Sizer Bar -->
+        <div class="gtt-sizer-strip">
+          <div class="gtt-sizer-field">
+            <label for="gttModalCapital">Your Capital (₹):</label>
+            <input type="number" id="gttModalCapital" value="100000" min="5000" step="5000">
+          </div>
+          <div class="gtt-sizer-field">
+            <label for="gttModalRiskPct">Risk per trade (%):</label>
+            <input type="number" id="gttModalRiskPct" value="1.0" min="0.25" max="5.0" step="0.25">
+          </div>
+          <div class="gtt-sizer-metric">
+            <span class="metric-label">Max Risk</span>
+            <span id="gttModalMaxRiskAmt" class="metric-val text-loss">₹1,000</span>
+          </div>
+          <div class="gtt-sizer-metric">
+            <span class="metric-label">Stop Distance</span>
+            <span id="gttModalStopDist" class="metric-val text-neutral">₹0.00 (0%)</span>
+          </div>
+          <div class="gtt-sizer-metric highlight">
+            <span class="metric-label">Calculated Qty</span>
+            <span id="gttModalCalculatedQty" class="metric-val text-profit">0 shares</span>
+          </div>
+          <div class="gtt-sizer-metric">
+            <span class="metric-label">Total Outlay</span>
+            <span id="gttModalTotalOutlay" class="metric-val">₹0</span>
+          </div>
+        </div>
+
+        <!-- Broker Tabs Navigation -->
+        <div class="gtt-broker-tabs" role="tablist">
+          <button class="gtt-tab-btn active" data-broker="zerodha">🟠 Zerodha Kite</button>
+          <button class="gtt-tab-btn" data-broker="groww">🟢 Groww</button>
+          <button class="gtt-tab-btn" data-broker="dhan">🟣 Dhan</button>
+          <button class="gtt-tab-btn" data-broker="angel">🔵 Angel One</button>
+          <button class="gtt-tab-btn" data-broker="universal">📋 Universal Slip</button>
+        </div>
+
+        <!-- Broker Tab Content Panels -->
+        <div id="gttBrokerPanels" class="gtt-broker-panels">
+          <!-- Dynamically populated by JavaScript -->
+        </div>
+
+        <!-- Anti-Chase & Execution Golden Rules Card -->
+        <div class="gtt-rules-card">
+          <div class="gtt-rules-header">
+            <span>🛡️</span>
+            <strong>3 Golden Execution Rules for GTT Orders:</strong>
+          </div>
+          <ul class="gtt-rules-list">
+            <li><strong>+0.5% Limit Buffer:</strong> We set your Limit Price 0.5% above the trigger. This ensures your order fills cleanly in rapid morning volume without paying unlimited market slippage.</li>
+            <li><strong>Never Chase &gt;2% Gap:</strong> If the stock opens tomorrow at 9:15 AM more than 2.0% above the breakout trigger (₹<span id="gttSlip2PctPrice">0.00</span>), <strong>CANCEL the GTT immediately</strong>. Do not buy!</li>
+            <li><strong>Good Till Cancelled:</strong> Set validity as <em>GTC</em> (or 1 Year). If breakout does not trigger today, the order sleeps safely until price hits the breakout level.</li>
+          </ul>
+          <div class="gtt-rules-actions">
+            <button id="gttLaunchMorningCheckBtn" class="btn btn-xs btn-outline-warning">
+              🌅 Test Tomorrow's 9:15 AM Open Gap for This Stock &rarr;
+            </button>
+          </div>
         </div>
       </div>
     </div>
