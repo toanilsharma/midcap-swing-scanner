@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-21T00:02:53.373087+05:30",
+  "updated_at": "2026-11-21T00:09:59.701115+05:30",
   "market_ok": true,
   "signals": [],
   "watchlist": [
@@ -587,7 +587,7 @@
     "prev_close": 25227.95,
     "chg_pct": 1.14,
     "last_bar_date": "2026-11-19",
-    "as_of_ist": "2026-11-21T00:02:53.373125+05:30",
+    "as_of_ist": "2026-11-21T00:09:59.701126+05:30",
     "breadth_above_sma50": 60,
     "breadth_above_sma200": 48,
     "universe_size": 100,
