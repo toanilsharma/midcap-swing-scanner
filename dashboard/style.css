@@ -393,13 +393,27 @@ body {
 
 /* 5. TABS NAVIGATION */
 .tabs-bar {
-  background: var(--bg-card);
+  position: sticky;
+  top: 0;
+  z-index: 95;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   width: 100%;
 }
 
 .tabs-container {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 2px;
+}
+
+.tabs-nav-group {
+  display: flex;
+  align-items: center;
   gap: 4px;
   overflow-x: auto;
   scroll-snap-type: x proximity;
@@ -408,8 +422,22 @@ body {
   flex-wrap: nowrap;
 }
 
-.tabs-container::-webkit-scrollbar {
+.tabs-nav-group::-webkit-scrollbar {
   display: none;
+}
+
+.tabs-quick-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .tabs-quick-status {
+    display: none;
+  }
 }
 
 .tab-btn {
@@ -823,6 +851,51 @@ body {
 .table-scroll td:last-child {
   text-align: right;
   min-width: 150px;
+}
+
+/* P1: Two-Tier Clean Watchlist Symbol Cell */
+.symbol-cell-wrap {
+  min-width: 190px;
+  vertical-align: middle;
+}
+
+.symbol-two-tier {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.symbol-tier-primary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.symbol-name {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+}
+
+.symbol-tier-primary .chevron {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-left: auto;
+  padding-left: 6px;
+  transition: transform 0.2s ease;
+}
+
+.watchlist-row.expanded .symbol-tier-primary .chevron {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+
+.symbol-tier-secondary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 /* ROW HIGHLIGHTS & HOVER (D9) */

@@ -1001,6 +1001,17 @@ function renderMarketPulse(scanData) {
     }
   }
 
+  const quickMarket = document.getElementById("quickMarketBadge");
+  if (quickMarket) {
+    if (scanData.market_ok) {
+      quickMarket.className = "badge badge-success";
+      quickMarket.textContent = "🟢 Market: Uptrend (1% Risk)";
+    } else {
+      quickMarket.className = "badge badge-danger";
+      quickMarket.textContent = "🛡️ Market: Defensive (Cash)";
+    }
+  }
+
   const summary = scanData.market_summary;
   // If market_summary is absent (older JSON cached), hide pulse metrics gracefully without crashing
   if (!summary) {
@@ -2391,15 +2402,18 @@ function applyWatchlistFiltering(watchlist, scanData) {
 
     return `
       <tr class="watchlist-row ${rowClass}" data-symbol="${item.Symbol}" title="Click to view full action advisor, chart & checklist">
-        <td data-label="Symbol">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;">
-            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-              <strong>${item.Symbol}</strong>
+        <td data-label="Symbol" class="symbol-cell-wrap">
+          <div class="symbol-two-tier">
+            <div class="symbol-tier-primary">
+              <strong class="symbol-name">${item.Symbol}</strong>
               ${actionPillHtml}
-              ${clearance.badgeHtml}
-              <span class="badge ${item.mtf_confluence ? 'badge-success' : 'badge-neutral'} term-lookup" data-term="Multi-Timeframe Confluence" style="font-size: 9.5px; padding: 2px 5px;" title="Multi-Timeframe Confluence (Daily Trend + Weekly Stage 2)">MTF ${item.mtf_confluence ? '✅' : '—'}</span>
+              <span class="chevron" title="Click to view action advisor & chart">▼</span>
             </div>
-            <span class="chevron" style="font-size: 10px; color: var(--text-dim); padding: 4px 8px;">▼</span>
+            <div class="symbol-tier-secondary">
+              ${clearance.badgeHtml}
+              <span class="badge ${item.mtf_confluence ? 'badge-success' : 'badge-neutral'} term-lookup" data-term="Multi-Timeframe Confluence" style="font-size: 9.5px; padding: 1px 6px;" title="Multi-Timeframe Confluence (Daily Trend + Weekly Stage 2)">MTF ${item.mtf_confluence ? '✅' : '—'}</span>
+              ${item.base_maturity ? `<span class="badge badge-neutral" style="font-size: 9.5px; padding: 1px 5px;" title="Base contraction stages: T${item.base_maturity}/4">T${item.base_maturity}</span>` : ''}
+            </div>
           </div>
         </td>
         <td data-label="Score">${scoreBadge}</td>
@@ -4381,6 +4395,11 @@ async function renderOpenPositions(positions) {
       heatCard.className = "stat-value positive";
     }
     if (heatSub) heatSub.textContent = "₹0 at risk (0 open positions)";
+    const quickHeat = document.getElementById("quickHeatBadge");
+    if (quickHeat) {
+      quickHeat.textContent = "🛡️ Open Risk: 0.0%";
+      quickHeat.className = "badge badge-info";
+    }
     if (sectorAlert) sectorAlert.style.display = "none";
     if (tableBody) {
       tableBody.innerHTML = `
@@ -4750,6 +4769,12 @@ async function renderOpenPositions(positions) {
 
     if (heatSub) {
       heatSub.textContent = `₹${formatINR(totalRiskAmount)} at risk across ${allPositions.length} trade${allPositions.length === 1 ? '' : 's'}`;
+    }
+
+    const quickHeat = document.getElementById("quickHeatBadge");
+    if (quickHeat) {
+      quickHeat.textContent = `🛡️ Open Risk: ${heatPct}%`;
+      quickHeat.className = `badge ${heatPct > 5.0 ? 'badge-danger' : heatPct > 3.5 ? 'badge-warning' : 'badge-info'}`;
     }
   }
 
