@@ -2453,6 +2453,118 @@ function applyWatchlistFiltering(watchlist, scanData) {
     `;
   }).join("");
 
+  // Populate Visual Cards Container (P3A: Cards View)
+  const cardsContainer = document.getElementById("watchlistCardsContainer");
+  if (cardsContainer) {
+    cardsContainer.innerHTML = filtered.map(item => {
+      const dist = parseFloat(item["DistToBreakout%"]) || 0;
+      const score = Number(item.score ?? item.Score ?? 0);
+      const grade = item.grade ?? item.Grade ?? "C";
+      const rsVal = (item.rs_rating !== undefined && item.rs_rating !== null) ? item.rs_rating : (item.RS_Rating ?? null);
+      const rowClose = parseFloat(item.Close) || 0;
+      const rowBreakout = item.Breakout ? parseFloat(item.Breakout) : (item.Entry ? parseFloat(item.Entry) : Number((rowClose * (1 + dist / 100)).toFixed(2)));
+      const rowAtr = parseFloat(item.ATR14) || Number((rowClose * 0.025).toFixed(2));
+      const rowStop = item.Stop ? parseFloat(item.Stop) : Number(Math.max(1, rowBreakout - 1.5 * rowAtr).toFixed(2));
+      const rowRiskAmt = Math.max(0.01, rowBreakout - rowStop);
+      const rowTarget = item.Target ? parseFloat(item.Target) : Number((rowBreakout + 2 * rowRiskAmt).toFixed(2));
+      const riskPct = ((rowRiskAmt / (rowBreakout || 1)) * 100).toFixed(1);
+      const isBlocked = Boolean(item.event_blocked_reason);
+      const isBullish = item.SectorBullish === "YES";
+      const isCoiling = item.Coiling === "YES";
+
+      let statusBadge = "";
+      if (isBlocked) {
+        statusBadge = `<span class="badge badge-danger">🚫 Event Blocked</span>`;
+      } else if (dist <= 1.5 && (grade === "A+" || grade === "A")) {
+        statusBadge = `<span class="badge badge-success pulse">🟢 Ready to Buy (Trigger Zone)</span>`;
+      } else if (dist <= 3.5) {
+        statusBadge = `<span class="badge badge-info">🎯 Advance GTT Zone (${dist.toFixed(1)}% away)</span>`;
+      } else {
+        statusBadge = `<span class="badge badge-neutral">⏳ Developing Base</span>`;
+      }
+
+      return `
+        <div class="wl-card ${dist <= 2.0 ? 'card-glow-green' : ''}" data-symbol="${item.Symbol}">
+          <div class="wl-card-header">
+            <div class="wl-card-title-group">
+              <strong class="wl-card-symbol">${escapeHtml(item.Symbol)}</strong>
+              <span class="badge badge-neutral">${item.Sector || '^NSEI'}</span>
+              <span class="badge badge-success">Grade ${grade}</span>
+              <span class="badge badge-info">Score ${score}</span>
+            </div>
+            <div>${statusBadge}</div>
+          </div>
+
+          <div class="wl-card-metrics-grid">
+            <div class="wl-metric-box">
+              <div class="wl-metric-label">Current Price</div>
+              <div class="wl-metric-val">${formatINR(rowClose)}</div>
+            </div>
+            <div class="wl-metric-box highlight">
+              <div class="wl-metric-label">Buy Trigger (GTT)</div>
+              <div class="wl-metric-val" style="color: #38bdf8;">₹${rowBreakout.toFixed(2)}</div>
+              <div class="wl-metric-sub">${dist.toFixed(1)}% away</div>
+            </div>
+            <div class="wl-metric-box">
+              <div class="wl-metric-label">Safety Floor (Stop)</div>
+              <div class="wl-metric-val" style="color: #f87171;">₹${rowStop.toFixed(2)}</div>
+              <div class="wl-metric-sub">-${riskPct}% risk</div>
+            </div>
+            <div class="wl-metric-box">
+              <div class="wl-metric-label">Target 1 (+8% / 2R)</div>
+              <div class="wl-metric-val" style="color: #34d399;">₹${rowTarget.toFixed(2)}</div>
+              <div class="wl-metric-sub">+₹${(2 * rowRiskAmt).toFixed(0)} / share</div>
+            </div>
+          </div>
+
+          <div class="wl-card-checklist-pills">
+            <span class="wl-pill ${item.Trend === 'YES' ? 'pass' : 'fail'}">Trend: ${item.Trend === 'YES' ? 'Stage 2 ✅' : 'No'}</span>
+            <span class="wl-pill ${isCoiling ? 'pass' : 'neutral'}">Coiling: ${isCoiling ? 'Tight ✅' : 'Normal'}</span>
+            <span class="wl-pill ${isBullish ? 'pass' : 'neutral'}">Sector: ${isBullish ? 'Leading ✅' : 'Lagging'}</span>
+            <span class="wl-pill ${item.mtf_confluence ? 'pass' : 'neutral'}">MTF: ${item.mtf_confluence ? 'Aligned ✅' : 'Daily'}</span>
+            <span class="wl-pill ${rsVal >= 80 ? 'pass' : 'neutral'}">RS: ${rsVal ?? 'N/A'}</span>
+          </div>
+
+          <div class="wl-card-actions">
+            <button class="btn btn-sm btn-primary gtt-slip-modal-btn"
+              data-symbol="${item.Symbol}"
+              data-entry="${rowBreakout.toFixed(2)}"
+              data-stop="${rowStop.toFixed(2)}"
+              data-target="${rowTarget.toFixed(2)}"
+              data-qty="10"
+              title="1-Click Broker GTT Slip for Zerodha Kite, Groww, Angel One">
+              ⚡ 1-Click GTT Slip
+            </button>
+            <button class="btn btn-sm btn-success log-buy-btn"
+              data-symbol="${item.Symbol}"
+              data-entry="${rowBreakout.toFixed(2)}"
+              data-stop="${rowStop.toFixed(2)}"
+              data-target="${rowTarget.toFixed(2)}"
+              title="I bought this stock! Start Live Copilot Monitoring">
+              ✅ I Bought This!
+            </button>
+            <button class="btn btn-sm btn-outline-secondary size-trade-btn" data-symbol="${item.Symbol}" title="Size this trade with Position Sizer">
+              📐 Size
+            </button>
+            <button class="btn btn-sm btn-outline-info tv-chart-btn" data-symbol="${item.Symbol}" title="Interactive TradingView Chart">
+              📈 Chart
+            </button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    // Attach listeners for Card View buttons
+    cardsContainer.querySelectorAll(".size-trade-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const sym = btn.getAttribute("data-symbol");
+        const item = filtered.find(w => w.Symbol === sym);
+        if (item) openPositionSizerFor(item);
+      });
+    });
+  }
+
   // Attach click listeners for expandable details
   watchlistBody.querySelectorAll(".watchlist-row").forEach(row => {
     row.addEventListener("click", () => {
@@ -2505,6 +2617,86 @@ function updateFilterCounts(pool, totalCount) {
     elSecBullish.textContent = c;
   }
 }
+
+// =====================================================================
+// P3A: WATCHLIST VIEW TOGGLE (CARDS VS TABLE)
+// =====================================================================
+function setWatchlistViewMode(mode) {
+  const tableScroll = document.querySelector("#zoneWatchlist .table-scroll");
+  const cardsContainer = document.getElementById("watchlistCardsContainer");
+  const cardsBtn = document.getElementById("viewModeCardsBtn");
+  const tableBtn = document.getElementById("viewModeTableBtn");
+
+  if (mode === "cards") {
+    if (tableScroll) tableScroll.style.display = "none";
+    if (cardsContainer) cardsContainer.style.display = "grid";
+    if (cardsBtn) cardsBtn.classList.add("active");
+    if (tableBtn) tableBtn.classList.remove("active");
+  } else {
+    if (tableScroll) tableScroll.style.display = "block";
+    if (cardsContainer) cardsContainer.style.display = "none";
+    if (cardsBtn) cardsBtn.classList.remove("active");
+    if (tableBtn) tableBtn.classList.add("active");
+  }
+  localStorage.setItem("watchlist_view_mode", mode);
+}
+
+function initWatchlistViewToggle() {
+  const cardsBtn = document.getElementById("viewModeCardsBtn");
+  const tableBtn = document.getElementById("viewModeTableBtn");
+
+  if (cardsBtn) cardsBtn.addEventListener("click", () => setWatchlistViewMode("cards"));
+  if (tableBtn) tableBtn.addEventListener("click", () => setWatchlistViewMode("table"));
+
+  const savedMode = localStorage.getItem("watchlist_view_mode") || "table";
+  setWatchlistViewMode(savedMode);
+}
+
+window.setWatchlistViewMode = setWatchlistViewMode;
+window.initWatchlistViewToggle = initWatchlistViewToggle;
+
+// =====================================================================
+// P3C: FLOATING COPILOT ACTION DRAWER (FAB)
+// =====================================================================
+function initCopilotFabListeners() {
+  const fabBtn = document.getElementById("copilotFabBtn");
+  const drawer = document.getElementById("copilotDrawer");
+  const closeBtn = document.getElementById("closeCopilotDrawerBtn");
+
+  if (fabBtn && drawer) {
+    fabBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      drawer.style.display = drawer.style.display === "none" ? "flex" : "none";
+    });
+  }
+
+  if (closeBtn && drawer) {
+    closeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      drawer.style.display = "none";
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    if (drawer && drawer.style.display !== "none" && !drawer.contains(e.target) && e.target !== fabBtn && !fabBtn.contains(e.target)) {
+      drawer.style.display = "none";
+    }
+  });
+}
+
+function switchToDailyChecklist() {
+  const drawer = document.getElementById("copilotDrawer");
+  if (drawer) drawer.style.display = "none";
+  const card = document.getElementById("dailyRoutineChecklistCard");
+  if (card) {
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    card.classList.add("highlight-flash");
+    setTimeout(() => card.classList.remove("highlight-flash"), 1500);
+  }
+}
+
+window.initCopilotFabListeners = initCopilotFabListeners;
+window.switchToDailyChecklist = switchToDailyChecklist;
 
 function initWatchlistFilterListeners() {
   if (_wlFiltersInitialized) return;
@@ -7128,6 +7320,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initWhatToDoNowListeners();
   initDailyRoutineChecklist();
   updateLiveVaultBar();
+  initWatchlistViewToggle();
+  initCopilotFabListeners();
   setInterval(initDailyRoutineChecklist, 60000);
 
   // Initialize Phase 4 Backtest Listeners

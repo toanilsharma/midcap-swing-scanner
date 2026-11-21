@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261121d">
+  <link rel="stylesheet" href="style.css?v=20261121e">
   <!-- Immediate Auth Guard (prevents flash of protected content) -->
   <script>
     if (localStorage.getItem("auth") !== "1") {
@@ -445,7 +445,17 @@
             </div>
             <div class="watchlist-status-bar">
               <span id="watchlistCountStatus">Showing all setups</span>
-              <button id="resetWatchlistFiltersBtn" class="btn-link-sm" style="display: none;">Reset all filters</button>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <button id="resetWatchlistFiltersBtn" class="btn-link-sm" style="display: none;">Reset all filters</button>
+                <div class="watchlist-view-toggle">
+                  <button type="button" id="viewModeCardsBtn" class="view-toggle-btn" title="Visual Cards View (Easy Executive Layout)">
+                    🗂️ Cards
+                  </button>
+                  <button type="button" id="viewModeTableBtn" class="view-toggle-btn active" title="Data Table View (Compact Matrix)">
+                    📊 Table
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -565,6 +575,10 @@
               </tbody>
             </table>
           </div>
+
+          <!-- VISUAL CARDS GRID (P3A: Cards View) -->
+          <div id="watchlistCardsContainer" class="watchlist-cards-grid" style="display: none;"></div>
+
           <!-- ON DECK (NEAR MISSES) COLLAPSIBLE SECTION -->
           <div id="onDeckContainer" class="on-deck-container"></div>
         </div>
@@ -2908,7 +2922,58 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261121d"></script>
-  <script src="pwa.js?v=20261121d"></script>
+  <!-- FLOATING COPILOT ACTION BUTTON (FAB) & DRAWER -->
+  <div id="copilotFabContainer" class="copilot-fab-container">
+    <button id="copilotFabBtn" class="copilot-fab-btn" title="Open Personal Copilot Quick Hub">
+      <span class="fab-pulse-dot"></span>
+      <span class="fab-icon">⚡</span>
+      <span class="fab-text">Copilot</span>
+    </button>
+    <div id="copilotDrawer" class="copilot-drawer" style="display: none;">
+      <div class="copilot-drawer-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px;">⚡</span>
+          <div>
+            <h4 style="margin: 0; font-size: 14px; color: #fff; font-weight: 700;">Personal Wealth Copilot</h4>
+            <span style="font-size: 11px; color: var(--text-dim);">Instant execution &amp; routine guidance</span>
+          </div>
+        </div>
+        <button id="closeCopilotDrawerBtn" class="drawer-close-btn">&times;</button>
+      </div>
+      <div class="copilot-drawer-actions">
+        <button class="drawer-action-btn" onclick="openWhatToDoNowModal()">
+          <span class="drawer-action-icon">🎯</span>
+          <div>
+            <strong>What Action to Take Now?</strong>
+            <span>Top buy setups &amp; live market green light</span>
+          </div>
+        </button>
+        <button class="drawer-action-btn" onclick="openLogBuyModal({})">
+          <span class="drawer-action-icon">✅</span>
+          <div>
+            <strong>Log a Purchased Stock</strong>
+            <span>Start 24/7 trailing stop &amp; profit monitoring</span>
+          </div>
+        </button>
+        <button class="drawer-action-btn" onclick="switchToDailyChecklist()">
+          <span class="drawer-action-icon">⏰</span>
+          <div>
+            <strong>Today's 3-Step Routine Checklist</strong>
+            <span>09:00 AM Gap Check, 09:15 AM Execution, 03:15 PM EOD Review</span>
+          </div>
+        </button>
+        <button class="drawer-action-btn" onclick="openWhatsAppSummaryModal()">
+          <span class="drawer-action-icon">📲</span>
+          <div>
+            <strong>WhatsApp Morning Summary</strong>
+            <span>1-Click send executive game plan to WhatsApp</span>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20261121e"></script>
+  <script src="pwa.js?v=20261121e"></script>
 </body>
 </html>
