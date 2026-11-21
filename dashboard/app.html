@@ -49,6 +49,9 @@
         </div>
       </div>
       <div class="header-actions">
+        <button id="whatToDoNowBtn" class="btn what-to-do-btn" title="Click to see clear, professional advice on what action to take right now in plain English">
+          ⚡ What to Do Now?
+        </button>
         <button id="whatsappSummaryBtn" class="btn whatsapp-header-btn" title="Open 1-Click WhatsApp Morning Summary">
           📲 WhatsApp
         </button>
@@ -2769,6 +2772,31 @@
         <div class="log-buy-actions">
           <button id="closeTradeCancelBtn" class="btn btn-secondary btn-sm">Cancel</button>
           <button id="closeTradeSubmitBtn" class="btn btn-primary btn-sm">💾 Archive Trade</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- MODAL: WHAT TO DO NOW? (PROFESSIONAL ADVISORY ENGINE)               -->
+  <!-- =================================================================== -->
+  <div id="whatToDoNowModal" class="tv-modal" style="display: none;">
+    <div class="tv-modal-backdrop" id="whatToDoNowBackdrop"></div>
+    <div class="tv-modal-dialog what-to-do-dialog" role="dialog" aria-modal="true" aria-label="What Action to Take Now">
+      <div class="tv-modal-header" style="background: linear-gradient(135deg, #064e3b 0%, #0f172a 100%);">
+        <div class="tv-modal-title-group">
+          <span style="font-size: 24px;">⚡</span>
+          <div>
+            <h3 id="whatToDoNowTitle" class="tv-modal-title" style="color: #34d399;">Personal Wealth Advisor: What Action to Take Now</h3>
+            <span class="gtt-slip-subtitle">Clear, professional, paid-adviser grade instructions in simple English — no technical jargon.</span>
+          </div>
+        </div>
+        <button id="whatToDoNowCloseBtn" class="tv-modal-close" title="Close (Esc)">&times;</button>
+      </div>
+
+      <div class="what-to-do-body" id="whatToDoNowBody">
+        <div style="padding: 24px; text-align: center; color: var(--text-muted);">
+          Loading real-time advisory recommendations...
         </div>
       </div>
     </div>

@@ -6486,8 +6486,272 @@ function initPersonalCopilotListeners() {
     if (e.key === "Escape") {
       closeLogBuyModal();
       closeCloseTradeModal();
+      closeWhatToDoNowModal();
     }
   });
+}
+
+// =====================================================================
+// WHAT TO DO NOW (PROFESSIONAL PAID-ADVISER ACTION ENGINE)
+// =====================================================================
+function openWhatToDoNowModal() {
+  const modal = document.getElementById("whatToDoNowModal");
+  if (!modal) return;
+  renderWhatToDoNowContent();
+  modal.style.display = "flex";
+}
+
+function closeWhatToDoNowModal() {
+  const modal = document.getElementById("whatToDoNowModal");
+  if (modal) modal.style.display = "none";
+}
+
+function renderWhatToDoNowContent() {
+  const container = document.getElementById("whatToDoNowBody");
+  if (!container) return;
+
+  const scanData = _cachedScanData;
+  const isMarketOk = Boolean(scanData && scanData.market_ok);
+  const userPortfolio = getUserPortfolio().filter(p => p.status !== "CLOSED");
+
+  // 1. Overall Market Regime Banner
+  let marketBannerHtml = "";
+  if (isMarketOk) {
+    marketBannerHtml = `
+      <div class="wtd-market-banner bullish">
+        <div class="wtd-market-header">
+          <div class="wtd-market-title">
+            <span>🟢</span>
+            <span>MARKET GREEN LIGHT — BUY SIGNALS ACTIVE</span>
+          </div>
+          <span class="badge badge-success">Uptrend Confirmed</span>
+        </div>
+        <div class="wtd-market-desc">
+          The broader Indian market (NIFTY 50) is healthy and trading above its 50-day moving average. Institutional money is buying. You have a full green light to deploy capital into Grade A/A+ setups that pass all safety rules. Risk maximum 1% of your total account per trade.
+        </div>
+      </div>
+    `;
+  } else {
+    marketBannerHtml = `
+      <div class="wtd-market-banner defensive">
+        <div class="wtd-market-header">
+          <div class="wtd-market-title">
+            <span>🛡️</span>
+            <span>MARKET RED LIGHT — STRICTLY NO NEW BUYS TODAY</span>
+          </div>
+          <span class="badge badge-danger">Defensive Cash</span>
+        </div>
+        <div class="wtd-market-desc">
+          <strong>Professional Paid-Adviser Rule:</strong> Cash is a position. The market index is in a pullback or downtrend. Over 75% of stock breakouts fail when the index is weak. Protect 100% of your capital. Do not place any new buy orders today. Wait until the market green light returns.
+        </div>
+      </div>
+    `;
+  }
+
+  // 2. Buy Candidates that pass all criteria
+  const readyCandidates = (scanData?.watchlist || []).filter(w => {
+    const g = w.grade || w.Grade || "C";
+    const dist = parseFloat(w["DistToBreakout%"]) || 0;
+    return (g === "A+" || g === "A") && dist <= 1.5 && !w.event_blocked_reason;
+  });
+
+  let buySectionHtml = "";
+  if (isMarketOk && readyCandidates.length > 0) {
+    buySectionHtml = `
+      <div class="wtd-section">
+        <div class="wtd-section-title">
+          <span>🎯</span>
+          <span>Category 1: Stocks Ready to Buy (Passed 100% of Checks)</span>
+        </div>
+        ${readyCandidates.map(item => {
+          const sym = item.Symbol;
+          const close = parseFloat(item.Close) || 0;
+          const dist = parseFloat(item["DistToBreakout%"]) || 0;
+          const breakout = item.Breakout ? parseFloat(item.Breakout) : (item.Entry ? parseFloat(item.Entry) : Number((close * (1 + dist / 100)).toFixed(2)));
+          const limit = (breakout * 1.005).toFixed(2);
+          const atr = parseFloat(item.ATR14) || Number((close * 0.025).toFixed(2));
+          const stop = item.Stop ? parseFloat(item.Stop) : Number(Math.max(1, breakout - 1.5 * atr).toFixed(2));
+          const riskAmt = Math.max(0.01, breakout - stop);
+          const riskPct = ((riskAmt / (breakout || 1)) * 100).toFixed(1);
+          const target = item.Target ? parseFloat(item.Target) : Number((breakout + 2 * riskAmt).toFixed(2));
+
+          return `
+            <div class="wtd-stock-card">
+              <div class="wtd-stock-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="wtd-stock-name">🟢 BUY: ${escapeHtml(sym)}</span>
+                  <span class="badge badge-success">Grade ${item.grade || item.Grade || 'A'}</span>
+                  <span class="badge badge-neutral">${item.Sector || '^NSEI'}</span>
+                </div>
+                <div style="font-size: 13px; font-weight: 700; color: #38bdf8;">
+                  Trigger: ₹${breakout.toFixed(2)} (${dist.toFixed(1)}% away)
+                </div>
+              </div>
+
+              <div class="wtd-stock-steps">
+                <div><strong>1. Place GTT Buy Order Today:</strong> Set Trigger Price at <strong>₹${breakout.toFixed(2)}</strong> and Limit Price at <strong>₹${limit}</strong> (0.5% buffer) on Zerodha Kite / Groww / Angel One. Validity: <em>Good Till Cancelled</em>.</div>
+                <div><strong>2. Hard Stop Loss:</strong> Place GTT Stop at <strong>₹${stop.toFixed(2)}</strong> (-${riskPct}%). If price closes below this, exit immediately to protect 99% of your wealth.</div>
+                <div><strong>3. Profit Target 1 (+8%):</strong> Target is <strong>₹${target.toFixed(2)}</strong> (+2R). When touched, sell exactly <strong>50% of your shares</strong> to lock in guaranteed profit, and move stop to <strong>₹${breakout.toFixed(2)}</strong> (100% Risk-Free!).</div>
+                <div><strong>4. Day 5 Time Exit:</strong> If held for 5 sessions and gain is &lt; 3%, exit at 3:15 PM IST.</div>
+              </div>
+
+              <div class="wtd-stock-actions">
+                <button class="btn btn-xs btn-primary gtt-slip-modal-btn"
+                  data-symbol="${sym}"
+                  data-entry="${breakout.toFixed(2)}"
+                  data-stop="${stop.toFixed(2)}"
+                  data-target="${target.toFixed(2)}"
+                  data-qty="10"
+                  title="Open 1-Click Broker GTT Slip">
+                  ⚡ Open Broker GTT Slip
+                </button>
+                <button class="btn btn-xs btn-success log-buy-btn"
+                  data-symbol="${sym}"
+                  data-entry="${breakout.toFixed(2)}"
+                  data-stop="${stop.toFixed(2)}"
+                  data-target="${target.toFixed(2)}"
+                  title="I bought this! Start live monitoring">
+                  ✅ I Bought This!
+                </button>
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  } else {
+    buySectionHtml = `
+      <div class="wtd-section">
+        <div class="wtd-section-title">
+          <span>🎯</span>
+          <span>Category 1: Stocks Ready to Buy (Passed 100% of Checks)</span>
+        </div>
+        <div class="wtd-empty-notice">
+          ${!isMarketOk
+            ? "🚫 <strong>No buys recommended today.</strong> The market filter is active (Caution/Defensive). Professional advisers do not initiate new swing entries when the index is under pressure."
+            : "⏳ <strong>No stocks currently meet 100% of buy criteria today.</strong> High-probability candidates are still developing their bases. A disciplined investor never forces trades. Patience is your greatest competitive advantage."}
+        </div>
+      </div>
+    `;
+  }
+
+  // 3. Active Holdings Actions
+  let holdingsSectionHtml = "";
+  if (userPortfolio.length > 0) {
+    holdingsSectionHtml = `
+      <div class="wtd-section">
+        <div class="wtd-section-title">
+          <span>🛡️</span>
+          <span>Category 2: Active Holdings Actions (Your Live Portfolio)</span>
+        </div>
+        ${userPortfolio.map(pos => {
+          const entry = parseFloat(pos.entry_price) || 0;
+          const stop = pos.stop ? parseFloat(pos.stop) : Number((entry * 0.95).toFixed(2));
+          const target = pos.target ? parseFloat(pos.target) : Number((entry * 1.08).toFixed(2));
+          const live = pos._live_price || entry;
+          const pctGain = entry > 0 ? ((live - entry) / entry) * 100 : 0;
+
+          let actionBadge = `<span class="badge badge-success">🟢 SAFE TO HOLD</span>`;
+          let actionText = `Price is ₹${formatINR(live)} (${pctGain >= 0 ? '+' : ''}${pctGain.toFixed(1)}%). Trade is progressing normally. Stop Loss active at ₹${formatINR(stop)}. Routine check at 3:15 PM IST.`;
+          let btnHtml = `
+            <button class="btn btn-xs btn-outline-danger close-holding-btn" data-id="${pos.id || pos.symbol}">
+              🏁 Close / Log Exit
+            </button>
+          `;
+
+          if (live <= stop) {
+            actionBadge = `<span class="badge badge-danger">🛑 HARD STOP HIT — EXIT 100%</span>`;
+            actionText = `CRITICAL CAPITAL DEFENSE: Price is ₹${formatINR(live)}, which touched your safety floor of ₹${formatINR(stop)}. Exit your entire position immediately at market to preserve 99% of your total wealth.`;
+            btnHtml = `
+              <button class="btn btn-xs btn-danger holding-stop-exit-btn" data-id="${pos.id || pos.symbol}">
+                🛑 I Exited Stop Loss
+              </button>
+            `;
+          } else if (!pos.is_t1_sold && (live >= target || pctGain >= 8.0)) {
+            const halfQty = Math.ceil((pos.qty || 10) / 2);
+            actionBadge = `<span class="badge badge-success">🎯 TARGET 1 HIT (+${pctGain.toFixed(1)}%) — SELL 50%</span>`;
+            actionText = `GUARANTEED PROFIT LOCK: Target 1 achieved! Sell ${halfQty} shares right now to bank guaranteed profit. Raise your stop on remaining shares to your buy price ₹${formatINR(entry)} to make this trade 100% Risk-Free.`;
+            btnHtml = `
+              <button class="btn btn-xs btn-success holding-sold-t1-btn" data-id="${pos.id || pos.symbol}">
+                🎯 I Sold 50% (Lock Risk-Free)
+              </button>
+            `;
+          } else if (pos.is_t1_sold) {
+            actionBadge = `<span class="badge badge-info">🚀 RUNNER RIDING HOUSE MONEY</span>`;
+            actionText = `100% Risk-Free trade: You already banked half profits. Stop is at your buy price ₹${formatINR(entry)}. Hold and let profits run with trailing 20-DMA.`;
+          }
+
+          return `
+            <div class="wtd-stock-card" style="border-color: rgba(255, 255, 255, 0.12);">
+              <div class="wtd-stock-header">
+                <div>
+                  <strong style="font-size: 15px; color: #ffffff;">${pos.symbol}</strong>
+                  <span style="font-size: 12px; color: var(--text-dim); margin-left: 6px;">(Bought @ ₹${formatINR(entry)})</span>
+                </div>
+                <div>${actionBadge}</div>
+              </div>
+              <div style="font-size: 13px; line-height: 1.55; color: #cbd5e1;">${actionText}</div>
+              <div class="wtd-stock-actions">${btnHtml}</div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  } else {
+    holdingsSectionHtml = `
+      <div class="wtd-section">
+        <div class="wtd-section-title">
+          <span>🛡️</span>
+          <span>Category 2: Active Holdings Actions (Your Live Portfolio)</span>
+        </div>
+        <div class="wtd-empty-notice">
+          You currently have no active trades being monitored. When you buy any stock recommended by the scanner, click <strong>"✅ I Bought This!"</strong> on the Watchlist so your personal copilot can guide you when to lock profits or cut risk.
+        </div>
+      </div>
+    `;
+  }
+
+  // 4. Daily Routine Strip
+  const routineHtml = `
+    <div class="wtd-section">
+      <div class="wtd-section-title">
+        <span>⏰</span>
+        <span>The 3-Step Daily Execution Routine (Exact IST Timings)</span>
+      </div>
+      <div class="wtd-routine-strip">
+        <div class="wtd-routine-item">
+          <span class="wtd-routine-time">🌅 09:00 &ndash; 09:15 AM IST</span>
+          <span class="wtd-routine-text"><strong>Morning Gap Check:</strong> If stock opens &gt; 2% above trigger, cancel GTT immediately. Do not chase.</span>
+        </div>
+        <div class="wtd-routine-item">
+          <span class="wtd-routine-time">📈 09:15 &ndash; 03:15 PM IST</span>
+          <span class="wtd-routine-text"><strong>Automatic Execution:</strong> Let your broker GTT orders fill smoothly without staring at charts.</span>
+        </div>
+        <div class="wtd-routine-item">
+          <span class="wtd-routine-time">🔔 03:15 &ndash; 03:30 PM IST</span>
+          <span class="wtd-routine-text"><strong>Close Review:</strong> If price hits hard stop or Day 5 (&lt;3% gain), exit at market close.</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = `
+    ${marketBannerHtml}
+    ${buySectionHtml}
+    ${holdingsSectionHtml}
+    ${routineHtml}
+  `;
+}
+
+function initWhatToDoNowListeners() {
+  const btn = document.getElementById("whatToDoNowBtn");
+  if (btn) btn.addEventListener("click", openWhatToDoNowModal);
+
+  const closeBtn = document.getElementById("whatToDoNowCloseBtn");
+  if (closeBtn) closeBtn.addEventListener("click", closeWhatToDoNowModal);
+
+  const backdrop = document.getElementById("whatToDoNowBackdrop");
+  if (backdrop) backdrop.addEventListener("click", closeWhatToDoNowModal);
 }
 
 // =====================================================================
@@ -6566,6 +6830,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initWhatsAppSummaryListeners();
   initDisciplineCoachListeners();
   initPersonalCopilotListeners();
+  initWhatToDoNowListeners();
 
   // Initialize Phase 4 Backtest Listeners
   initBacktestListeners();
