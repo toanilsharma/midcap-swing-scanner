@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261121c">
+  <link rel="stylesheet" href="style.css?v=20261121d">
   <!-- Immediate Auth Guard (prevents flash of protected content) -->
   <script>
     if (localStorage.getItem("auth") !== "1") {
@@ -116,6 +116,9 @@
         <button class="tab-guide-dismiss" title="Dismiss banner" aria-label="Dismiss">×</button>
       </div>
 
+      <!-- PERSISTENT LIVE WEALTH VAULT BAR (Active Portfolio at a Glance) -->
+      <div id="liveVaultQuickBar" class="live-vault-quick-bar" style="display: none;"></div>
+
       <!-- ZONE 1: MARKET OVERVIEW -->
       <section class="card zone-card zone-market-overview" id="zoneMarketOverview" aria-label="Zone 1: Market Overview">
         <div class="zone-header">
@@ -192,6 +195,67 @@
 
             <!-- DEFINITION SHORTCUTS STRIP -->
             <div id="todaysPlanShortcuts" class="action-shortcuts-strip" style="margin-top: 14px;"></div>
+          </div>
+
+          <!-- INTERACTIVE DAILY 3-STEP ROUTINE CHECKLIST -->
+          <div id="dailyRoutineChecklistCard" class="card daily-routine-card" style="margin-bottom: 20px;">
+            <div class="daily-routine-header">
+              <div class="daily-routine-title-group">
+                <span style="font-size: 22px;">⏰</span>
+                <div>
+                  <h3 class="daily-routine-title">Daily Execution Schedule &amp; Peace-of-Mind Checklist</h3>
+                  <span class="daily-routine-subtitle">Point-wise, date-wise &amp; exact IST timings: know exactly when to act and when to relax.</span>
+                </div>
+              </div>
+              <div id="dailyRoutineTimeBadge" class="badge badge-neutral" style="font-size: 11.5px; padding: 5px 10px;">
+                Checking Market Time...
+              </div>
+            </div>
+
+            <div class="daily-routine-checklist">
+              <div class="routine-check-row" id="routineRowStep1">
+                <label class="routine-checkbox-wrap">
+                  <input type="checkbox" id="routineCheckStep1" class="routine-checkbox">
+                  <span class="custom-check-box"></span>
+                </label>
+                <div class="routine-check-content">
+                  <div class="routine-check-time">🌅 09:00 &ndash; 09:15 AM IST (Pre-Market Gap Check)</div>
+                  <div class="routine-check-desc">Check if your GTT candidate opens &gt; 2% above the trigger price. If it gapped up &gt; 2%, cancel the GTT buy order immediately to avoid buying extended. If open is normal (&le; 2%), let GTT stand.</div>
+                </div>
+                <div class="routine-check-status" id="routineStatusStep1"><span class="badge badge-neutral">Standby</span></div>
+              </div>
+
+              <div class="routine-check-row" id="routineRowStep2">
+                <label class="routine-checkbox-wrap">
+                  <input type="checkbox" id="routineCheckStep2" class="routine-checkbox">
+                  <span class="custom-check-box"></span>
+                </label>
+                <div class="routine-check-content">
+                  <div class="routine-check-time">📈 09:15 &ndash; 03:15 PM IST (Hands-Off Market Hours)</div>
+                  <div class="routine-check-desc">Zero screen staring required. Your broker GTT orders execute automatically if the breakout pivot triggers. If filled, visit this dashboard and click <strong>"✅ Bought"</strong> to start 24/7 protection.</div>
+                </div>
+                <div class="routine-check-status" id="routineStatusStep2"><span class="badge badge-neutral">Standby</span></div>
+              </div>
+
+              <div class="routine-check-row" id="routineRowStep3">
+                <label class="routine-checkbox-wrap">
+                  <input type="checkbox" id="routineCheckStep3" class="routine-checkbox">
+                  <span class="custom-check-box"></span>
+                </label>
+                <div class="routine-check-content">
+                  <div class="routine-check-time">🔔 03:15 &ndash; 03:30 PM IST (15-Minute Close Review)</div>
+                  <div class="routine-check-desc">Review your active holdings. If price touched your hard stop, exit 100% immediately. If Target 1 (+8%) was reached, sell 50% shares to lock profit. If held for 5 sessions and gain is &lt; 3%, exit at market close.</div>
+                </div>
+                <div class="routine-check-status" id="routineStatusStep3"><span class="badge badge-neutral">Standby</span></div>
+              </div>
+            </div>
+
+            <div id="routineDoneMessage" class="routine-done-banner" style="display: none;">
+              <span>🎉</span>
+              <div>
+                <strong>All daily trading tasks completed!</strong> Your capital is guarded and safe. No more action needed today &mdash; log off and enjoy your evening.
+              </div>
+            </div>
           </div>
 
           <!-- MORNING 9:15 AM MARKET-OPEN DECISION ASSISTANT (Feature 2) -->
@@ -459,16 +523,16 @@
               <thead>
                 <tr>
                   <th>Symbol</th>
-                  <th><span class="term-lookup" data-term="Setup score">Score</span></th>
-                  <th><span class="term-lookup" data-term="Grade">Grade</span></th>
-                  <th><span class="term-lookup" data-term="RS Rating">RS</span></th>
-                  <th><span class="term-lookup" data-term="Institutional Footprint">Inst</span></th>
-                  <th>Close</th>
-                  <th><span class="term-lookup" data-term="Dist to Breakout">Dist to Breakout</span></th>
-                  <th><span class="term-lookup" data-term="Coiling">Coiling</span></th>
+                  <th><span class="term-lookup" data-term="Setup score" title="Overall institutional quality score out of 100">Quality Score</span></th>
+                  <th><span class="term-lookup" data-term="Grade" title="Institutional setup tier: A+ / A are top priority">Grade</span></th>
+                  <th><span class="term-lookup" data-term="RS Rating" title="Outperforming X% of all NSE stocks">RS Leader</span></th>
+                  <th><span class="term-lookup" data-term="Institutional Footprint" title="Big institutional money buying or accumulating">Big Buyers</span></th>
+                  <th>Last Price</th>
+                  <th><span class="term-lookup" data-term="Dist to Breakout" title="Percentage away from the breakout buy trigger">Distance to Buy</span></th>
+                  <th><span class="term-lookup" data-term="Coiling" title="Price volatility contracting like a spring before an explosive move">Base Tightening</span></th>
                   <th>Sector</th>
-                  <th><span class="term-lookup" data-term="Sector Bullish">Sector Bullish</span></th>
-                  <th>Action</th>
+                  <th><span class="term-lookup" data-term="Sector Bullish" title="Whether the industry group is in a confirmed uptrend">Industry Uptrend</span></th>
+                  <th>1-Click Actions</th>
                 </tr>
               </thead>
               <tbody id="watchlistBody">
@@ -2639,6 +2703,24 @@
 
       <div class="log-buy-body">
         <div class="log-buy-grid">
+          <!-- Quick Auto-Sizer Capital Presets (1% Max Risk Rule) -->
+          <div class="log-buy-field" style="grid-column: 1 / -1; background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 10px 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
+              <span style="font-size: 12.5px; font-weight: 700; color: #34d399;">📐 1-Click Auto-Sizer by Account Capital (1% Max Risk Rule)</span>
+              <span style="font-size: 11px; color: var(--text-dim);">Strict Capital Defense</span>
+            </div>
+            <div class="rupee-sim-preset-chips" style="margin-bottom: 6px;">
+              <button type="button" class="sim-cap-btn buy-cap-preset" data-cap="50000">₹50K</button>
+              <button type="button" class="sim-cap-btn buy-cap-preset active" data-cap="100000">₹1 Lakh</button>
+              <button type="button" class="sim-cap-btn buy-cap-preset" data-cap="200000">₹2 Lakh</button>
+              <button type="button" class="sim-cap-btn buy-cap-preset" data-cap="500000">₹5 Lakh</button>
+              <button type="button" class="sim-cap-btn buy-cap-preset" data-cap="1000000">₹10 Lakh</button>
+            </div>
+            <div id="buyModalAutoSizerHint" style="font-size: 12px; color: #cbd5e1;">
+              Auto-sizes quantity so your maximum risk is strictly capped at 1% of your account.
+            </div>
+          </div>
+
           <div class="log-buy-field">
             <label for="logBuySymbol">Stock Symbol (NSE)</label>
             <input type="text" id="logBuySymbol" placeholder="e.g. PHOENIXLTD" style="text-transform: uppercase;">
@@ -2826,7 +2908,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261121c"></script>
-  <script src="pwa.js?v=20261121c"></script>
+  <script src="app.js?v=20261121d"></script>
+  <script src="pwa.js?v=20261121d"></script>
 </body>
 </html>

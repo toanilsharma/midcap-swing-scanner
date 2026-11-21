@@ -850,7 +850,7 @@ body {
 .table-scroll th:last-child,
 .table-scroll td:last-child {
   text-align: right;
-  min-width: 150px;
+  min-width: 195px;
 }
 
 /* P1: Two-Tier Clean Watchlist Symbol Cell */
@@ -7526,4 +7526,228 @@ html.pwa-standalone body {
   font-size: 12px;
   color: #cbd5e1;
   line-height: 1.5;
+}
+
+/* =====================================================================
+   LIVE WEALTH VAULT BAR (PERSISTENT TOP PORTFOLIO SUMMARY)
+   ===================================================================== */
+.live-vault-quick-bar {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vault-bar-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.vault-bar-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vault-bar-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #34d399;
+  margin: 0;
+}
+
+.vault-bar-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.vault-stat-item {
+  font-size: 12.5px;
+  color: #cbd5e1;
+}
+
+.vault-stat-item strong {
+  color: #ffffff;
+}
+
+.vault-bar-holdings {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.vault-holding-chip {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 5px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #f1f5f9;
+}
+
+.vault-holding-chip.target-hit {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+}
+
+.vault-holding-chip.stop-hit {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+}
+
+/* =====================================================================
+   DAILY ROUTINE CHECKLIST CARD & CHECKBOXES
+   ===================================================================== */
+.daily-routine-card {
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.daily-routine-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.daily-routine-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.daily-routine-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 2px 0;
+}
+
+.daily-routine-subtitle {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.daily-routine-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.routine-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.routine-check-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.routine-check-row.completed {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.routine-checkbox-wrap {
+  cursor: pointer;
+  position: relative;
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.routine-checkbox-wrap input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.custom-check-box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #1e293b;
+  border: 2px solid #64748b;
+  border-radius: 5px;
+  transition: all 0.2s ease;
+}
+
+.routine-checkbox-wrap input:checked ~ .custom-check-box {
+  background-color: #10b981;
+  border-color: #10b981;
+}
+
+.routine-checkbox-wrap input:checked ~ .custom-check-box:after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.routine-check-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.routine-check-time {
+  font-size: 13px;
+  font-weight: 700;
+  color: #38bdf8;
+  margin-bottom: 3px;
+}
+
+.routine-check-desc {
+  font-size: 12.5px;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.routine-done-banner {
+  margin-top: 14px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.1) 100%);
+  border: 1px solid #10b981;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #34d399;
+  font-size: 13px;
 }

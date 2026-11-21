@@ -2421,14 +2421,20 @@ function applyWatchlistFiltering(watchlist, scanData) {
         <td data-label="RS">${rsBadge}</td>
         <td data-label="Inst">${instBadge}</td>
         <td data-label="Close">${formatINR(item.Close)}</td>
-        <td data-label="Dist to Breakout"><strong>${dist.toFixed(2)}%</strong> away</td>
-        <td data-label="Coiling">${coilingBadge}</td>
+        <td data-label="Distance to Buy"><strong>${dist.toFixed(2)}%</strong> away</td>
+        <td data-label="Base Tightening">${coilingBadge}</td>
         <td data-label="Sector"><span class="badge badge-neutral">${item.Sector || "^NSEI"}</span></td>
-        <td data-label="Sector Bullish">${bullishBadge}</td>
-        <td data-label="Action">
-          <div style="display: flex; gap: 4px; align-items: center; justify-content: flex-end; flex-wrap: nowrap;">
-            <button class="btn btn-xs btn-outline-primary size-trade-btn" data-symbol="${item.Symbol}" title="Size this trade with Position Sizer">
-              Size
+        <td data-label="Industry Uptrend">${bullishBadge}</td>
+        <td data-label="1-Click Actions">
+          <div style="display: flex; gap: 5px; align-items: center; justify-content: flex-end; flex-wrap: nowrap;">
+            <button class="btn btn-xs btn-primary gtt-slip-modal-btn"
+              data-symbol="${item.Symbol}"
+              data-entry="${rowBreakout.toFixed(2)}"
+              data-stop="${rowStop.toFixed(2)}"
+              data-target="${rowTarget.toFixed(2)}"
+              data-qty="10"
+              title="1-Click Broker GTT Slip for Zerodha Kite, Groww, Angel One">
+              ⚡ GTT
             </button>
             <button class="btn btn-xs btn-success log-buy-btn"
               data-symbol="${item.Symbol}"
@@ -2437,6 +2443,9 @@ function applyWatchlistFiltering(watchlist, scanData) {
               data-target="${rowTarget.toFixed(2)}"
               title="I bought this stock! Start Live Copilot Monitoring">
               ✅ Bought
+            </button>
+            <button class="btn btn-xs btn-outline-primary size-trade-btn" data-symbol="${item.Symbol}" title="Size this trade with Position Sizer">
+              Size
             </button>
           </div>
         </td>
@@ -4024,7 +4033,6 @@ function openLogBuyModal(stockData = {}) {
   if (dateInput) dateInput.value = stockData.entry_date || todayVal;
   if (day5Input) day5Input.value = stockData.day5_date || day5Val;
   if (notesInput) notesInput.value = stockData.notes || "";
-  if (qtyInput) qtyInput.value = stockData.qty || 10;
 
   const entryPrice = parseFloat(stockData.entry) || 0;
   if (priceInput) priceInput.value = entryPrice > 0 ? entryPrice.toFixed(2) : "";
@@ -4046,6 +4054,46 @@ function openLogBuyModal(stockData = {}) {
     t2Price = Number((entryPrice * 1.16).toFixed(2));
   }
   if (target2Input) target2Input.value = t2Price > 0 ? t2Price.toFixed(2) : "";
+
+  // 1-Click Auto-Sizing based on 1% Account Capital
+  let defaultCap = parseFloat(localStorage.getItem("user_account_capital")) || 100000;
+  function applyCapitalSizing(cap) {
+    localStorage.setItem("user_account_capital", cap);
+    const ep = parseFloat(priceInput ? priceInput.value : entryPrice) || entryPrice;
+    const sp = parseFloat(stopInput ? stopInput.value : stopPrice) || stopPrice;
+    const rps = Math.max(0.5, ep - sp);
+    const maxRisk = cap * 0.01;
+    const computedQty = ep > 0 && sp > 0 && sp < ep ? Math.max(1, Math.floor(maxRisk / rps)) : 10;
+    if (qtyInput) qtyInput.value = computedQty;
+
+    const hintEl = document.getElementById("buyModalAutoSizerHint");
+    if (hintEl) {
+      hintEl.innerHTML = `💡 On <strong>${formatINR(cap)}</strong> capital: Capped at <strong>${formatINR(maxRisk)}</strong> max risk (1%). Auto-sized to <strong>${computedQty} shares</strong>.`;
+    }
+
+    // Update active preset button styling
+    modal.querySelectorAll(".buy-cap-preset").forEach(btn => {
+      const bCap = parseFloat(btn.getAttribute("data-cap")) || 100000;
+      if (bCap === cap) btn.classList.add("active");
+      else btn.classList.remove("active");
+    });
+
+    updateLogBuySummary();
+  }
+
+  // Bind preset buttons once
+  modal.querySelectorAll(".buy-cap-preset").forEach(btn => {
+    btn.onclick = () => {
+      const cap = parseFloat(btn.getAttribute("data-cap")) || 100000;
+      applyCapitalSizing(cap);
+    };
+  });
+
+  if (stockData.qty && parseInt(stockData.qty, 10) > 0) {
+    if (qtyInput) qtyInput.value = parseInt(stockData.qty, 10);
+  } else {
+    applyCapitalSizing(defaultCap);
+  }
 
   updateLogBuySummary();
   modal.style.display = "flex";
@@ -4843,6 +4891,7 @@ async function renderOpenPositions(positions) {
     renderTodaysPlan(_cachedScanData, _cachedOpenPositions);
     renderMorningOpenAssistant(_cachedScanData);
   }
+  updateLiveVaultBar();
 }
 
 // P5: Render Portfolio Correlation Heatmap & Mobile Chips
@@ -4930,6 +4979,176 @@ function renderCorrelationHeatmap(corrData, positions) {
 
   container.innerHTML = tableHtml + chipHtml;
 }
+
+// =====================================================================
+// PERSISTENT LIVE WEALTH VAULT BAR (TOP OF MAIN WATCHLIST)
+// =====================================================================
+function updateLiveVaultBar() {
+  const container = document.getElementById("liveVaultQuickBar");
+  if (!container) return;
+
+  const userPortfolio = (getUserPortfolio() || []).filter(p => p && p.status !== "CLOSED");
+  if (userPortfolio.length === 0) {
+    container.style.display = "none";
+    return;
+  }
+
+  container.style.display = "flex";
+
+  let totalInvested = 0;
+  let totalUnrealized = 0;
+
+  const holdingChipsHtml = userPortfolio.map(pos => {
+    const entry = parseFloat(pos.entry_price) || 0;
+    const qty = parseInt(pos.qty, 10) || 0;
+    const stop = pos.stop ? parseFloat(pos.stop) : Number((entry * 0.95).toFixed(2));
+    const target = pos.target ? parseFloat(pos.target) : Number((entry * 1.08).toFixed(2));
+    const live = pos._live_price || entry;
+    const cost = entry * qty;
+    const currentVal = live * qty;
+    const pnl = currentVal - cost;
+    const pct = entry > 0 ? ((live - entry) / entry) * 100 : 0;
+
+    totalInvested += cost;
+    totalUnrealized += pnl;
+
+    let chipClass = "";
+    let statusText = `Safe (Stop @ ${formatINR(stop)})`;
+    if (live <= stop) {
+      chipClass = "stop-hit";
+      statusText = `🛑 Stop Hit: Exit 100%!`;
+    } else if (!pos.is_t1_sold && (live >= target || pct >= 8.0)) {
+      chipClass = "target-hit";
+      statusText = `🎯 Target 1 (+8%): Sell 50%!`;
+    } else if (pos.is_t1_sold) {
+      statusText = `🚀 100% Risk-Free Runner`;
+    }
+
+    return `
+      <div class="vault-holding-chip ${chipClass}">
+        <strong>${escapeHtml(pos.symbol)}:</strong>
+        <span class="${pct >= 0 ? 'text-success' : 'text-danger'}" style="font-weight: 600;">
+          ${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% (${formatINR(pnl, true)})
+        </span>
+        <span style="font-size: 11px; opacity: 0.85;">&bull; ${statusText}</span>
+      </div>
+    `;
+  }).join("");
+
+  const totalPct = totalInvested > 0 ? ((totalUnrealized / totalInvested) * 100) : 0;
+  const pnlColorClass = totalUnrealized >= 0 ? 'text-success' : 'text-danger';
+
+  container.innerHTML = `
+    <div class="vault-bar-top">
+      <div class="vault-bar-title-group">
+        <span style="font-size: 20px;">💼</span>
+        <div>
+          <h4 class="vault-bar-title">My Live Wealth Vault (${userPortfolio.length} Active Holding${userPortfolio.length === 1 ? '' : 's'})</h4>
+          <span style="font-size: 11px; color: var(--text-dim);">Guarded 24/7 &bull; Real-time stop defense & profit locking</span>
+        </div>
+      </div>
+      <div class="vault-bar-stats">
+        <span class="vault-stat-item">Deployed: <strong>${formatINR(totalInvested)}</strong></span>
+        <span class="vault-stat-item">Live P&L: <strong class="${pnlColorClass}">${formatINR(totalUnrealized, true)} (${totalPct >= 0 ? '+' : ''}${totalPct.toFixed(1)}%)</strong></span>
+        <button class="btn btn-xs btn-outline-primary" onclick="switchToOpenPositionsTab()" style="padding: 4px 10px; font-size: 11.5px;">
+          Manage Portfolio ➔
+        </button>
+      </div>
+    </div>
+    <div class="vault-bar-holdings">
+      ${holdingChipsHtml}
+    </div>
+  `;
+}
+
+function switchToOpenPositionsTab() {
+  const btn = document.querySelector('.tab-btn[data-tab="tabOpen"]');
+  if (btn) btn.click();
+}
+
+window.switchToOpenPositionsTab = switchToOpenPositionsTab;
+window.updateLiveVaultBar = updateLiveVaultBar;
+
+// =====================================================================
+// DAILY 3-STEP ROUTINE CHECKLIST & IST TIMINGS
+// =====================================================================
+function initDailyRoutineChecklist() {
+  const badge = document.getElementById("dailyRoutineTimeBadge");
+  const now = new Date();
+
+  // Calculate IST hours & minutes
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const istDate = new Date(utc + (3600000 * 5.5));
+  const istHours = istDate.getHours();
+  const istMinutes = istDate.getMinutes();
+  const totalMin = istHours * 60 + istMinutes;
+
+  const todayKey = `routine_checked_${istDate.getFullYear()}_${istDate.getMonth()+1}_${istDate.getDate()}`;
+  let savedState = {};
+  try {
+    savedState = JSON.parse(localStorage.getItem(todayKey)) || {};
+  } catch (e) { savedState = {}; }
+
+  const step1 = document.getElementById("routineCheckStep1");
+  const step2 = document.getElementById("routineCheckStep2");
+  const step3 = document.getElementById("routineCheckStep3");
+  const doneMsg = document.getElementById("routineDoneMessage");
+
+  if (step1) step1.checked = Boolean(savedState.step1);
+  if (step2) step2.checked = Boolean(savedState.step2);
+  if (step3) step3.checked = Boolean(savedState.step3);
+
+  const stat1 = document.getElementById("routineStatusStep1");
+  const stat2 = document.getElementById("routineStatusStep2");
+  const stat3 = document.getElementById("routineStatusStep3");
+
+  const row1 = document.getElementById("routineRowStep1");
+  const row2 = document.getElementById("routineRowStep2");
+  const row3 = document.getElementById("routineRowStep3");
+
+  // Step 1: 09:00 (540m) to 09:15 (555m)
+  // Step 2: 09:15 (555m) to 15:15 (915m)
+  // Step 3: 15:15 (915m) to 15:30 (930m)
+  if (totalMin >= 540 && totalMin < 555) {
+    if (badge) { badge.textContent = "🌅 Active: 09:00 - 09:15 AM Gap Check"; badge.className = "badge badge-warning"; }
+    if (stat1 && !step1.checked) stat1.innerHTML = `<span class="badge badge-warning pulse">ACT NOW</span>`;
+  } else if (totalMin >= 555 && totalMin < 915) {
+    if (badge) { badge.textContent = "📈 Active: 09:15 - 03:15 PM Auto-Execution"; badge.className = "badge badge-info"; }
+    if (stat2 && !step2.checked) stat2.innerHTML = `<span class="badge badge-info">IN PROGRESS</span>`;
+  } else if (totalMin >= 915 && totalMin <= 945) {
+    if (badge) { badge.textContent = "🔔 Active: 03:15 - 03:30 PM Close Review"; badge.className = "badge badge-warning"; }
+    if (stat3 && !step3.checked) stat3.innerHTML = `<span class="badge badge-warning pulse">ACT NOW</span>`;
+  } else {
+    if (badge) { badge.textContent = "🌙 Market Closed • Positions Guarded"; badge.className = "badge badge-neutral"; }
+  }
+
+  function checkDoneState() {
+    const is1 = step1 ? step1.checked : false;
+    const is2 = step2 ? step2.checked : false;
+    const is3 = step3 ? step3.checked : false;
+
+    if (row1) row1.classList.toggle("completed", is1);
+    if (row2) row2.classList.toggle("completed", is2);
+    if (row3) row3.classList.toggle("completed", is3);
+
+    if (stat1 && is1) stat1.innerHTML = `<span class="badge badge-success">Done ✅</span>`;
+    if (stat2 && is2) stat2.innerHTML = `<span class="badge badge-success">Done ✅</span>`;
+    if (stat3 && is3) stat3.innerHTML = `<span class="badge badge-success">Done ✅</span>`;
+
+    const allDone = is1 && is2 && is3;
+    if (doneMsg) doneMsg.style.display = allDone ? "flex" : "none";
+
+    localStorage.setItem(todayKey, JSON.stringify({ step1: is1, step2: is2, step3: is3 }));
+  }
+
+  [step1, step2, step3].forEach(el => {
+    if (el) el.addEventListener("change", checkDoneState);
+  });
+
+  checkDoneState();
+}
+
+window.initDailyRoutineChecklist = initDailyRoutineChecklist;
 
 // 3. Render Tab: Trade History & Equity Curve
 function renderHistory(trades) {
@@ -6907,6 +7126,9 @@ document.addEventListener("DOMContentLoaded", () => {
   initDisciplineCoachListeners();
   initPersonalCopilotListeners();
   initWhatToDoNowListeners();
+  initDailyRoutineChecklist();
+  updateLiveVaultBar();
+  setInterval(initDailyRoutineChecklist, 60000);
 
   // Initialize Phase 4 Backtest Listeners
   initBacktestListeners();
