@@ -629,6 +629,27 @@
         <div id="openCorrHeatmapContainer" class="corr-heatmap-container"></div>
       </div>
 
+      <!-- LIVE MONITORING PORTFOLIO SECTION (Feature 1 & 2) -->
+      <div class="active-portfolio-section">
+        <div class="active-portfolio-header">
+          <div class="active-portfolio-title-group">
+            <span style="font-size: 22px;">💼</span>
+            <div>
+              <h3 class="active-portfolio-title">My Active Holdings (Live Monitoring Portfolio)</h3>
+              <p class="active-portfolio-subtitle">System continuously guards your shares, calculates live profit/loss, and alerts you with exact dates &amp; times when to sell.</p>
+            </div>
+          </div>
+          <button id="openLogBuyModalBtn" class="btn btn-sm btn-primary" title="Add a stock you purchased to live monitoring">
+            ➕ Log a Share You Bought
+          </button>
+        </div>
+
+        <!-- Live Holdings Executive Cards Grid -->
+        <div id="openHoldingsCardsGrid" class="open-holdings-grid">
+          <!-- Dynamically populated by renderOpenPositions() -->
+        </div>
+      </div>
+
       <div class="table-scroll" tabindex="0">
         <table id="openPositionsTable">
           <thead>
@@ -2582,6 +2603,166 @@
           <button id="telegramSendBtn" class="btn btn-telegram">
             <span>✈️</span> Share to Telegram
           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- MODAL: LOG ACTIVE BUY / START COPILOT MONITORING                   -->
+  <!-- =================================================================== -->
+  <div id="logBuyModal" class="tv-modal" style="display: none;">
+    <div class="tv-modal-backdrop" id="logBuyBackdrop"></div>
+    <div class="tv-modal-dialog log-buy-dialog" role="dialog" aria-modal="true" aria-label="Log Active Trade">
+      <div class="tv-modal-header">
+        <div class="tv-modal-title-group">
+          <span style="font-size: 22px;">🛡️</span>
+          <div>
+            <h3 id="logBuyModalTitle" class="tv-modal-title">Log Bought Stock &amp; Start Live Monitoring</h3>
+            <span class="gtt-slip-subtitle">Your personal copilot will monitor this stock daily, alerting when to lock profits or cut risk.</span>
+          </div>
+        </div>
+        <button id="logBuyCloseBtn" class="tv-modal-close" title="Close (Esc)">&times;</button>
+      </div>
+
+      <div class="log-buy-body">
+        <div class="log-buy-grid">
+          <div class="log-buy-field">
+            <label for="logBuySymbol">Stock Symbol (NSE)</label>
+            <input type="text" id="logBuySymbol" placeholder="e.g. PHOENIXLTD" style="text-transform: uppercase;">
+          </div>
+          <div class="log-buy-field">
+            <label for="logBuyDate">Purchase Date</label>
+            <input type="date" id="logBuyDate">
+          </div>
+          <div class="log-buy-field">
+            <label for="logBuyPrice">Buy Price (₹ / Share)</label>
+            <input type="number" id="logBuyPrice" step="0.05" placeholder="0.00">
+          </div>
+          <div class="log-buy-field">
+            <label for="logBuyQty">Number of Shares (Qty)</label>
+            <input type="number" id="logBuyQty" min="1" step="1" value="10">
+          </div>
+          <div class="log-buy-field">
+            <label for="logBuyStop">Safety Stop-Loss Price (₹)</label>
+            <input type="number" id="logBuyStop" step="0.05" placeholder="0.00">
+          </div>
+          <div class="log-buy-field">
+            <label for="logBuyTarget1">Target 1 Price (+8% / 2R) (₹)</label>
+            <input type="number" id="logBuyTarget1" step="0.05" placeholder="0.00">
+          </div>
+          <div class="log-buy-field">
+            <label for="logBuyTarget2">Target 2 Price (+16% / 4R) (₹)</label>
+            <input type="number" id="logBuyTarget2" step="0.05" placeholder="0.00">
+          </div>
+          <div class="log-buy-field">
+            <label for="logBuyDay5Date">Day 5 Time-Stop Date</label>
+            <input type="date" id="logBuyDay5Date">
+          </div>
+        </div>
+
+        <div class="log-buy-field">
+          <label for="logBuyNotes">Personal Trade Notes (Optional)</label>
+          <input type="text" id="logBuyNotes" placeholder="e.g. Bought on clean breakout of 20-day high with high volume">
+        </div>
+
+        <!-- Calculated Summary Card -->
+        <div class="log-buy-summary-card">
+          <div class="buy-summary-item">
+            <span class="buy-summary-label">Total Capital Deployed:</span>
+            <span id="buySummaryCapital" class="buy-summary-val">₹0.00</span>
+          </div>
+          <div class="buy-summary-item">
+            <span class="buy-summary-label">Max Risk at Stop Loss:</span>
+            <span id="buySummaryRisk" class="buy-summary-val danger" style="color: var(--danger);">₹0.00 (-0.0%)</span>
+          </div>
+          <div class="buy-summary-item">
+            <span class="buy-summary-label">Target 1 Profit (50% exit):</span>
+            <span id="buySummaryProfit" class="buy-summary-val success" style="color: var(--success);">+₹0.00 (+8.0%)</span>
+          </div>
+          <div class="buy-summary-item">
+            <span class="buy-summary-label">Planned Risk/Reward Multiple:</span>
+            <span id="buySummaryRR" class="buy-summary-val" style="color: #38bdf8;">1 : 2.0</span>
+          </div>
+        </div>
+
+        <div class="log-buy-actions">
+          <button id="logBuyCancelBtn" class="btn btn-secondary btn-sm">Cancel</button>
+          <button id="logBuySubmitBtn" class="btn btn-primary btn-sm">🛡️ Start Live Monitoring</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- MODAL: CLOSE / ARCHIVE TRADE                                       -->
+  <!-- =================================================================== -->
+  <div id="closeTradeModal" class="tv-modal" style="display: none;">
+    <div class="tv-modal-backdrop" id="closeTradeBackdrop"></div>
+    <div class="tv-modal-dialog log-buy-dialog" role="dialog" aria-modal="true" aria-label="Close Active Trade">
+      <div class="tv-modal-header">
+        <div class="tv-modal-title-group">
+          <span style="font-size: 22px;">🏁</span>
+          <div>
+            <h3 id="closeTradeModalTitle" class="tv-modal-title">Close Trade &amp; Record Journal</h3>
+            <span class="gtt-slip-subtitle">Record your exit to archive the trade into your performance stats and trade journal.</span>
+          </div>
+        </div>
+        <button id="closeTradeCloseBtn" class="tv-modal-close" title="Close (Esc)">&times;</button>
+      </div>
+
+      <div class="log-buy-body">
+        <input type="hidden" id="closeTradeHoldingId">
+        <div class="log-buy-grid">
+          <div class="log-buy-field">
+            <label for="closeTradeSymbol">Stock Symbol</label>
+            <input type="text" id="closeTradeSymbol" readonly style="opacity: 0.85;">
+          </div>
+          <div class="log-buy-field">
+            <label for="closeTradeDate">Exit Date</label>
+            <input type="date" id="closeTradeDate">
+          </div>
+          <div class="log-buy-field">
+            <label for="closeTradePrice">Exit Price (₹ / Share)</label>
+            <input type="number" id="closeTradePrice" step="0.05" placeholder="0.00">
+          </div>
+          <div class="log-buy-field">
+            <label for="closeTradeQty">Shares Exited (Qty)</label>
+            <input type="number" id="closeTradeQty" min="1" step="1">
+          </div>
+        </div>
+
+        <div class="log-buy-field">
+          <label for="closeTradeReason">Reason for Exit</label>
+          <select id="closeTradeReason">
+            <option value="TARGET_1">🎯 Target 1 Achieved (+8% / +2R)</option>
+            <option value="TARGET_2">🏆 Target 2 Achieved (+16% / +4R)</option>
+            <option value="HARD_STOP">🛑 Hard Stop Loss Triggered (Capital Preserved)</option>
+            <option value="DAY_5_TIME_STOP">⏳ Day 5 Time-Stop (&lt;3% gain, capital recycled)</option>
+            <option value="RUNNER_20DMA">🚀 Runner 20-DMA Close Trailing Stop</option>
+            <option value="DISCRETIONARY">✋ Manual / Discretionary Exit</option>
+          </select>
+        </div>
+
+        <div class="log-buy-summary-card">
+          <div class="buy-summary-item">
+            <span class="buy-summary-label">Realized Return (%):</span>
+            <span id="closeSummaryPct" class="buy-summary-val">+0.0%</span>
+          </div>
+          <div class="buy-summary-item">
+            <span class="buy-summary-label">Realized Profit / Loss (₹):</span>
+            <span id="closeSummaryPnl" class="buy-summary-val">₹0.00</span>
+          </div>
+        </div>
+
+        <div class="log-buy-field">
+          <label for="closeTradeNotes">Trade Reflection &amp; Learnings</label>
+          <input type="text" id="closeTradeNotes" placeholder="What worked? Did you follow your rules disciplinedly?">
+        </div>
+
+        <div class="log-buy-actions">
+          <button id="closeTradeCancelBtn" class="btn btn-secondary btn-sm">Cancel</button>
+          <button id="closeTradeSubmitBtn" class="btn btn-primary btn-sm">💾 Archive Trade</button>
         </div>
       </div>
     </div>

@@ -2382,6 +2382,12 @@ function applyWatchlistFiltering(watchlist, scanData) {
     }
 
     const clearance = computeFlightClearance(item, scanData);
+    const rowClose = parseFloat(item.Close) || 0;
+    const rowBreakout = item.Breakout ? parseFloat(item.Breakout) : (item.Entry ? parseFloat(item.Entry) : Number((rowClose * (1 + dist / 100)).toFixed(2)));
+    const rowAtr = parseFloat(item.ATR14) || Number((rowClose * 0.025).toFixed(2));
+    const rowStop = item.Stop ? parseFloat(item.Stop) : Number(Math.max(1, rowBreakout - 1.5 * rowAtr).toFixed(2));
+    const rowRiskAmt = Math.max(0.01, rowBreakout - rowStop);
+    const rowTarget = item.Target ? parseFloat(item.Target) : Number((rowBreakout + 2 * rowRiskAmt).toFixed(2));
 
     return `
       <tr class="watchlist-row ${rowClass}" data-symbol="${item.Symbol}" title="Click to view full action advisor, chart & checklist">
@@ -2406,9 +2412,19 @@ function applyWatchlistFiltering(watchlist, scanData) {
         <td data-label="Sector"><span class="badge badge-neutral">${item.Sector || "^NSEI"}</span></td>
         <td data-label="Sector Bullish">${bullishBadge}</td>
         <td data-label="Action">
-          <button class="btn btn-xs btn-outline-primary size-trade-btn" data-symbol="${item.Symbol}" title="Size this trade with Position Sizer">
-            Size this trade
-          </button>
+          <div style="display: flex; gap: 4px; align-items: center; justify-content: flex-end; flex-wrap: nowrap;">
+            <button class="btn btn-xs btn-outline-primary size-trade-btn" data-symbol="${item.Symbol}" title="Size this trade with Position Sizer">
+              Size
+            </button>
+            <button class="btn btn-xs btn-success log-buy-btn"
+              data-symbol="${item.Symbol}"
+              data-entry="${rowBreakout.toFixed(2)}"
+              data-stop="${rowStop.toFixed(2)}"
+              data-target="${rowTarget.toFixed(2)}"
+              title="I bought this stock! Start Live Copilot Monitoring">
+              ✅ Bought
+            </button>
+          </div>
         </td>
       </tr>
     `;
@@ -3125,6 +3141,14 @@ async function toggleWatchlistDetail(row, item, scanData) {
                 title="Check 9:15 AM Market Open gap and anti-chase rules for ${symbol}">
                 🌅 9:15 AM Open Check
               </button>
+              <button class="btn btn-sm btn-success log-buy-btn"
+                data-symbol="${symbol}"
+                data-entry="${breakoutLevel.toFixed(2)}"
+                data-stop="${stopPrice.toFixed(2)}"
+                data-target="${targetPrice.toFixed(2)}"
+                title="Add to Personal Live Portfolio: Track daily targets, 5-day exit rules, and stop loss">
+                ✅ I Bought This!
+              </button>
               <span class="detail-hint">(Click row to collapse)</span>
             </div>
             <div id="earnings-warn-${symbol}"></div>
@@ -3132,6 +3156,9 @@ async function toggleWatchlistDetail(row, item, scanData) {
 
           <!-- Plain-Language Decision & Action Advisor -->
           ${generateStockActionAdvisor(item, scanData, breakoutLevel, stopPrice, targetPrice, riskPct, targetPct, riskAmt, daysInBase)}
+
+          <!-- Point-Wise Date & Time Action Schedule (Personal Wealth Copilot) -->
+          ${generateDateTimeFlightPlan(item, breakoutLevel, stopPrice, targetPrice, riskPct)}
 
           <!-- Event Radar Timeline Strip (Item #7) -->
           ${(() => {
@@ -3837,7 +3864,458 @@ function initPositionSizer() {
   updatePositionSizer();
 }
 
-// 2. Render Tab: Open Positions
+// =====================================================================
+// PERSONAL WEALTH COPILOT: LIVE MONITORING PORTFOLIO & SELL ENGINE
+// =====================================================================
+const USER_PORTFOLIO_STORAGE_KEY = "midcap_user_portfolio_v1";
+
+function getUserPortfolio() {
+  try {
+    const raw = localStorage.getItem(USER_PORTFOLIO_STORAGE_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveUserPortfolio(list) {
+  try {
+    localStorage.setItem(USER_PORTFOLIO_STORAGE_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.error("Failed to save user portfolio:", e);
+  }
+}
+
+function findHoldingByIdOrSymbol(id) {
+  const userPortfolio = getUserPortfolio();
+  let found = userPortfolio.find(p => p.id === id || p.symbol === id);
+  if (!found && _cachedOpenPositions) {
+    found = _cachedOpenPositions.find(p => p.id === id || p.symbol === id);
+  }
+  return found || null;
+}
+
+// Point-Wise Date & Time Action Schedule Card in Watchlist Details
+function generateDateTimeFlightPlan(item, breakoutLevel, stopPrice, targetPrice, riskPct) {
+  const today = new Date();
+  const options = { weekday: 'short', month: 'short', day: 'numeric' };
+  const todayStr = today.toLocaleDateString('en-US', options);
+
+  let d5 = new Date();
+  let added = 0;
+  while (added < 5) {
+    d5.setDate(d5.getDate() + 1);
+    if (d5.getDay() !== 0 && d5.getDay() !== 6) added++;
+  }
+  const day5Str = d5.toLocaleDateString('en-US', options);
+  const limitPrice = (breakoutLevel * 1.005).toFixed(2);
+  const beTarget = (breakoutLevel * 1.08).toFixed(2);
+
+  return `
+    <div class="date-time-flight-plan">
+      <div class="dt-plan-header">
+        <div class="dt-plan-title">
+          <span>📅</span>
+          <span>Point-Wise Date &amp; Time Action Schedule for ${escapeHtml(item.Symbol)}</span>
+        </div>
+        <button class="btn btn-xs btn-success log-buy-btn"
+          data-symbol="${item.Symbol}"
+          data-entry="${breakoutLevel.toFixed(2)}"
+          data-stop="${stopPrice.toFixed(2)}"
+          data-target="${targetPrice.toFixed(2)}"
+          title="Log trade to live copilot">
+          ✅ I Bought This!
+        </button>
+      </div>
+
+      <div class="dt-plan-steps">
+        <div class="dt-step-row">
+          <span class="dt-step-badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8;">STEP 1 • TODAY / EVENING</span>
+          <div class="dt-step-content">
+            <strong>Place Broker GTT Buy Order before market opens:</strong>
+            Set Trigger Price at <strong>₹${breakoutLevel.toFixed(2)}</strong> and Limit Price at <strong>₹${limitPrice}</strong> (0.5% buffer) on Zerodha Kite, Groww, or Angel One. Select Validity: <em>Good Till Cancelled (7 Days)</em>. Set Stop Loss at <strong>₹${stopPrice.toFixed(2)}</strong> (-${riskPct}%).
+          </div>
+        </div>
+
+        <div class="dt-step-row">
+          <span class="dt-step-badge" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b;">STEP 2 • TOMORROW 9:15 AM IST</span>
+          <div class="dt-step-content">
+            <strong>Morning Anti-Chase Check:</strong>
+            At 9:15 AM market open, observe opening price. If the stock gaps up &gt; 2.0% above ₹${breakoutLevel.toFixed(2)} (opens above ₹${(breakoutLevel * 1.02).toFixed(2)}), <strong>CANCEL the GTT immediately</strong>. Never chase runaway gap-ups. If it opens below or near ₹${breakoutLevel.toFixed(2)}, leave GTT live to fill cleanly.
+          </div>
+        </div>
+
+        <div class="dt-step-row">
+          <span class="dt-step-badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981;">STEP 3 • ON EXECUTION (DAY T+0)</span>
+          <div class="dt-step-content">
+            <strong>Log &amp; Arm Capital Defense:</strong>
+            Once your order fills, click <strong>"✅ I Bought This!"</strong> on this card. Set your broker GTT Stop Loss at <strong>₹${stopPrice.toFixed(2)}</strong>. Routine check daily between <strong>3:15 PM and 3:30 PM IST</strong>.
+          </div>
+        </div>
+
+        <div class="dt-step-row">
+          <span class="dt-step-badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa;">STEP 4 • PROFIT LOCK TARGET 1 (+8%)</span>
+          <div class="dt-step-content">
+            <strong>Bank Half Profits &amp; Lock 100% Risk-Free:</strong>
+            When price reaches <strong>₹${targetPrice.toFixed(2)}</strong> (or +8% at ₹${beTarget}), sell exactly <strong>50% of your shares</strong> to bank locked cash. Immediately raise the stop loss on the remaining 50% shares up to your buy price <strong>₹${breakoutLevel.toFixed(2)}</strong>. Your remaining position is now completely risk-free!
+          </div>
+        </div>
+
+        <div class="dt-step-row">
+          <span class="dt-step-badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171;">STEP 5 • DAY 5 (${day5Str}) AT 3:15 PM IST</span>
+          <div class="dt-step-content">
+            <strong>5-Day Time Stop Rule:</strong>
+            Check price at 3:15 PM IST on <strong>${day5Str}</strong>. If the stock has not reached at least +3% profit and has not hit stop loss, <strong>sell 100% at market close</strong>. Recycle your capital into fresh, faster-moving leaders.
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Open / Close Modals
+function openLogBuyModal(stockData = {}) {
+  const modal = document.getElementById("logBuyModal");
+  if (!modal) return;
+
+  const symbolInput = document.getElementById("logBuySymbol");
+  const dateInput = document.getElementById("logBuyDate");
+  const priceInput = document.getElementById("logBuyPrice");
+  const qtyInput = document.getElementById("logBuyQty");
+  const stopInput = document.getElementById("logBuyStop");
+  const target1Input = document.getElementById("logBuyTarget1");
+  const target2Input = document.getElementById("logBuyTarget2");
+  const day5Input = document.getElementById("logBuyDay5Date");
+  const notesInput = document.getElementById("logBuyNotes");
+
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  const todayVal = `${yyyy}-${mm}-${dd}`;
+
+  let d5 = new Date();
+  let added = 0;
+  while (added < 5) {
+    d5.setDate(d5.getDate() + 1);
+    if (d5.getDay() !== 0 && d5.getDay() !== 6) added++;
+  }
+  const d5yyyy = d5.getFullYear();
+  const d5mm = String(d5.getMonth() + 1).padStart(2, "0");
+  const d5dd = String(d5.getDate()).padStart(2, "0");
+  const day5Val = `${d5yyyy}-${d5mm}-${d5dd}`;
+
+  if (symbolInput) symbolInput.value = stockData.symbol || "";
+  if (dateInput) dateInput.value = stockData.entry_date || todayVal;
+  if (day5Input) day5Input.value = stockData.day5_date || day5Val;
+  if (notesInput) notesInput.value = stockData.notes || "";
+  if (qtyInput) qtyInput.value = stockData.qty || 10;
+
+  const entryPrice = parseFloat(stockData.entry) || 0;
+  if (priceInput) priceInput.value = entryPrice > 0 ? entryPrice.toFixed(2) : "";
+
+  let stopPrice = parseFloat(stockData.stop) || 0;
+  if (!stopPrice && entryPrice > 0) {
+    stopPrice = Number((entryPrice * 0.95).toFixed(2));
+  }
+  if (stopInput) stopInput.value = stopPrice > 0 ? stopPrice.toFixed(2) : "";
+
+  let t1Price = parseFloat(stockData.target) || 0;
+  if (!t1Price && entryPrice > 0) {
+    t1Price = Number((entryPrice * 1.08).toFixed(2));
+  }
+  if (target1Input) target1Input.value = t1Price > 0 ? t1Price.toFixed(2) : "";
+
+  let t2Price = parseFloat(stockData.target2) || 0;
+  if (!t2Price && entryPrice > 0) {
+    t2Price = Number((entryPrice * 1.16).toFixed(2));
+  }
+  if (target2Input) target2Input.value = t2Price > 0 ? t2Price.toFixed(2) : "";
+
+  updateLogBuySummary();
+  modal.style.display = "flex";
+}
+
+function closeLogBuyModal() {
+  const modal = document.getElementById("logBuyModal");
+  if (modal) modal.style.display = "none";
+}
+
+function updateLogBuySummary() {
+  const priceInput = document.getElementById("logBuyPrice");
+  const qtyInput = document.getElementById("logBuyQty");
+  const stopInput = document.getElementById("logBuyStop");
+  const target1Input = document.getElementById("logBuyTarget1");
+
+  const capitalEl = document.getElementById("buySummaryCapital");
+  const riskEl = document.getElementById("buySummaryRisk");
+  const profitEl = document.getElementById("buySummaryProfit");
+  const rrEl = document.getElementById("buySummaryRR");
+
+  const price = parseFloat(priceInput ? priceInput.value : 0) || 0;
+  const qty = parseInt(qtyInput ? qtyInput.value : 0, 10) || 0;
+  const stop = parseFloat(stopInput ? stopInput.value : 0) || 0;
+  const t1 = parseFloat(target1Input ? target1Input.value : 0) || 0;
+
+  const capital = price * qty;
+  if (capitalEl) capitalEl.textContent = formatINR(capital);
+
+  if (price > 0 && stop > 0 && stop < price) {
+    const riskPerShare = price - stop;
+    const totalRisk = riskPerShare * qty;
+    const riskPct = ((riskPerShare / price) * 100).toFixed(1);
+    if (riskEl) riskEl.textContent = `-${formatINR(totalRisk)} (-${riskPct}%)`;
+
+    if (t1 > price) {
+      const profitPerShare = t1 - price;
+      const totalProfit = profitPerShare * (qty * 0.5);
+      const profitPct = ((profitPerShare / price) * 100).toFixed(1);
+      if (profitEl) profitEl.textContent = `+${formatINR(totalProfit)} (+${profitPct}%)`;
+
+      const rr = (profitPerShare / riskPerShare).toFixed(1);
+      if (rrEl) rrEl.textContent = `1 : ${rr}`;
+    }
+  } else {
+    if (riskEl) riskEl.textContent = "₹0.00 (-0.0%)";
+    if (profitEl) profitEl.textContent = "+₹0.00 (+8.0%)";
+    if (rrEl) rrEl.textContent = "1 : 2.0";
+  }
+}
+
+function handleLogBuySubmit() {
+  const symbol = (document.getElementById("logBuySymbol")?.value || "").trim().toUpperCase();
+  const date = document.getElementById("logBuyDate")?.value;
+  const price = parseFloat(document.getElementById("logBuyPrice")?.value) || 0;
+  const qty = parseInt(document.getElementById("logBuyQty")?.value, 10) || 0;
+  const stop = parseFloat(document.getElementById("logBuyStop")?.value) || 0;
+  const target1 = parseFloat(document.getElementById("logBuyTarget1")?.value) || 0;
+  const target2 = parseFloat(document.getElementById("logBuyTarget2")?.value) || 0;
+  const day5Date = document.getElementById("logBuyDay5Date")?.value;
+  const notes = (document.getElementById("logBuyNotes")?.value || "").trim();
+
+  if (!symbol) {
+    showToast("Please enter a stock symbol (e.g. PHOENIXLTD)", "warning");
+    return;
+  }
+  if (price <= 0 || qty <= 0) {
+    showToast("Please enter a valid buy price and quantity", "warning");
+    return;
+  }
+  if (stop <= 0 || stop >= price) {
+    showToast("Safety stop loss must be lower than your buy price", "warning");
+    return;
+  }
+
+  const portfolio = getUserPortfolio();
+  const existingIdx = portfolio.findIndex(p => p.symbol === symbol && p.status !== "CLOSED");
+  const newHolding = {
+    id: existingIdx >= 0 ? portfolio[existingIdx].id : "holding_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4),
+    symbol: symbol,
+    entry_date: date || new Date().toISOString().split("T")[0],
+    entry_price: price,
+    qty: qty,
+    stop: stop,
+    target: target1 || Number((price * 1.08).toFixed(2)),
+    target2: target2 || Number((price * 1.16).toFixed(2)),
+    day5_date: day5Date || "",
+    notes: notes,
+    status: "OPEN",
+    is_t1_sold: existingIdx >= 0 ? Boolean(portfolio[existingIdx].is_t1_sold) : false,
+    is_be_moved: existingIdx >= 0 ? Boolean(portfolio[existingIdx].is_be_moved) : false,
+    updated_at: new Date().toISOString()
+  };
+
+  if (existingIdx >= 0) {
+    portfolio[existingIdx] = newHolding;
+  } else {
+    portfolio.push(newHolding);
+  }
+
+  saveUserPortfolio(portfolio);
+  closeLogBuyModal();
+  showToast(`🛡️ ${symbol} added to your Live Wealth Copilot monitor!`, "success");
+  renderOpenPositions(_cachedOpenPositions || []);
+}
+
+function openCloseTradeModal(holding, prefillReason = "") {
+  const modal = document.getElementById("closeTradeModal");
+  if (!modal) return;
+
+  const idInput = document.getElementById("closeTradeHoldingId");
+  const symbolInput = document.getElementById("closeTradeSymbol");
+  const dateInput = document.getElementById("closeTradeDate");
+  const priceInput = document.getElementById("closeTradePrice");
+  const qtyInput = document.getElementById("closeTradeQty");
+  const reasonSelect = document.getElementById("closeTradeReason");
+  const notesInput = document.getElementById("closeTradeNotes");
+
+  const today = new Date().toISOString().split("T")[0];
+
+  if (idInput) idInput.value = holding.id || holding.symbol || "";
+  if (symbolInput) symbolInput.value = holding.symbol || "";
+  if (dateInput) dateInput.value = today;
+  if (qtyInput) qtyInput.value = holding.qty || 10;
+  if (notesInput) notesInput.value = "";
+
+  const live = holding._live_price || holding.entry_price || 0;
+  if (priceInput) priceInput.value = live > 0 ? live.toFixed(2) : "";
+
+  if (prefillReason && reasonSelect) {
+    reasonSelect.value = prefillReason;
+  }
+
+  updateCloseTradeSummary(holding);
+  modal.style.display = "flex";
+}
+
+function closeCloseTradeModal() {
+  const modal = document.getElementById("closeTradeModal");
+  if (modal) modal.style.display = "none";
+}
+
+function updateCloseTradeSummary(holding) {
+  const priceInput = document.getElementById("closeTradePrice");
+  const qtyInput = document.getElementById("closeTradeQty");
+  const pctEl = document.getElementById("closeSummaryPct");
+  const pnlEl = document.getElementById("closeSummaryPnl");
+
+  const exitPrice = parseFloat(priceInput ? priceInput.value : 0) || 0;
+  const exitQty = parseInt(qtyInput ? qtyInput.value : 0, 10) || 0;
+  const entryPrice = parseFloat(holding ? holding.entry_price : 0) || 0;
+
+  if (entryPrice > 0 && exitPrice > 0 && exitQty > 0) {
+    const diff = exitPrice - entryPrice;
+    const pnl = diff * exitQty;
+    const pct = ((diff / entryPrice) * 100).toFixed(1);
+    const sign = diff >= 0 ? "+" : "";
+    if (pctEl) {
+      pctEl.textContent = `${sign}${pct}%`;
+      pctEl.className = `buy-summary-val ${diff >= 0 ? 'success' : 'danger'}`;
+      pctEl.style.color = diff >= 0 ? 'var(--success)' : 'var(--danger)';
+    }
+    if (pnlEl) {
+      pnlEl.textContent = `${sign}${formatINR(pnl)}`;
+      pnlEl.className = `buy-summary-val ${diff >= 0 ? 'success' : 'danger'}`;
+      pnlEl.style.color = diff >= 0 ? 'var(--success)' : 'var(--danger)';
+    }
+  }
+}
+
+function handleCloseTradeSubmit() {
+  const holdingId = document.getElementById("closeTradeHoldingId")?.value;
+  const symbol = document.getElementById("closeTradeSymbol")?.value;
+  const exitDate = document.getElementById("closeTradeDate")?.value;
+  const exitPrice = parseFloat(document.getElementById("closeTradePrice")?.value) || 0;
+  const exitQty = parseInt(document.getElementById("closeTradeQty")?.value, 10) || 0;
+  const reason = document.getElementById("closeTradeReason")?.value;
+  const notes = document.getElementById("closeTradeNotes")?.value || "";
+
+  if (exitPrice <= 0 || exitQty <= 0) {
+    showToast("Please enter a valid exit price and quantity", "warning");
+    return;
+  }
+
+  const portfolio = getUserPortfolio();
+  const idx = portfolio.findIndex(p => p.id === holdingId || p.symbol === symbol);
+  let holding = null;
+  if (idx >= 0) {
+    holding = portfolio[idx];
+  } else if (_cachedOpenPositions) {
+    holding = _cachedOpenPositions.find(p => p.symbol === symbol);
+  }
+
+  if (!holding) {
+    showToast("Trade record not found", "error");
+    closeCloseTradeModal();
+    return;
+  }
+
+  const entryPrice = parseFloat(holding.entry_price) || exitPrice;
+  const pnl = (exitPrice - entryPrice) * exitQty;
+  const pnlPct = (((exitPrice - entryPrice) / (entryPrice || 1)) * 100).toFixed(2);
+
+  try {
+    const closedTrades = JSON.parse(localStorage.getItem("midcap_user_closed_trades") || "[]");
+    closedTrades.unshift({
+      id: "closed_" + Date.now(),
+      symbol: symbol,
+      entry_date: holding.entry_date || "",
+      entry_price: entryPrice,
+      exit_date: exitDate,
+      exit_price: exitPrice,
+      qty: exitQty,
+      pnl: pnl,
+      pnl_pct: parseFloat(pnlPct),
+      reason: reason,
+      notes: notes,
+      archived_at: new Date().toISOString()
+    });
+    localStorage.setItem("midcap_user_closed_trades", JSON.stringify(closedTrades));
+  } catch (e) {
+    console.error("Failed to archive closed trade:", e);
+  }
+
+  if (idx >= 0) {
+    if (exitQty < holding.qty) {
+      holding.qty -= exitQty;
+      holding.notes = (holding.notes ? holding.notes + " | " : "") + `Partial exit: ${exitQty} sh @ ₹${exitPrice}`;
+      portfolio[idx] = holding;
+      showToast(`🏁 Logged partial exit for ${symbol}. Remaining: ${holding.qty} shares.`, "success");
+    } else {
+      portfolio.splice(idx, 1);
+      showToast(`🏁 Trade in ${symbol} closed and archived to Journal!`, "success");
+    }
+    saveUserPortfolio(portfolio);
+  } else {
+    showToast(`🏁 Trade in ${symbol} archived to Journal!`, "success");
+  }
+
+  closeCloseTradeModal();
+  renderOpenPositions(_cachedOpenPositions || []);
+}
+
+function handleHoldingSoldT1(holdingId) {
+  const portfolio = getUserPortfolio();
+  const holding = portfolio.find(p => p.id === holdingId || p.symbol === holdingId);
+  if (!holding) return;
+
+  const soldQty = Math.ceil(holding.qty / 2);
+  const remainingQty = Math.floor(holding.qty / 2);
+  const entry = holding.entry_price;
+
+  holding.is_t1_sold = true;
+  holding.is_be_moved = true;
+  holding.stop = entry;
+  holding.qty = remainingQty > 0 ? remainingQty : 1;
+  holding.notes = (holding.notes ? holding.notes + " | " : "") + `Target 1 (+8%) Hit: Sold ${soldQty} sh. Stop moved to entry ₹${entry.toFixed(2)} (100% Risk-Free).`;
+
+  saveUserPortfolio(portfolio);
+  showToast(`🎯 Locked Target 1 on ${holding.symbol}! Stop moved to ₹${entry.toFixed(2)} (100% Risk-Free).`, "success");
+  renderOpenPositions(_cachedOpenPositions || []);
+}
+
+function handleHoldingStopExit(holdingId) {
+  const holding = findHoldingByIdOrSymbol(holdingId);
+  if (!holding) return;
+  openCloseTradeModal(holding, "HARD_STOP");
+}
+
+function handleHoldingDay5Exit(holdingId) {
+  const holding = findHoldingByIdOrSymbol(holdingId);
+  if (!holding) return;
+  openCloseTradeModal(holding, "DAY_5_TIME_STOP");
+}
+
+function handleHoldingDelete(holdingId) {
+  if (!confirm("Are you sure you want to remove this stock from live monitoring?")) return;
+  const portfolio = getUserPortfolio().filter(p => p.id !== holdingId && p.symbol !== holdingId);
+  saveUserPortfolio(portfolio);
+  showToast("Holding removed from monitor", "info");
+  renderOpenPositions(_cachedOpenPositions || []);
+}
+
+// 2. Render Tab: Open Positions & Live Wealth Copilot
 async function renderOpenPositions(positions) {
   const countBadge = document.getElementById("openCountBadge");
   const countCard = document.getElementById("openPositionsCount");
@@ -3847,8 +4325,50 @@ async function renderOpenPositions(positions) {
   const heatSub = document.getElementById("openPortfolioHeatSub");
   const sectorAlert = document.getElementById("openPositionsSectorAlert");
   const tableBody = document.getElementById("openPositionsBody");
+  const holdingsGrid = document.getElementById("openHoldingsCardsGrid");
 
-  if (!positions || positions.length === 0) {
+  // Merge backend open positions with user-logged portfolio
+  const userPortfolio = getUserPortfolio().filter(p => p.status !== "CLOSED");
+  const mergedMap = new Map();
+
+  (positions || []).forEach(p => {
+    if (p && p.symbol) {
+      mergedMap.set(p.symbol, {
+        id: "backend_" + p.symbol,
+        symbol: p.symbol,
+        entry_date: p.entry_date || "",
+        entry_price: parseFloat(p.entry_price) || 0,
+        qty: parseInt(p.qty, 10) || 10,
+        stop: p.stop ? parseFloat(p.stop) : null,
+        target: p.target ? parseFloat(p.target) : null,
+        target2: p.target2 ? parseFloat(p.target2) : (p.entry_price ? Number((p.entry_price * 1.16).toFixed(2)) : null),
+        day5_date: p.day5_date || "",
+        status: "OPEN",
+        is_t1_sold: false,
+        is_be_moved: false,
+        notes: p.notes || "",
+        mtf_confluence: p.mtf_confluence || false,
+        inst_footprint: p.inst_footprint || null,
+        next_event: p.next_event || null,
+        warn_event: p.warn_event || false
+      });
+    }
+  });
+
+  userPortfolio.forEach(up => {
+    if (up && up.symbol) {
+      const existing = mergedMap.get(up.symbol) || {};
+      mergedMap.set(up.symbol, {
+        ...existing,
+        ...up,
+        is_user_holding: true
+      });
+    }
+  });
+
+  const allPositions = Array.from(mergedMap.values());
+
+  if (allPositions.length === 0) {
     if (countBadge) countBadge.textContent = "0";
     if (countCard) countCard.textContent = "0";
     if (totalPnlCard) {
@@ -3864,28 +4384,48 @@ async function renderOpenPositions(positions) {
     if (sectorAlert) sectorAlert.style.display = "none";
     if (tableBody) {
       tableBody.innerHTML = `
-        <tr><td colspan="12" class="empty-state">💼 No active open positions recorded. Use /buy in Telegram to log trades.</td></tr>
+        <tr><td colspan="13" class="empty-state">💼 No active open positions recorded. Use "Log Trade" above or "✅ Bought" on the Watchlist.</td></tr>
       `;
+    }
+    if (holdingsGrid) {
+      holdingsGrid.innerHTML = `
+        <div class="empty-holdings-card">
+          <div style="font-size: 38px; margin-bottom: 10px;">🛡️</div>
+          <h4>No Active Trades Being Monitored</h4>
+          <p style="font-size: 13px; color: var(--text-dim); max-width: 520px; margin: 0 auto 16px auto; line-height: 1.6;">
+            Your Live Wealth Copilot is ready. When you buy any recommended stock, click <strong>"✅ I Bought This!"</strong> on the Watchlist or click below to log your purchase. The system will monitor targets, risk-free profit locks, and date-wise exit rules automatically.
+          </p>
+          <button class="btn btn-primary btn-sm open-log-buy-btn">
+            <span>➕</span> Log Your First Trade
+          </button>
+        </div>
+      `;
+    }
+    _cachedOpenPositions = [];
+    if (_cachedScanData) {
+      renderTodaysPlan(_cachedScanData, _cachedOpenPositions);
+      renderMorningOpenAssistant(_cachedScanData);
     }
     return;
   }
 
-  if (countBadge) countBadge.textContent = positions.length;
-  if (countCard) countCard.textContent = positions.length;
+  if (countBadge) countBadge.textContent = allPositions.length;
+  if (countCard) countCard.textContent = allPositions.length;
 
   let totalUnrealized = 0;
   let totalCapital = 0;
   let totalRiskAmount = 0;
   const rows = [];
+  const cardsHtml = [];
 
-  for (const pos of positions) {
+  for (const pos of allPositions) {
     const entry = parseFloat(pos.entry_price) || 0;
-    const qty = parseInt(pos.qty, 10) || 0;
-    const stop = pos.stop ? parseFloat(pos.stop) : null;
-    const target = pos.target ? parseFloat(pos.target) : null;
+    const qty = parseInt(pos.qty, 10) || 1;
+    const stop = pos.stop ? parseFloat(pos.stop) : Number((entry * 0.95).toFixed(2));
+    const target1 = pos.target ? parseFloat(pos.target) : Number((entry * 1.08).toFixed(2));
+    const target2 = pos.target2 ? parseFloat(pos.target2) : Number((entry * 1.16).toFixed(2));
     totalCapital += (entry * qty);
 
-    // Fetch live price or fallback
     const livePrice = await fetchLivePrice(pos.symbol);
     const currentPrice = livePrice !== null ? livePrice : entry;
     const isLive = livePrice !== null;
@@ -3904,34 +4444,206 @@ async function renderOpenPositions(positions) {
       if (pctToStop <= 2.0 && pctToStop >= -1.0) isNearStop = true;
     }
 
-    if (target && currentPrice > 0) {
-      const pctToTarget = ((target - currentPrice) / currentPrice) * 100;
+    if (target1 && currentPrice > 0) {
+      const pctToTarget = ((target1 - currentPrice) / currentPrice) * 100;
       distToTargetStr = `${pctToTarget.toFixed(1)}%`;
       if (pctToTarget <= 2.0 && pctToTarget >= -1.0) isNearTarget = true;
     }
 
-    // Attach computed live values for Today's Plan generator
     pos._live_price = currentPrice;
     pos._is_near_stop = isNearStop;
     pos._is_near_target = isNearTarget;
 
-    // R-Multiple Trajectory & Progress calculations (Item #5)
     const plannedRiskPerUnit = (stop && entry > stop) ? (entry - stop) : (entry * 0.05);
     const posRiskAmount = plannedRiskPerUnit * qty;
     totalRiskAmount += posRiskAmount;
 
     const currentR = plannedRiskPerUnit > 0 ? (currentPrice - entry) / plannedRiskPerUnit : 0;
     const pctGainFromEntry = entry > 0 ? ((currentPrice - entry) / entry) * 100 : 0;
-    const isBreakevenReached = pctGainFromEntry >= 8.0;
-
-    // Gauge needle position: -1R = 0%, 0R = 33.3%, +1R = 66.7%, +2R = 100%
     const needlePercent = Math.max(0, Math.min(100, ((currentR + 1) / 3) * 100));
 
+    // Calculate days held
+    let daysHeld = 0;
+    if (pos.entry_date) {
+      const eDate = new Date(pos.entry_date);
+      const now = new Date();
+      daysHeld = Math.max(0, Math.floor((now - eDate) / (1000 * 60 * 60 * 24)));
+    }
+
+    const isDay5Reached = daysHeld >= 5 || (pos.day5_date && new Date().toISOString().split("T")[0] >= pos.day5_date);
+
+    // Traffic-Light Selling Decision Engine
+    let trafficLight = {
+      theme: "green",
+      badge: "🟢 SAFE TO HOLD",
+      title: "LET TRADE WORK — NO ACTION NEEDED TODAY",
+      explanation: `Price is trading comfortably at ₹${formatINR(currentPrice)} (${pctGainFromEntry >= 0 ? '+' : ''}${pctGainFromEntry.toFixed(1)}%). Stop Loss GTT is safely active at ₹${formatINR(stop)}. Routine daily review at 3:15 PM IST.`,
+      actionBtnHtml: `
+        <button class="btn btn-xs btn-outline-danger close-holding-btn" data-id="${pos.id || pos.symbol}" title="Close or exit position">
+          🔴 Exit Trade
+        </button>
+      `
+    };
+
+    if (currentPrice <= stop) {
+      trafficLight = {
+        theme: "red",
+        badge: "🚨 RED LIGHT — HARD STOP LOSS HIT",
+        title: "EXIT 100% IMMEDIATELY (Capital Safe)",
+        explanation: `CRITICAL CAPITAL DEFENSE: The stock has touched or dropped below your safety floor of ₹${formatINR(stop)} (${pctGainFromEntry.toFixed(1)}%). Exit your entire position immediately at market to preserve 99% of your total wealth. Do not wait or hope.`,
+        actionBtnHtml: `
+          <button class="btn btn-xs btn-danger holding-stop-exit-btn" data-id="${pos.id || pos.symbol}">
+            🛑 I Exited Stop
+          </button>
+          <button class="btn btn-xs btn-outline-secondary close-holding-btn" data-id="${pos.id || pos.symbol}">
+            🏁 Log Exit Details
+          </button>
+        `
+      };
+    } else if (!pos.is_t1_sold && (currentPrice >= target1 || pctGainFromEntry >= 8.0)) {
+      const halfQty = Math.ceil(qty / 2);
+      const remainingQty = Math.floor(qty / 2);
+      trafficLight = {
+        theme: "green",
+        badge: `🎯 TARGET 1 HIT (+${pctGainFromEntry.toFixed(1)}%)`,
+        title: `SELL 50% SHARES (${halfQty} sh) & MOVE STOP TO BREAKEVEN (₹${formatINR(entry)})`,
+        explanation: `GUARANTEED PROFIT LOCK: Your stock reached its profit target! Sell exactly 50% (${halfQty} shares) to lock in cash profit. Then move the stop loss on your remaining ${remainingQty} shares to your buy price ₹${formatINR(entry)}. You can never lose money on this trade!`,
+        actionBtnHtml: `
+          <button class="btn btn-xs btn-success holding-sold-t1-btn" data-id="${pos.id || pos.symbol}">
+            🎯 I Sold 50% (Lock Risk-Free)
+          </button>
+          <button class="btn btn-xs btn-outline-secondary close-holding-btn" data-id="${pos.id || pos.symbol}">
+            🏁 Close Entire Trade
+          </button>
+        `
+      };
+    } else if (pos.is_t1_sold) {
+      trafficLight = {
+        theme: "blue",
+        badge: `🚀 RUNNER ACTIVE (+${pctGainFromEntry.toFixed(1)}%)`,
+        title: `RIDING HOUSE MONEY (Stop at Entry ₹${formatINR(entry)})`,
+        explanation: `100% RISK-FREE TRADE: You already booked half profits. Stop is locked at your buy price ₹${formatINR(entry)}. Hold the remaining ${qty} shares with trailing 20-day moving average. Let your profits run!`,
+        actionBtnHtml: `
+          <button class="btn btn-xs btn-info close-holding-btn" data-id="${pos.id || pos.symbol}">
+            🏁 Close Remaining Runner
+          </button>
+        `
+      };
+    } else if (isDay5Reached && pctGainFromEntry < 3.0) {
+      trafficLight = {
+        theme: "amber",
+        badge: "⏳ 5-DAY TIME STOP TRIGGERED",
+        title: "EXIT STAGNANT TRADE AT 3:15 PM TODAY",
+        explanation: `OPPORTUNITY CAPITAL RECYCLE: You have held this trade for 5 sessions and gain is only ${pctGainFromEntry >= 0 ? '+' : ''}${pctGainFromEntry.toFixed(1)}% (&lt; 3%). Swing trades must lift off quickly. Exit at 3:15 PM IST to recycle capital into active leaders.`,
+        actionBtnHtml: `
+          <button class="btn btn-xs btn-warning holding-day5-exit-btn" data-id="${pos.id || pos.symbol}">
+            ⏳ I Exited Day 5
+          </button>
+          <button class="btn btn-xs btn-outline-secondary close-holding-btn" data-id="${pos.id || pos.symbol}">
+            🏁 Close / Archive
+          </button>
+        `
+      };
+    }
+
+    // Build Executive Holding Card HTML
+    const cardHtml = `
+      <div class="holding-card theme-${trafficLight.theme}" id="holding-card-${pos.symbol}">
+        <div class="holding-card-header">
+          <div class="holding-title-group">
+            <strong class="holding-symbol">${pos.symbol}</strong>
+            <span class="badge badge-neutral">${pos.sector || 'Midcap'}</span>
+            ${pos.mtf_confluence ? '<span class="badge badge-success">MTF ✅</span>' : ''}
+            ${pos.is_t1_sold ? '<span class="badge badge-info">100% Risk-Free</span>' : ''}
+          </div>
+          <div style="font-size: 11.5px; color: var(--text-dim);">
+            Bought: <strong>${formatDate(pos.entry_date)}</strong> (${daysHeld}d ago)
+          </div>
+        </div>
+
+        <div class="holding-action-banner banner-${trafficLight.theme}">
+          <div class="action-banner-top">
+            <span class="action-banner-badge">${trafficLight.badge}</span>
+            <span class="action-banner-timing">Daily 3:15 PM IST Check</span>
+          </div>
+          <h4 class="action-banner-headline">${trafficLight.title}</h4>
+          <p class="action-banner-text">${trafficLight.explanation}</p>
+        </div>
+
+        <div class="holding-metrics-bar">
+          <div class="metric-col">
+            <span class="metric-label">Buy Price</span>
+            <span class="metric-val">₹${formatINR(entry)}</span>
+            <span class="metric-sub">${qty} shares</span>
+          </div>
+          <div class="metric-col">
+            <span class="metric-label">Current Price</span>
+            <span class="metric-val">₹${formatINR(currentPrice)}</span>
+            <span class="metric-sub">${!isLive ? '(entry)' : 'Live Market'}</span>
+          </div>
+          <div class="metric-col">
+            <span class="metric-label">Unrealized P&amp;L</span>
+            <span class="metric-val ${unrealized >= 0 ? 'text-success' : 'text-danger'}">
+              ${unrealized >= 0 ? '+' : ''}₹${formatINR(unrealized)}
+            </span>
+            <span class="metric-sub ${pctGainFromEntry >= 0 ? 'text-success' : 'text-danger'}">
+              ${pctGainFromEntry >= 0 ? '+' : ''}${pctGainFromEntry.toFixed(2)}%
+            </span>
+          </div>
+          <div class="metric-col">
+            <span class="metric-label">Safety Floor (Stop)</span>
+            <span class="metric-val text-danger">₹${formatINR(stop)}</span>
+            <span class="metric-sub">${pos.is_be_moved ? '🛡️ Breakeven' : `-${((entry - stop)/entry * 100).toFixed(1)}%`}</span>
+          </div>
+        </div>
+
+        <div style="padding: 0 4px;">
+          <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">
+            <span>🛑 Hard Stop ₹${formatINR(stop)}</span>
+            <span>Buy ₹${formatINR(entry)}</span>
+            <span>🎯 Target 1 ₹${formatINR(target1)} (+8%)</span>
+            <span>🏆 Target 2 ₹${formatINR(target2)} (+16%)</span>
+          </div>
+          <div class="r-gauge-track" style="height: 8px;">
+            <div class="r-gauge-stop-zone" style="width: 25%;"></div>
+            <div class="r-gauge-entry-mark" style="left: 33.3%;"></div>
+            <div class="r-gauge-needle" style="left: ${needlePercent}%;"></div>
+          </div>
+        </div>
+
+        <div class="holding-schedule-timeline">
+          <span>📅 <strong>T+0:</strong> Bought @ ₹${formatINR(entry)}</span>
+          <span>•</span>
+          <span>🛡️ <strong>Stop Floor:</strong> ₹${formatINR(stop)}</span>
+          <span>•</span>
+          <span>⏳ <strong>Day 5 Exit:</strong> ${pos.day5_date || 'Day 5'} @ 3:15 PM</span>
+          <span>•</span>
+          <span>🎯 <strong>T1 Lock:</strong> ₹${formatINR(target1)}</span>
+        </div>
+
+        <div class="holding-card-actions">
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            ${trafficLight.actionBtnHtml}
+          </div>
+          <div style="display: flex; gap: 4px; align-items: center;">
+            <button class="btn btn-xs btn-outline-primary tv-chart-trigger-btn" data-symbol="${pos.symbol}" title="Open TradingView Chart">
+              📊 Chart
+            </button>
+            <button class="btn btn-xs btn-ghost remove-holding-btn" data-id="${pos.id || pos.symbol}" title="Remove from live monitoring" style="color: var(--text-dim);">
+              🗑️
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    cardsHtml.push(cardHtml);
+
+    // Build Table Row HTML
     let rPillClass = "r-neutral";
     let rPillText = `${currentR >= 0 ? "+" : ""}${currentR.toFixed(2)}R`;
-    if (isBreakevenReached) {
+    if (pos.is_t1_sold) {
       rPillClass = "r-breakeven";
-      rPillText = `🎯 Ratchet BE (${currentR >= 0 ? "+" : ""}${currentR.toFixed(1)}R)`;
+      rPillText = `🎯 Risk-Free (${currentR >= 0 ? "+" : ""}${currentR.toFixed(1)}R)`;
     } else if (currentR >= 1.8) {
       rPillClass = "r-target";
       rPillText = `🏆 Target Hit (${currentR.toFixed(1)}R)`;
@@ -3967,30 +4679,29 @@ async function renderOpenPositions(positions) {
 
     const pnlSign = unrealized >= 0 ? "+" : "";
     const pnlClass = unrealized > 0 ? "style='color: var(--success); font-weight:600;'" : unrealized < 0 ? "style='color: var(--danger); font-weight:600;'" : "";
-
     const posInstFp = pos.inst_footprint || getInstFootprintForSymbol(pos.symbol);
     const posInstBadge = getInstFootprintBadge(posInstFp);
 
-      const hasWarnEvent = Boolean(pos.warn_event || (pos.next_event && pos.next_event.days_to_event <= 3));
-      const eventBadge = hasWarnEvent
-        ? `<span class="badge badge-warning" style="margin-left: 6px; cursor: help;" title="🔔 ${pos.next_event ? `${pos.next_event.type} on ${pos.next_event.date} (${pos.next_event.days_to_event}d away)` : 'Upcoming Event'} — review hold">🔔 ${pos.next_event ? `${pos.next_event.type} ${pos.next_event.days_to_event}d` : 'Event'}</span>`
-        : '';
+    const hasWarnEvent = Boolean(pos.warn_event || (pos.next_event && pos.next_event.days_to_event <= 3));
+    const eventBadge = hasWarnEvent
+      ? `<span class="badge badge-warning" style="margin-left: 6px; cursor: help;" title="🔔 Upcoming Event">🔔 Event</span>`
+      : '';
 
-      rows.push(`
-        <tr class="${rowClass}">
-          <td data-label="Symbol">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <strong>${pos.symbol}</strong>
-              <span class="badge ${pos.mtf_confluence ? 'badge-success' : 'badge-neutral'} term-lookup" data-term="Multi-Timeframe Confluence" style="font-size: 9.5px; padding: 2px 5px;" title="Multi-Timeframe Confluence (Daily Trend + Weekly Stage 2)">MTF ${pos.mtf_confluence ? '✅' : '—'}</span>
-              ${eventBadge}
-            </div>
-          </td>
+    rows.push(`
+      <tr class="${rowClass}">
+        <td data-label="Symbol">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <strong>${pos.symbol}</strong>
+            <span class="badge ${pos.mtf_confluence ? 'badge-success' : 'badge-neutral'} term-lookup" data-term="Multi-Timeframe Confluence" style="font-size: 9.5px; padding: 2px 5px;">MTF ${pos.mtf_confluence ? '✅' : '—'}</span>
+            ${eventBadge}
+          </div>
+        </td>
         <td data-label="Inst">${posInstBadge}</td>
         <td data-label="Entry Date">${formatDate(pos.entry_date)}</td>
         <td data-label="Entry Price">${formatINR(entry)}</td>
         <td data-label="Qty">${qty}</td>
         <td data-label="Stop" style="color: var(--danger);">${stop ? formatINR(stop) : "None"}</td>
-        <td data-label="Target" style="color: var(--success);">${target ? formatINR(target) : "None"}</td>
+        <td data-label="Target" style="color: var(--success);">${target1 ? formatINR(target1) : "None"}</td>
         <td data-label="Last Price">${formatINR(currentPrice)} ${!isLive ? "<small style='color: var(--text-dim);'>(entry)</small>" : ""}</td>
         <td data-label="Unrealized PnL" ${pnlClass}>${pnlSign}${formatINR(unrealized)}</td>
         <td data-label="% to Stop">${distToStopStr}</td>
@@ -4001,19 +4712,23 @@ async function renderOpenPositions(positions) {
             <button class="btn btn-xs btn-outline-primary tv-chart-trigger-btn" data-symbol="${pos.symbol}" title="Open TradingView Chart">
               📊 Chart
             </button>
-            <button class="btn btn-xs btn-outline-secondary gtt-copy-btn"
-              data-symbol="${pos.symbol}"
-              data-entry="${entry}"
-              data-stop="${stop}"
-              data-target="${target}"
-              data-qty="${qty}"
-              title="Copy Zerodha/Groww GTT Stop & Target order snippet">
-              📋 GTT
+            <button class="btn btn-xs btn-outline-secondary close-holding-btn" data-id="${pos.id || pos.symbol}" title="Close / Log exit">
+              🏁 Exit
             </button>
           </div>
         </td>
       </tr>
     `);
+  }
+
+  // Update Holdings Cards Grid
+  if (holdingsGrid) {
+    holdingsGrid.innerHTML = cardsHtml.join("");
+  }
+
+  // Update Table Body
+  if (tableBody) {
+    tableBody.innerHTML = rows.join("");
   }
 
   // Update Summary Cards
@@ -4023,7 +4738,7 @@ async function renderOpenPositions(positions) {
     totalPnlCard.className = `stat-value ${totalUnrealized > 0 ? "positive" : totalUnrealized < 0 ? "negative" : "neutral"}`;
   }
 
-  // Portfolio Heat Card (Item #6)
+  // Portfolio Heat Card
   if (heatCard) {
     const accountCapital = 100000;
     const heatPct = ((totalRiskAmount / accountCapital) * 100).toFixed(1);
@@ -4034,14 +4749,14 @@ async function renderOpenPositions(positions) {
     heatCard.className = `stat-value ${heatClass}`;
 
     if (heatSub) {
-      heatSub.textContent = `₹${formatINR(totalRiskAmount)} at risk across ${positions.length} trade${positions.length === 1 ? '' : 's'}`;
+      heatSub.textContent = `₹${formatINR(totalRiskAmount)} at risk across ${allPositions.length} trade${allPositions.length === 1 ? '' : 's'}`;
     }
   }
 
-  // Sector Concentration Warning (Item #6)
+  // Sector Concentration Warning
   if (sectorAlert) {
     const sectorCount = {};
-    for (const pos of positions) {
+    for (const pos of allPositions) {
       let sec = "Midcap";
       if (_cachedScanData && _cachedScanData.watchlist) {
         const match = _cachedScanData.watchlist.find(w => w.Symbol === pos.symbol);
@@ -4059,11 +4774,11 @@ async function renderOpenPositions(positions) {
       `;
       sectorAlert.className = "positions-alert-banner warning";
       sectorAlert.style.display = "flex";
-    } else if (positions.length > 1) {
+    } else if (allPositions.length > 1) {
       sectorAlert.innerHTML = `
         <span class="alert-icon">🟢</span>
         <div class="alert-text">
-          <strong>Sector Diversification Healthy:</strong> All ${positions.length} open positions belong to distinct industry sectors.
+          <strong>Sector Diversification Healthy:</strong> All ${allPositions.length} open positions belong to distinct industry sectors.
         </div>
       `;
       sectorAlert.className = "positions-alert-banner success";
@@ -4073,12 +4788,12 @@ async function renderOpenPositions(positions) {
     }
   }
 
-  // P5: Correlation Heatmap Card & Concentration Warning
+  // Correlation Heatmap Card
   const concentrationBanner = document.getElementById("openConcentrationBanner");
   const corrCard = document.getElementById("openCorrelationCard");
 
   let corrData = (_cachedScanData && _cachedScanData.correlation) ||
-                 (positions.length > 0 && positions[0].correlation) ||
+                 (allPositions.length > 0 && allPositions[0].correlation) ||
                  { pairs: [], betas: {}, concentration_warning: false };
 
   if (concentrationBanner) {
@@ -4090,18 +4805,15 @@ async function renderOpenPositions(positions) {
   }
 
   if (corrCard) {
-    if (positions.length < 2) {
+    if (allPositions.length < 2) {
       corrCard.style.display = "none";
     } else {
       corrCard.style.display = "block";
-      renderCorrelationHeatmap(corrData, positions);
+      renderCorrelationHeatmap(corrData, allPositions);
     }
   }
 
-  tableBody.innerHTML = rows.join("");
-
-  // Update Today's Plan with live open positions metrics
-  _cachedOpenPositions = positions;
+  _cachedOpenPositions = allPositions;
   if (_cachedScanData) {
     renderTodaysPlan(_cachedScanData, _cachedOpenPositions);
     renderMorningOpenAssistant(_cachedScanData);
@@ -5644,6 +6356,115 @@ function initTermSearchAndLookups() {
   });
 }
 
+function initPersonalCopilotListeners() {
+  const openLogBtn = document.getElementById("openLogBuyModalBtn");
+  if (openLogBtn) {
+    openLogBtn.addEventListener("click", () => openLogBuyModal({}));
+  }
+
+  // Global click delegation for all dynamic buttons
+  document.addEventListener("click", (e) => {
+    // Watchlist or card "I Bought This!" button
+    const buyBtn = e.target.closest(".log-buy-btn, .open-log-buy-btn");
+    if (buyBtn) {
+      e.stopPropagation();
+      const sym = buyBtn.getAttribute("data-symbol") || "";
+      const entry = buyBtn.getAttribute("data-entry") || "";
+      const stop = buyBtn.getAttribute("data-stop") || "";
+      const target = buyBtn.getAttribute("data-target") || "";
+      openLogBuyModal({ symbol: sym, entry: entry, stop: stop, target: target });
+      return;
+    }
+
+    // Holding 1-Click Sold 50%
+    const soldT1Btn = e.target.closest(".holding-sold-t1-btn");
+    if (soldT1Btn) {
+      e.stopPropagation();
+      const id = soldT1Btn.getAttribute("data-id");
+      handleHoldingSoldT1(id);
+      return;
+    }
+
+    // Holding Stop Exit
+    const stopExitBtn = e.target.closest(".holding-stop-exit-btn");
+    if (stopExitBtn) {
+      e.stopPropagation();
+      const id = stopExitBtn.getAttribute("data-id");
+      handleHoldingStopExit(id);
+      return;
+    }
+
+    // Holding Day 5 Exit
+    const day5ExitBtn = e.target.closest(".holding-day5-exit-btn");
+    if (day5ExitBtn) {
+      e.stopPropagation();
+      const id = day5ExitBtn.getAttribute("data-id");
+      handleHoldingDay5Exit(id);
+      return;
+    }
+
+    // Holding Close / Exit button
+    const closeBtn = e.target.closest(".close-holding-btn");
+    if (closeBtn) {
+      e.stopPropagation();
+      const id = closeBtn.getAttribute("data-id");
+      const holding = findHoldingByIdOrSymbol(id);
+      if (holding) openCloseTradeModal(holding);
+      return;
+    }
+
+    // Holding Remove button
+    const removeBtn = e.target.closest(".remove-holding-btn");
+    if (removeBtn) {
+      e.stopPropagation();
+      const id = removeBtn.getAttribute("data-id");
+      handleHoldingDelete(id);
+      return;
+    }
+  });
+
+  // Log Buy Modal Close & Submit
+  const logBuyClose = document.getElementById("logBuyCloseBtn");
+  if (logBuyClose) logBuyClose.addEventListener("click", closeLogBuyModal);
+  const logBuyCancel = document.getElementById("logBuyCancelBtn");
+  if (logBuyCancel) logBuyCancel.addEventListener("click", closeLogBuyModal);
+  const logBuyBackdrop = document.getElementById("logBuyBackdrop");
+  if (logBuyBackdrop) logBuyBackdrop.addEventListener("click", closeLogBuyModal);
+  const logBuySubmit = document.getElementById("logBuySubmitBtn");
+  if (logBuySubmit) logBuySubmit.addEventListener("click", handleLogBuySubmit);
+
+  ["logBuyPrice", "logBuyQty", "logBuyStop", "logBuyTarget1"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", updateLogBuySummary);
+  });
+
+  // Close Trade Modal Close & Submit
+  const closeTradeClose = document.getElementById("closeTradeCloseBtn");
+  if (closeTradeClose) closeTradeClose.addEventListener("click", closeCloseTradeModal);
+  const closeTradeCancel = document.getElementById("closeTradeCancelBtn");
+  if (closeTradeCancel) closeTradeCancel.addEventListener("click", closeCloseTradeModal);
+  const closeTradeBackdrop = document.getElementById("closeTradeBackdrop");
+  if (closeTradeBackdrop) closeTradeBackdrop.addEventListener("click", closeCloseTradeModal);
+  const closeTradeSubmit = document.getElementById("closeTradeSubmitBtn");
+  if (closeTradeSubmit) closeTradeSubmit.addEventListener("click", handleCloseTradeSubmit);
+
+  ["closeTradePrice", "closeTradeQty"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", () => {
+      const holdingId = document.getElementById("closeTradeHoldingId")?.value;
+      const holding = findHoldingByIdOrSymbol(holdingId);
+      if (holding) updateCloseTradeSummary(holding);
+    });
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeLogBuyModal();
+      closeCloseTradeModal();
+    }
+  });
+}
+
 // =====================================================================
 // EVENT LISTENERS & INITIALIZATION
 // =====================================================================
@@ -5719,6 +6540,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initMorningOpenAssistantListeners();
   initWhatsAppSummaryListeners();
   initDisciplineCoachListeners();
+  initPersonalCopilotListeners();
 
   // Initialize Phase 4 Backtest Listeners
   initBacktestListeners();

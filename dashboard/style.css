@@ -6865,3 +6865,370 @@ html.pwa-standalone body {
   color: #f87171;
   box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
 }
+
+/* =====================================================================
+   LIVE MONITORING PORTFOLIO & AUTOMATED SELL DECISION CARDS
+   ===================================================================== */
+.active-portfolio-section {
+  margin-top: 24px;
+  margin-bottom: 24px;
+}
+
+.active-portfolio-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.active-portfolio-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.active-portfolio-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 12.5px;
+  color: #94a3b8;
+}
+
+.open-holdings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+  .open-holdings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.holding-card {
+  background: linear-gradient(135deg, rgba(17, 24, 39, 0.85), rgba(15, 23, 42, 0.95));
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.holding-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.holding-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.holding-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.holding-symbol {
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+
+.holding-pnl-group {
+  text-align: right;
+}
+
+.holding-pnl-val {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.holding-pnl-sub {
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.holding-metrics-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+
+.hm-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hm-label {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.hm-val {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.holding-action-banner {
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.holding-action-banner.safe {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #e2e8f0;
+}
+.holding-action-banner.safe .hab-title { color: #34d399; }
+
+.holding-action-banner.target {
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #e2e8f0;
+}
+.holding-action-banner.target .hab-title { color: #38bdf8; }
+
+.holding-action-banner.stop {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #fecaca;
+}
+.holding-action-banner.stop .hab-title { color: #f87171; }
+
+.holding-action-banner.timestop {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fef3c7;
+}
+.holding-action-banner.timestop .hab-title { color: #fbbf24; }
+
+.hab-title {
+  font-size: 12.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.holding-schedule-timeline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #94a3b8;
+  padding: 6px 10px;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 6px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.holding-schedule-timeline strong {
+  color: #ffffff;
+}
+
+.holding-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Modals for Buy / Close Trade */
+.log-buy-dialog {
+  max-width: 620px;
+  height: auto;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.log-buy-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.log-buy-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 580px) {
+  .log-buy-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.log-buy-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.log-buy-field label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.log-buy-field input, .log-buy-field select {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #ffffff;
+  font-size: 13.5px;
+}
+
+.log-buy-field input:focus, .log-buy-field select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.log-buy-summary-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.buy-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.buy-summary-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.buy-summary-val {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.log-buy-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Point-wise Date & Time Action Schedule Card in Watchlist */
+.date-time-flight-plan {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8));
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.dt-plan-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dt-plan-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dt-plan-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dt-step-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+.dt-step-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.dt-step-content strong {
+  color: #ffffff;
+}
+
+.empty-holdings-card {
+  grid-column: 1 / -1;
+  background: rgba(30, 41, 59, 0.4);
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 36px 24px;
+  text-align: center;
+}
+
+.empty-holdings-card h4 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
