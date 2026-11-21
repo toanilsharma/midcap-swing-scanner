@@ -128,12 +128,13 @@ body {
   outline-offset: 2px;
 }
 
-/* 3. SINGLE UNIFIED PAGE CONTAINER - MAX 1400PX CENTERED (A1) */
+/* 3. FLUID FULL-WIDTH RESPONSIVE PAGE CONTAINER (FIT TO SCREEN - ZERO SIDE DEAD SPACE) */
 .page-container {
   width: 100%;
-  max-width: 1400px;
-  margin-inline: auto;
-  padding-inline: clamp(16px, 2.5vw, 32px);
+  max-width: 100%;
+  margin-inline: 0;
+  padding-inline: clamp(14px, 1.8vw, 32px);
+  box-sizing: border-box;
 }
 
 /* LOGIN PAGE */
@@ -816,6 +817,12 @@ body {
 
 .table-scroll tbody tr:last-child td {
   border-bottom: none;
+}
+
+.table-scroll th:last-child,
+.table-scroll td:last-child {
+  text-align: right;
+  min-width: 150px;
 }
 
 /* ROW HIGHLIGHTS & HOVER (D9) */
