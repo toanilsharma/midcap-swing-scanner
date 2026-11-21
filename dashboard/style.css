@@ -7330,6 +7330,10 @@ html.pwa-standalone body {
 }
 
 /* WHAT TO DO NOW (EXECUTIVE ACTION ADVISOR) */
+#whatToDoNowModal {
+  z-index: 100000 !important;
+}
+
 .what-to-do-btn {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
   color: #ffffff !important;
@@ -7342,8 +7346,20 @@ html.pwa-standalone body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  cursor: pointer;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 10;
   transition: all 0.2s ease;
+  user-select: none;
+}
+
+.what-to-do-pill-btn {
+  padding: 5px 12px !important;
+  font-size: 12px !important;
+  border-radius: 20px !important;
+  margin-right: 6px;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5) !important;
 }
 
 .what-to-do-btn:hover {

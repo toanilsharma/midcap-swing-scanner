@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20261121c">
   <!-- Immediate Auth Guard (prevents flash of protected content) -->
   <script>
     if (localStorage.getItem("auth") !== "1") {
@@ -49,7 +49,7 @@
         </div>
       </div>
       <div class="header-actions">
-        <button id="whatToDoNowBtn" class="btn what-to-do-btn" title="Click to see clear, professional advice on what action to take right now in plain English">
+        <button id="whatToDoNowBtn" class="btn what-to-do-btn" onclick="openWhatToDoNowModal()" title="Click to see clear, professional advice on what action to take right now in plain English">
           ⚡ What to Do Now?
         </button>
         <button id="whatsappSummaryBtn" class="btn whatsapp-header-btn" title="Open 1-Click WhatsApp Morning Summary">
@@ -88,6 +88,9 @@
         <button class="tab-btn" data-tab="tabHelp" id="helpTabBtn">📖 Help & Guide</button>
       </div>
       <div class="tabs-quick-status" id="tabsQuickStatusPill">
+        <button class="btn what-to-do-btn what-to-do-pill-btn" onclick="openWhatToDoNowModal()" title="Click to see clear, professional advice on what action to take right now in plain English">
+          ⚡ What to Do Now?
+        </button>
         <span id="quickMarketBadge" class="badge badge-success" title="Overall market health & risk posture">🟢 Market: Uptrend (1% Risk)</span>
         <span id="quickHeatBadge" class="badge badge-info" title="Total portfolio heat (capital at risk)">🛡️ Open Risk: 0.0%</span>
       </div>
@@ -2823,7 +2826,7 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
-  <script src="pwa.js"></script>
+  <script src="app.js?v=20261121c"></script>
+  <script src="pwa.js?v=20261121c"></script>
 </body>
 </html>

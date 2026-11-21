@@ -1,8 +1,8 @@
 // Midcap Swing Terminal - Service Worker
 // Enables offline functionality, asset caching, and standalone PWA installation
 
-const CACHE_NAME = 'midcap-swing-v1.0.0';
-const DATA_CACHE_NAME = 'midcap-swing-data-v1';
+const CACHE_NAME = 'midcap-swing-v1.0.3';
+const DATA_CACHE_NAME = 'midcap-swing-data-v1.0.3';
 
 const STATIC_ASSETS = [
   './',

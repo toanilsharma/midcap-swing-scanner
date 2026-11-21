@@ -6492,13 +6492,22 @@ function initPersonalCopilotListeners() {
 }
 
 // =====================================================================
+// =====================================================================
 // WHAT TO DO NOW (PROFESSIONAL PAID-ADVISER ACTION ENGINE)
 // =====================================================================
 function openWhatToDoNowModal() {
   const modal = document.getElementById("whatToDoNowModal");
-  if (!modal) return;
-  renderWhatToDoNowContent();
+  if (!modal) {
+    console.warn("[WhatToDoNow] Modal #whatToDoNowModal not found in DOM");
+    return;
+  }
+  // Open modal immediately so user gets instantaneous response
   modal.style.display = "flex";
+  try {
+    renderWhatToDoNowContent();
+  } catch (err) {
+    console.error("[WhatToDoNow] Error rendering content:", err);
+  }
 }
 
 function closeWhatToDoNowModal() {
@@ -6506,13 +6515,36 @@ function closeWhatToDoNowModal() {
   if (modal) modal.style.display = "none";
 }
 
+// Expose globally on window so inline onclick handlers and console work 100%
+window.openWhatToDoNowModal = openWhatToDoNowModal;
+window.closeWhatToDoNowModal = closeWhatToDoNowModal;
+
+// Document-level immediate click delegation (works anywhere, anytime)
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest && e.target.closest("#whatToDoNowBtn, .what-to-do-btn");
+  if (btn) {
+    e.preventDefault();
+    e.stopPropagation();
+    openWhatToDoNowModal();
+  }
+});
+
 function renderWhatToDoNowContent() {
   const container = document.getElementById("whatToDoNowBody");
   if (!container) return;
 
-  const scanData = _cachedScanData;
+  const scanData = _cachedScanData || {};
   const isMarketOk = Boolean(scanData && scanData.market_ok);
-  const userPortfolio = getUserPortfolio().filter(p => p.status !== "CLOSED");
+
+  let userPortfolio = [];
+  try {
+    if (typeof getUserPortfolio === "function") {
+      userPortfolio = (getUserPortfolio() || []).filter(p => p && p.status !== "CLOSED");
+    }
+  } catch (e) {
+    console.warn("[WhatToDoNow] Error reading portfolio:", e);
+    userPortfolio = [];
+  }
 
   // 1. Overall Market Regime Banner
   let marketBannerHtml = "";
@@ -6548,75 +6580,115 @@ function renderWhatToDoNowContent() {
     `;
   }
 
-  // 2. Buy Candidates that pass all criteria
-  const readyCandidates = (scanData?.watchlist || []).filter(w => {
-    const g = w.grade || w.Grade || "C";
+  // 2. Buy Candidates that pass criteria (Tier 1: <1.5% away, Tier 2: 1.5% to 3.5% away for advance GTT)
+  const allWatchlist = scanData?.watchlist || [];
+
+  const tier1Candidates = allWatchlist.filter(w => {
+    if (!w) return false;
+    const g = String(w.grade || w.Grade || "C").toUpperCase();
+    const score = parseFloat(w.score || w.Score) || 0;
     const dist = parseFloat(w["DistToBreakout%"]) || 0;
-    return (g === "A+" || g === "A") && dist <= 1.5 && !w.event_blocked_reason;
+    return (g === "A+" || g === "A" || (g === "B" && score >= 80)) && dist <= 1.5 && !w.event_blocked_reason;
   });
 
+  const tier2Candidates = allWatchlist.filter(w => {
+    if (!w) return false;
+    const g = String(w.grade || w.Grade || "C").toUpperCase();
+    const dist = parseFloat(w["DistToBreakout%"]) || 0;
+    return (g === "A+" || g === "A") && dist > 1.5 && dist <= 3.5 && !w.event_blocked_reason;
+  });
+
+  function renderStockCard(item, isAdvanceGtt = false) {
+    const sym = item.Symbol || "STOCK";
+    const close = parseFloat(item.Close) || 0;
+    const dist = parseFloat(item["DistToBreakout%"]) || 0;
+    const breakout = item.Breakout ? parseFloat(item.Breakout) : (item.Entry ? parseFloat(item.Entry) : Number((close * (1 + dist / 100)).toFixed(2)));
+    const limit = (breakout * 1.005).toFixed(2);
+    const atr = parseFloat(item.ATR14) || Number((close * 0.025).toFixed(2));
+    const stop = item.Stop ? parseFloat(item.Stop) : Number(Math.max(1, breakout - 1.5 * atr).toFixed(2));
+    const riskAmt = Math.max(0.01, breakout - stop);
+    const riskPct = ((riskAmt / (breakout || 1)) * 100).toFixed(1);
+    const target = item.Target ? parseFloat(item.Target) : Number((breakout + 2 * riskAmt).toFixed(2));
+    const grade = item.grade || item.Grade || "A";
+
+    return `
+      <div class="wtd-stock-card">
+        <div class="wtd-stock-header">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span class="wtd-stock-name">🟢 ${isAdvanceGtt ? 'ADVANCE GTT BUY' : 'READY TO BUY'}: ${escapeHtml(sym)}</span>
+            <span class="badge badge-success">Grade ${grade}</span>
+            <span class="badge badge-neutral">${item.Sector || '^NSEI'}</span>
+            <span class="badge badge-info">100% Filters Passed</span>
+          </div>
+          <div style="font-size: 13px; font-weight: 700; color: #38bdf8;">
+            Trigger: ₹${breakout.toFixed(2)} (${dist.toFixed(1)}% away)
+          </div>
+        </div>
+
+        <div class="wtd-stock-steps">
+          <div><strong>1. Place GTT Buy Order Today:</strong> Set Trigger Price at <strong>₹${breakout.toFixed(2)}</strong> and Limit Price at <strong>₹${limit}</strong> (0.5% buffer) on Zerodha Kite / Groww / Angel One. Validity: <em>Good Till Cancelled</em>. Once set, your broker executes automatically when the breakout pivot is cleared.</div>
+          <div><strong>2. Hard Stop Loss:</strong> Place GTT Stop at <strong>₹${stop.toFixed(2)}</strong> (-${riskPct}%). If price closes below this, exit immediately to protect 99% of your wealth.</div>
+          <div><strong>3. Profit Target 1 (+8%):</strong> Target is <strong>₹${target.toFixed(2)}</strong> (+2R). When touched, sell exactly <strong>50% of your shares</strong> to lock in guaranteed profit, and move stop to <strong>₹${breakout.toFixed(2)}</strong> (100% Risk-Free!).</div>
+          <div><strong>4. Day 5 Time Exit:</strong> If held for 5 sessions and gain is &lt; 3%, exit at 3:15 PM IST.</div>
+        </div>
+
+        <div class="wtd-stock-actions">
+          <button class="btn btn-xs btn-primary gtt-slip-modal-btn"
+            data-symbol="${sym}"
+            data-entry="${breakout.toFixed(2)}"
+            data-stop="${stop.toFixed(2)}"
+            data-target="${target.toFixed(2)}"
+            data-qty="10"
+            title="Open 1-Click Broker GTT Slip">
+            ⚡ Open Broker GTT Slip
+          </button>
+          <button class="btn btn-xs btn-success log-buy-btn"
+            data-symbol="${sym}"
+            data-entry="${breakout.toFixed(2)}"
+            data-stop="${stop.toFixed(2)}"
+            data-target="${target.toFixed(2)}"
+            title="I bought this! Start live monitoring">
+            ✅ I Bought This!
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
   let buySectionHtml = "";
-  if (isMarketOk && readyCandidates.length > 0) {
+  if (isMarketOk && (tier1Candidates.length > 0 || tier2Candidates.length > 0)) {
+    let tier1Html = "";
+    if (tier1Candidates.length > 0) {
+      tier1Html = `
+        <div style="margin-bottom: 16px;">
+          <h4 style="font-size: 14px; font-weight: 700; color: #34d399; margin: 0 0 10px 0;">
+            ⚡ Tier 1: Immediate Breakout Triggers (&le; 1.5% from Pivot)
+          </h4>
+          ${tier1Candidates.map(item => renderStockCard(item, false)).join("")}
+        </div>
+      `;
+    }
+
+    let tier2Html = "";
+    if (tier2Candidates.length > 0) {
+      tier2Html = `
+        <div>
+          <h4 style="font-size: 14px; font-weight: 700; color: #60a5fa; margin: 0 0 10px 0;">
+            🎯 Tier 2: Prime Grade A Setups on Deck (&le; 3.5% from Pivot — Place Advance GTT)
+          </h4>
+          ${tier2Candidates.map(item => renderStockCard(item, true)).join("")}
+        </div>
+      `;
+    }
+
     buySectionHtml = `
       <div class="wtd-section">
         <div class="wtd-section-title">
           <span>🎯</span>
-          <span>Category 1: Stocks Ready to Buy (Passed 100% of Checks)</span>
+          <span>Category 1: Recommended Stocks to Buy (Passed 100% of Checks)</span>
         </div>
-        ${readyCandidates.map(item => {
-          const sym = item.Symbol;
-          const close = parseFloat(item.Close) || 0;
-          const dist = parseFloat(item["DistToBreakout%"]) || 0;
-          const breakout = item.Breakout ? parseFloat(item.Breakout) : (item.Entry ? parseFloat(item.Entry) : Number((close * (1 + dist / 100)).toFixed(2)));
-          const limit = (breakout * 1.005).toFixed(2);
-          const atr = parseFloat(item.ATR14) || Number((close * 0.025).toFixed(2));
-          const stop = item.Stop ? parseFloat(item.Stop) : Number(Math.max(1, breakout - 1.5 * atr).toFixed(2));
-          const riskAmt = Math.max(0.01, breakout - stop);
-          const riskPct = ((riskAmt / (breakout || 1)) * 100).toFixed(1);
-          const target = item.Target ? parseFloat(item.Target) : Number((breakout + 2 * riskAmt).toFixed(2));
-
-          return `
-            <div class="wtd-stock-card">
-              <div class="wtd-stock-header">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span class="wtd-stock-name">🟢 BUY: ${escapeHtml(sym)}</span>
-                  <span class="badge badge-success">Grade ${item.grade || item.Grade || 'A'}</span>
-                  <span class="badge badge-neutral">${item.Sector || '^NSEI'}</span>
-                </div>
-                <div style="font-size: 13px; font-weight: 700; color: #38bdf8;">
-                  Trigger: ₹${breakout.toFixed(2)} (${dist.toFixed(1)}% away)
-                </div>
-              </div>
-
-              <div class="wtd-stock-steps">
-                <div><strong>1. Place GTT Buy Order Today:</strong> Set Trigger Price at <strong>₹${breakout.toFixed(2)}</strong> and Limit Price at <strong>₹${limit}</strong> (0.5% buffer) on Zerodha Kite / Groww / Angel One. Validity: <em>Good Till Cancelled</em>.</div>
-                <div><strong>2. Hard Stop Loss:</strong> Place GTT Stop at <strong>₹${stop.toFixed(2)}</strong> (-${riskPct}%). If price closes below this, exit immediately to protect 99% of your wealth.</div>
-                <div><strong>3. Profit Target 1 (+8%):</strong> Target is <strong>₹${target.toFixed(2)}</strong> (+2R). When touched, sell exactly <strong>50% of your shares</strong> to lock in guaranteed profit, and move stop to <strong>₹${breakout.toFixed(2)}</strong> (100% Risk-Free!).</div>
-                <div><strong>4. Day 5 Time Exit:</strong> If held for 5 sessions and gain is &lt; 3%, exit at 3:15 PM IST.</div>
-              </div>
-
-              <div class="wtd-stock-actions">
-                <button class="btn btn-xs btn-primary gtt-slip-modal-btn"
-                  data-symbol="${sym}"
-                  data-entry="${breakout.toFixed(2)}"
-                  data-stop="${stop.toFixed(2)}"
-                  data-target="${target.toFixed(2)}"
-                  data-qty="10"
-                  title="Open 1-Click Broker GTT Slip">
-                  ⚡ Open Broker GTT Slip
-                </button>
-                <button class="btn btn-xs btn-success log-buy-btn"
-                  data-symbol="${sym}"
-                  data-entry="${breakout.toFixed(2)}"
-                  data-stop="${stop.toFixed(2)}"
-                  data-target="${target.toFixed(2)}"
-                  title="I bought this! Start live monitoring">
-                  ✅ I Bought This!
-                </button>
-              </div>
-            </div>
-          `;
-        }).join("")}
+        ${tier1Html}
+        ${tier2Html}
       </div>
     `;
   } else {
@@ -6629,7 +6701,7 @@ function renderWhatToDoNowContent() {
         <div class="wtd-empty-notice">
           ${!isMarketOk
             ? "🚫 <strong>No buys recommended today.</strong> The market filter is active (Caution/Defensive). Professional advisers do not initiate new swing entries when the index is under pressure."
-            : "⏳ <strong>No stocks currently meet 100% of buy criteria today.</strong> High-probability candidates are still developing their bases. A disciplined investor never forces trades. Patience is your greatest competitive advantage."}
+            : "⏳ <strong>No stocks currently meet 100% of buy criteria within trigger range today.</strong> High-probability candidates are still developing their bases. A disciplined investor never forces trades. Patience is your greatest competitive advantage."}
         </div>
       </div>
     `;
@@ -6651,8 +6723,12 @@ function renderWhatToDoNowContent() {
           const live = pos._live_price || entry;
           const pctGain = entry > 0 ? ((live - entry) / entry) * 100 : 0;
 
+          const liveFmt = typeof formatINR === "function" ? formatINR(live) : "₹" + Number(live).toFixed(2);
+          const stopFmt = typeof formatINR === "function" ? formatINR(stop) : "₹" + Number(stop).toFixed(2);
+          const entryFmt = typeof formatINR === "function" ? formatINR(entry) : "₹" + Number(entry).toFixed(2);
+
           let actionBadge = `<span class="badge badge-success">🟢 SAFE TO HOLD</span>`;
-          let actionText = `Price is ₹${formatINR(live)} (${pctGain >= 0 ? '+' : ''}${pctGain.toFixed(1)}%). Trade is progressing normally. Stop Loss active at ₹${formatINR(stop)}. Routine check at 3:15 PM IST.`;
+          let actionText = `Price is ${liveFmt} (${pctGain >= 0 ? '+' : ''}${pctGain.toFixed(1)}%). Trade is progressing normally. Stop Loss active at ${stopFmt}. Routine check at 3:15 PM IST.`;
           let btnHtml = `
             <button class="btn btn-xs btn-outline-danger close-holding-btn" data-id="${pos.id || pos.symbol}">
               🏁 Close / Log Exit
@@ -6661,7 +6737,7 @@ function renderWhatToDoNowContent() {
 
           if (live <= stop) {
             actionBadge = `<span class="badge badge-danger">🛑 HARD STOP HIT — EXIT 100%</span>`;
-            actionText = `CRITICAL CAPITAL DEFENSE: Price is ₹${formatINR(live)}, which touched your safety floor of ₹${formatINR(stop)}. Exit your entire position immediately at market to preserve 99% of your total wealth.`;
+            actionText = `CRITICAL CAPITAL DEFENSE: Price is ${liveFmt}, which touched your safety floor of ${stopFmt}. Exit your entire position immediately at market to preserve 99% of your total wealth.`;
             btnHtml = `
               <button class="btn btn-xs btn-danger holding-stop-exit-btn" data-id="${pos.id || pos.symbol}">
                 🛑 I Exited Stop Loss
@@ -6670,7 +6746,7 @@ function renderWhatToDoNowContent() {
           } else if (!pos.is_t1_sold && (live >= target || pctGain >= 8.0)) {
             const halfQty = Math.ceil((pos.qty || 10) / 2);
             actionBadge = `<span class="badge badge-success">🎯 TARGET 1 HIT (+${pctGain.toFixed(1)}%) — SELL 50%</span>`;
-            actionText = `GUARANTEED PROFIT LOCK: Target 1 achieved! Sell ${halfQty} shares right now to bank guaranteed profit. Raise your stop on remaining shares to your buy price ₹${formatINR(entry)} to make this trade 100% Risk-Free.`;
+            actionText = `GUARANTEED PROFIT LOCK: Target 1 achieved! Sell ${halfQty} shares right now to bank guaranteed profit. Raise your stop on remaining shares to your buy price ${entryFmt} to make this trade 100% Risk-Free.`;
             btnHtml = `
               <button class="btn btn-xs btn-success holding-sold-t1-btn" data-id="${pos.id || pos.symbol}">
                 🎯 I Sold 50% (Lock Risk-Free)
@@ -6678,7 +6754,7 @@ function renderWhatToDoNowContent() {
             `;
           } else if (pos.is_t1_sold) {
             actionBadge = `<span class="badge badge-info">🚀 RUNNER RIDING HOUSE MONEY</span>`;
-            actionText = `100% Risk-Free trade: You already banked half profits. Stop is at your buy price ₹${formatINR(entry)}. Hold and let profits run with trailing 20-DMA.`;
+            actionText = `100% Risk-Free trade: You already banked half profits. Stop is at your buy price ${entryFmt}. Hold and let profits run with trailing 20-DMA.`;
           }
 
           return `
@@ -6686,7 +6762,7 @@ function renderWhatToDoNowContent() {
               <div class="wtd-stock-header">
                 <div>
                   <strong style="font-size: 15px; color: #ffffff;">${pos.symbol}</strong>
-                  <span style="font-size: 12px; color: var(--text-dim); margin-left: 6px;">(Bought @ ₹${formatINR(entry)})</span>
+                  <span style="font-size: 12px; color: var(--text-dim); margin-left: 6px;">(Bought @ ${entryFmt})</span>
                 </div>
                 <div>${actionBadge}</div>
               </div>
