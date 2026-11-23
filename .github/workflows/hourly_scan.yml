@@ -58,10 +58,14 @@ jobs:
           env = os.environ.copy()
           if is_market_hours:
               env["QUIET"] = "1"
-              print(f"Market-hours hourly run ({now_ist.strftime(\"%H:%M\")} IST): QUIET=1 (silent dashboard refresh)")
+              env["SCAN_MODE"] = "monitor"
+              print(f"Market-hours hourly run ({now_ist.strftime(\"%H:%M\")} IST): SCAN_MODE=monitor (tracking open positions only; no daily candle signal generation)")
+              cmd = [sys.executable, "main.py", "--mode", "monitor"]
           else:
               env["FORCE_ALERT"] = "1"
-              print(f"Post-market hourly run ({now_ist.strftime(\"%H:%M\")} IST): Evening alert permitted if not sent today")
-          res = subprocess.run([sys.executable, "main.py"], env=env)
+              env["SCAN_MODE"] = "scan"
+              print(f"Post-market hourly run ({now_ist.strftime(\"%H:%M\")} IST): Post-close scan on completed daily bars")
+              cmd = [sys.executable, "main.py", "--mode", "scan"]
+          res = subprocess.run(cmd, env=env)
           sys.exit(res.returncode)
           '

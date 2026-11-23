@@ -16,7 +16,7 @@ def test_core_trading_constants():
     assert main.MAX_STOP_LOSS_PCT == 0.07, f"MAX_STOP_LOSS_PCT changed: {main.MAX_STOP_LOSS_PCT}"
     assert main.ATR_STOP_MULTIPLIER == 1.5, f"ATR_STOP_MULTIPLIER changed: {main.ATR_STOP_MULTIPLIER}"
     assert main.TARGET_R_MULTIPLE == 2.0, f"TARGET_R_MULTIPLE changed: {main.TARGET_R_MULTIPLE}"
-    assert main.RISK_PCT == 0.01, f"RISK_PCT changed: {main.RISK_PCT}"
+    assert main.RISK_PCT == 0.0075, f"RISK_PCT changed: {main.RISK_PCT}"
     assert main.CAPITAL == 100000, f"CAPITAL changed: {main.CAPITAL}"
     assert main.SETUP_WINDOW_DAYS == 10, f"SETUP_WINDOW_DAYS changed: {main.SETUP_WINDOW_DAYS}"
     assert main.MIN_AVG_TURNOVER == 200000000, f"MIN_AVG_TURNOVER changed: {main.MIN_AVG_TURNOVER}"

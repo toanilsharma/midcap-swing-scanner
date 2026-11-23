@@ -22,6 +22,12 @@ TEST_LAYERS = [
     ("tests/test_schema_drift.py", "SCHEMA DRIFT"),
     ("tests/test_thresholds_locked.py", "THRESHOLDS LOCKED"),
     ("tests/test_backtest_replay.py", "BACKTEST REPLAY"),
+    ("tests/test_market_regime.py", "MARKET REGIME"),
+    ("tests/test_indicators_wilder.py", "WILDER INDICATORS"),
+    ("tests/test_v2_risk_math.py", "V2 RISK SIZING"),
+    ("tests/test_v2_filters.py", "FAIL-CLOSED FILTERS"),
+    ("tests/test_v2_strategies.py", "V2 3-STRATEGIES"),
+    ("tests/test_v2_backtest.py", "V2 EXECUTION & EXITS"),
 ]
 
 

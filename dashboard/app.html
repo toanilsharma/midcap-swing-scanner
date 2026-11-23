@@ -91,7 +91,7 @@
         <button class="btn what-to-do-btn what-to-do-pill-btn" onclick="openWhatToDoNowModal()" title="Click to see clear, professional advice on what action to take right now in plain English">
           ⚡ What to Do Now?
         </button>
-        <span id="quickMarketBadge" class="badge badge-success" title="Overall market health & risk posture">🟢 Market: Uptrend (1% Risk)</span>
+        <span id="quickMarketBadge" class="badge badge-success" title="Overall market health & risk posture">🟢 Market: Uptrend (0.75% Risk)</span>
         <span id="quickHeatBadge" class="badge badge-info" title="Total portfolio heat (capital at risk)">🛡️ Open Risk: 0.0%</span>
       </div>
     </div>
@@ -244,7 +244,7 @@
                 </label>
                 <div class="routine-check-content">
                   <div class="routine-check-time">🔔 03:15 &ndash; 03:30 PM IST (15-Minute Close Review)</div>
-                  <div class="routine-check-desc">Review your active holdings. If price touched your hard stop, exit 100% immediately. If Target 1 (+8%) was reached, sell 50% shares to lock profit. If held for 5 sessions and gain is &lt; 3%, exit at market close.</div>
+                  <div class="routine-check-desc">Review your active holdings. If price touched your hard stop, exit 100% immediately. If Target 1 (+8% / 2R) was reached, sell 50% shares to lock profit. If held for 20 sessions without reaching target or stop, exit at market close to recycle capital.</div>
                 </div>
                 <div class="routine-check-status" id="routineStatusStep3"><span class="badge badge-neutral">Standby</span></div>
               </div>
@@ -483,7 +483,7 @@
                 <ul class="playbook-list">
                   <li><strong>Check Grade:</strong> Must be A or A+.</li>
                   <li><strong>Check Distance:</strong> &lt; 1% to Breakout Level.</li>
-                  <li><strong>Check Events:</strong> Ensure NO earnings/lock-ins within 3 days (<span class="playbook-warn-inline">Red Flag if blocked</span>).</li>
+                  <li><strong>Check Events:</strong> Ensure NO earnings/lock-ins within 7 days (<span class="playbook-warn-inline">Red Flag if blocked</span>).</li>
                   <li><strong>Check Breadth:</strong> Market Regime must be "Uptrend" or "Neutral". If "Defensive", SKIP unless exceptional quality.</li>
                 </ul>
               </div>
@@ -499,10 +499,10 @@
                     </div>
                   </li>
                   <li>
-                    <strong>Example:</strong> Capital ₹1L, Risk 1% (₹1000), Entry ₹2085, SL ₹2040.<br>
-                    <code class="playbook-code-inline">Diff = ₹45. Qty = 1000 / 45 ≈ 22 shares.</code>
+                    <strong>Example:</strong> Capital ₹1L, Risk 0.75% (₹750), Entry ₹2085, SL ₹1985 (₹100 risk/share).<br>
+                    <code class="playbook-code-inline">Diff = ₹100. Qty = 750 / 100 = 7 shares (Outlay ₹14,595 &le; ₹25,000 cap).</code>
                   </li>
-                  <li><strong>Max Heat:</strong> Never exceed 5% total portfolio risk across all open trades.</li>
+                  <li><strong>Max Allocation:</strong> Max 25% capital (₹25,000) per stock; max 5% total portfolio risk across open trades.</li>
                 </ul>
               </div>
 
@@ -641,7 +641,7 @@
             <div id="sizerQty" class="sizer-stat-value highlight">0 units</div>
           </div>
           <div class="sizer-stat-card">
-            <div class="sizer-stat-label"><span class="term-lookup" data-term="1% risk rule">Max Loss (Rupees)</span></div>
+            <div class="sizer-stat-label"><span class="term-lookup" data-term="0.75% risk rule">Max Loss (Rupees)</span></div>
             <div id="sizerMaxLoss" class="sizer-stat-value loss">₹0.00</div>
           </div>
           <div class="sizer-stat-card">
@@ -805,16 +805,16 @@
           <div class="playbook-step">
             <div class="playbook-step-title">SCENARIO C: TIME STOP (Stagnation)</div>
             <ul class="playbook-list">
-              <li><strong>Condition:</strong> Position open &gt; 8 days without hitting Target OR Stop.</li>
+              <li><strong>Condition:</strong> Position open reaches 20 trading sessions without hitting Target OR Stop.</li>
               <li><strong>Action:</strong> EXIT ENTIRELY at Market Close.</li>
-              <li><strong>Reason:</strong> Capital efficiency. Dead money kills compounding.</li>
+              <li><strong>Reason:</strong> Capital efficiency & swing horizon. Dead money after 20 sessions kills compounding.</li>
             </ul>
           </div>
 
           <div class="playbook-step">
             <div class="playbook-step-title">SCENARIO D: EVENT WARNING (Gap Risk)</div>
             <ul class="playbook-list">
-              <li><strong>Alert:</strong> "Earnings/Lock-in in 2 days."</li>
+              <li><strong>Alert:</strong> "Earnings/Lock-in within 7 days."</li>
               <li><strong>Action:</strong> CLOSE POSITION before event regardless of P&L.</li>
               <li><strong>Reason:</strong> Small caps gap violently through stops. Survival first.</li>
             </ul>
@@ -891,13 +891,13 @@
 
             <div class="discipline-meter-box">
               <div class="discipline-meter-label">
-                <span>⏳ 5-Day Time Stop</span>
+                <span>⏳ 20-Session Time Stop</span>
                 <span class="discipline-meter-pct" id="meterTimePct">100%</span>
               </div>
               <div class="discipline-progress-track">
                 <div class="discipline-progress-fill" id="meterTimeFill" style="width: 100%; background: #a78bfa;"></div>
               </div>
-              <small style="font-size: 11px; color: var(--text-muted);">Cut stagnant money on Day 5</small>
+              <small style="font-size: 11px; color: var(--text-muted);">Recycle stagnant money at 20 sessions</small>
             </div>
           </div>
         </div>
@@ -1348,7 +1348,7 @@
                     <span class="timeline-step-title">5. Size with Position Sizer</span>
                     <span class="timeline-step-time">1 Click</span>
                   </div>
-                  <p class="timeline-step-desc">Click <strong>"Size this trade"</strong> on the chosen stock row. The system switches to the Open Positions tab and auto-computes exact suggested units based on 1% portfolio risk budget (₹1,000 on ₹1 Lakh).</p>
+                  <p class="timeline-step-desc">Click <strong>"Size this trade"</strong> on the chosen stock row. The system switches to the Open Positions tab and auto-computes exact suggested units based on 0.75% portfolio risk budget (₹750 on ₹1 Lakh, capped at 25% single-stock allocation).</p>
                 </div>
               </div>
 
@@ -1370,7 +1370,7 @@
                     <span class="timeline-step-title">7. Manage Mechanically</span>
                     <span class="timeline-step-time">Next Sessions</span>
                   </div>
-                  <p class="timeline-step-desc">Place your Stop-Loss GTT order on your broker terminal. If profit reaches <strong>+8%</strong>, immediately ratchet stop loss to entry (breakeven). If trade makes zero progress in <strong>5 trading days</strong>, cut it via the time stop.</p>
+                  <p class="timeline-step-desc">Place your Stop-Loss GTT order on your broker terminal. If profit reaches <strong>+8% (2R)</strong>, immediately ratchet stop loss to entry (breakeven). If trade reaches <strong>20 trading sessions</strong> without reaching target or stop, close it via the time stop.</p>
                 </div>
               </div>
 
@@ -1446,7 +1446,7 @@
 
                 <!-- Action: Size & Execute -->
                 <rect x="280" y="345" width="240" height="70" rx="8" fill="rgba(16, 185, 129, 0.15)" stroke="#10b981" stroke-width="2" />
-                <text x="400" y="368" fill="#34d399" font-family="Inter, sans-serif" font-size="12" font-weight="700" text-anchor="middle">🎯 SIZE AT 1% RISK & BUY</text>
+                <text x="400" y="368" fill="#34d399" font-family="Inter, sans-serif" font-size="12" font-weight="700" text-anchor="middle">🎯 SIZE AT 0.75% RISK & BUY</text>
                 <text x="400" y="386" fill="#cbd5e1" font-family="Inter, sans-serif" font-size="10" text-anchor="middle">Use Position Sizer -&gt; Send /buy</text>
                 <text x="400" y="402" fill="#cbd5e1" font-family="Inter, sans-serif" font-size="10" text-anchor="middle">Follow stop and 2R target mechanically.</text>
               </svg>
@@ -1577,18 +1577,18 @@
               </div>
 
               <div class="glossary-card" id="glossary-atr14">
-                <div class="glossary-card-header"><span class="glossary-term">ATR 14</span><span class="glossary-category">Volatility Gauge</span></div>
-                <p class="glossary-meaning">14-day Average True Range. Measures the average rupee movement of a stock per session including gaps.</p>
-                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Allows dynamic stop loss setting based on actual volatility rather than arbitrary percentages.</span></div>
-                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">ATR_STOP_MULTIPLIER = 1.5 (Stop = Entry - 1.5 × ATR14)</span></div>
+                <div class="glossary-card-header"><span class="glossary-term">ATR 14 (Wilder Smoothed)</span><span class="glossary-category">Volatility Gauge</span></div>
+                <p class="glossary-meaning">14-day Average True Range using classic J. Welles Wilder exponential smoothing (&alpha; = 1/14). Measures the true per-session volatility of a stock including overnight gaps.</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Allows dynamic stop loss setting based on verified market volatility rather than arbitrary percentage stops.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">ATR_STOP_MULTIPLIER = 1.5 (Stop = Entry - 1.5 × Wilder ATR14, max 7% stop floor)</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">For ₹1,000 stock with ATR14 of ₹20, initial stop is placed at ₹970 (1.5 × 20 = ₹30 below entry).</span></div>
               </div>
 
               <div class="glossary-card" id="glossary-rsi14">
-                <div class="glossary-card-header"><span class="glossary-term">RSI 14</span><span class="glossary-category">Momentum Filter</span></div>
-                <p class="glossary-meaning">Standard 14-day Relative Strength Index oscillator bounded between 0 and 100.</p>
-                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Ensures we buy stocks with healthy momentum without entering at overheated/exhaustion tops.</span></div>
-                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">40.0 &lt;= RSI14 &lt;= 65.0 (+10 Score Points)</span></div>
+                <div class="glossary-card-header"><span class="glossary-term">RSI 14 (Wilder Smoothed)</span><span class="glossary-category">Momentum Filter</span></div>
+                <p class="glossary-meaning">Standard 14-day Relative Strength Index oscillator bounded between 0 and 100, computed using J. Welles Wilder's modified moving average (&alpha; = 1/14).</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Ensures we buy stocks with verified momentum without entering at overheated/exhaustion tops.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">40.0 &lt;= RSI14 &lt;= 65.0 (+10 Score Points in S1)</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">RSI14 at 58 indicates positive accumulation without being overbought (&gt;70).</span></div>
               </div>
 
@@ -1689,11 +1689,11 @@
               </div>
 
               <div class="glossary-card" id="glossary-1percentsizing">
-                <div class="glossary-card-header"><span class="glossary-term">1% Risk Rule</span><span class="glossary-category">Capital Preservation</span></div>
-                <p class="glossary-meaning">Risking no more than 1% of total portfolio equity on any single swing trade.</p>
-                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Ensures you can survive 10 consecutive losses with your portfolio virtually intact (&gt;90% remaining).</span></div>
-                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">CAPITAL = 100000, RISK_PCT = 0.01 (₹1,000 risk budget)</span></div>
-                <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">If entry is ₹500 and stop is ₹475 (risk ₹25), Qty = floor(1000 / 25) = 40 shares.</span></div>
+                <div class="glossary-card-header"><span class="glossary-term">0.75% Risk Rule</span><span class="glossary-category">Capital Preservation</span></div>
+                <p class="glossary-meaning">Risking strictly 0.75% of total portfolio equity (₹750 on a ₹100,000 capital base) on any single swing trade, subject to a 25% single-stock capital allocation limit (max ₹25,000 outlay).</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Prevents ruinous drawdowns. Even 10 consecutive full stop-outs reduce your account by less than 7.3%.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">CAPITAL = 100000, RISK_PCT = 0.0075 (₹750 budget), MAX_ALLOCATION_PCT = 0.25 (₹25k cap)</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">If entry is ₹500 and stop is ₹475 (risk ₹25), Qty = floor(750 / 25) = 30 shares (outlay ₹15,000 &le; ₹25,000 cap).</span></div>
               </div>
 
               <div class="glossary-card" id="glossary-maxstop">
@@ -1721,11 +1721,11 @@
               </div>
 
               <div class="glossary-card" id="glossary-timestop">
-                <div class="glossary-card-header"><span class="glossary-term">5-Day Time Stop</span><span class="glossary-category">Opportunity Cost</span></div>
-                <p class="glossary-meaning">Exiting a breakout trade if the stock makes no upward progress within 5 trading sessions.</p>
-                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">True momentum breakouts follow through immediately. Stagnant trades tie up capital and usually fail.</span></div>
-                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Discipline rule: Cut trade after 5 days without progress</span></div>
-                <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">Bought breakout on Monday; by next Monday price is hovering flat around entry -&gt; close trade.</span></div>
+                <div class="glossary-card-header"><span class="glossary-term">20-Session Time Stop</span><span class="glossary-category">Opportunity Cost</span></div>
+                <p class="glossary-meaning">Exiting a swing trade if the position reaches 20 completed daily sessions without reaching either the 2R profit target or the initial stop loss.</p>
+                <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Swing trading is designed to hold across multiple sessions up to 20 days. Stagnant money after 20 sessions kills compounding and ties up risk capacity.</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">MAX_HOLDING_DAYS = 20 (Time stop exit at session 20 market close)</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">Position held for 20 sessions hovering at +1.5% without hitting target -&gt; close at session 20 market close to redeploy capital.</span></div>
               </div>
 
               <div class="glossary-card" id="glossary-gtt">
@@ -1772,7 +1772,7 @@
                 <div class="glossary-card-header"><span class="glossary-term">52-Week High and Low</span><span class="glossary-category">Annual Range</span></div>
                 <p class="glossary-meaning">The highest and lowest price reached by the stock over the past 252 trading sessions (1 year).</p>
                 <div class="glossary-section-row"><span class="glossary-label">Why it matters:</span><span class="glossary-example">Minervini rule: winning swing stocks emerge near 52-week highs, never from 52-week lows.</span></div>
-                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Close &gt; 1.30 × LOW52W and Close &gt; 0.75 × HIGH52W</span></div>
+                <div class="glossary-section-row"><span class="glossary-label">main.py Threshold:</span><span class="glossary-threshold">Strict 250-bar lookback window (Close &gt; 1.30 × LOW52W and Close &gt; 0.75 × HIGH52W)</span></div>
                 <div class="glossary-section-row"><span class="glossary-label">Example:</span><span class="glossary-example">Stock is 45% above its 52-week low and within 12% of its 52-week high: qualifies for Stage 2.</span></div>
               </div>
 
@@ -2253,8 +2253,8 @@
               <div class="commandment-card">
                 <div class="commandment-num">1</div>
                 <div class="commandment-body">
-                  <h4>Risk Exactly 1% Per Trade</h4>
-                  <p>Never risk more than ₹1,000 per trade on a ₹100,000 capital base. 10 consecutive bad trades will only reduce your account by ~9.5%.</p>
+                  <h4>Risk Exactly 0.75% Per Trade</h4>
+                  <p>Never risk more than ₹750 per trade on a ₹100,000 capital base (with max 25% single-stock capital allocation limit of ₹25,000). 10 consecutive bad trades will only reduce your account by ~7.2%.</p>
                 </div>
               </div>
 
@@ -2269,8 +2269,8 @@
               <div class="commandment-card">
                 <div class="commandment-num">3</div>
                 <div class="commandment-body">
-                  <h4>Stop Trading After 2% Daily Loss</h4>
-                  <p>If two trades hit stops in one day, close the terminal and walk away. Emotional revenge trading is the #1 killer of swing trading accounts.</p>
+                  <h4>Stop Trading After 1.5% Daily Loss</h4>
+                  <p>If two trades hit stops in one day (2 &times; 0.75% = 1.5%), close the terminal and walk away. Emotional revenge trading is the #1 killer of swing trading accounts.</p>
                 </div>
               </div>
 
@@ -2293,8 +2293,8 @@
               <div class="commandment-card">
                 <div class="commandment-num">6</div>
                 <div class="commandment-body">
-                  <h4>Respect the 5-Day Time Stop</h4>
-                  <p>Real breakouts move swiftly. If a stock lingers around your entry for 5 trading sessions without follow-through, close it and free capital.</p>
+                  <h4>Respect the 20-Session Time Stop</h4>
+                  <p>Swing positions are designed to capture moves over multiple sessions. If a stock lingers around your entry for 20 trading sessions without follow-through, close it at market close to recycle capital.</p>
                 </div>
               </div>
 
@@ -2302,7 +2302,7 @@
                 <div class="commandment-num">7</div>
                 <div class="commandment-body">
                   <h4>Check Earnings Dates Before Entry</h4>
-                  <p>Never hold a swing trade through quarterly earnings reports. An unexpected earnings gap can plunge price 10-20% past your stop loss.</p>
+                  <p>Never hold a swing trade within 7 days of quarterly earnings reports. An unexpected earnings gap can plunge price 10-20% past your stop loss.</p>
                 </div>
               </div>
 
@@ -2386,7 +2386,7 @@
                   <span class="faq-icon">▼</span>
                 </div>
                 <div class="faq-answer">
-                  If bad news causes a stock to gap down below your stop loss at the 09:15 AM market open, <strong>exit immediately at market</strong>. Do NOT hope for an intraday bounce or average down. The 1% risk rule ensures that even a 2-3% gap-down loss will not cause catastrophic damage to your portfolio.
+                  If bad news causes a stock to gap down below your stop loss at the 09:15 AM market open, <strong>exit immediately at market</strong>. Do NOT hope for an intraday bounce or average down. The 0.75% risk rule ensures that even a 2-3% gap-down loss will not cause catastrophic damage to your portfolio.
                 </div>
               </div>
 
@@ -2396,7 +2396,7 @@
                   <span class="faq-icon">▼</span>
                 </div>
                 <div class="faq-answer">
-                  Do not take new trades under three conditions: (1) When the Market Regime badge is red (Defensive); (2) Within 7 days of an upcoming quarterly earnings report for that company; or (3) If you have already taken 2 trades or hit your 2% loss limit for the day.
+                  Do not take new trades under three conditions: (1) When the Market Regime badge is red (Defensive); (2) Within 7 days of an upcoming quarterly earnings report for that company; or (3) If you have already taken 2 trades or hit your 1.5% daily loss limit (2 × 0.75%).
                 </div>
               </div>
 
@@ -2527,7 +2527,7 @@
 
           <div class="golden-rule-audit-card">
             <div class="golden-rule-header">
-              <span class="golden-rule-question">3. ⏳ Time Stop: Respected 5-day rule (cut stagnant trade on Day 5 if gain &lt; 3%)?</span>
+              <span class="golden-rule-question">3. ⏳ Time Stop: Respected 20-session rule (closed stagnant trade at session 20 if no target/stop hit)?</span>
               <div class="golden-rule-options">
                 <button type="button" class="golden-rule-btn rule-pass active" data-rule="time" data-val="yes">✅ Yes</button>
                 <button type="button" class="golden-rule-btn rule-fail" data-rule="time" data-val="no">❌ No (Held Dead Money)</button>
@@ -2587,11 +2587,11 @@
           </div>
           <div class="gtt-sizer-field">
             <label for="gttModalRiskPct">Risk per trade (%):</label>
-            <input type="number" id="gttModalRiskPct" value="1.0" min="0.25" max="5.0" step="0.25">
+            <input type="number" id="gttModalRiskPct" value="0.75" min="0.25" max="5.0" step="0.25">
           </div>
           <div class="gtt-sizer-metric">
             <span class="metric-label">Max Risk</span>
-            <span id="gttModalMaxRiskAmt" class="metric-val text-loss">₹1,000</span>
+            <span id="gttModalMaxRiskAmt" class="metric-val text-loss">₹750</span>
           </div>
           <div class="gtt-sizer-metric">
             <span class="metric-label">Stop Distance</span>
@@ -2717,7 +2717,7 @@
 
       <div class="log-buy-body">
         <div class="log-buy-grid">
-          <!-- Quick Auto-Sizer Capital Presets (1% Max Risk Rule) -->
+          <!-- Quick Auto-Sizer Capital Presets (0.75% Max Risk Rule) -->
           <div class="log-buy-field" style="grid-column: 1 / -1; background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 10px 14px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
               <span style="font-size: 12.5px; font-weight: 700; color: #34d399;">📐 1-Click Auto-Sizer by Account Capital (1% Max Risk Rule)</span>
@@ -2731,7 +2731,7 @@
               <button type="button" class="sim-cap-btn buy-cap-preset" data-cap="1000000">₹10 Lakh</button>
             </div>
             <div id="buyModalAutoSizerHint" style="font-size: 12px; color: #cbd5e1;">
-              Auto-sizes quantity so your maximum risk is strictly capped at 1% of your account.
+              Auto-sizes quantity so your maximum risk is strictly capped at 0.75% of your account (with max 25% single-stock capital allocation limit).
             </div>
           </div>
 

@@ -26,6 +26,8 @@ from main import (
     RISK_PCT,
     ENABLE_PULLBACK,
 )
+from core.config import MAX_HOLDING_SESSIONS
+from execution.order_simulator import simulate_order_fill, compute_broker_friction
 
 
 def load_archive_data(archive_dir: str = "archive") -> pd.DataFrame:
@@ -81,6 +83,7 @@ def backtest(
     end_date: Optional[str] = None,
     capital: float = CAPITAL,
     master_df: Optional[pd.DataFrame] = None,
+    execution_mode: str = "signal_close",
 ) -> Dict[str, Any]:
     """
     Day-by-day rules-replay backtest simulator.
@@ -110,6 +113,7 @@ def backtest(
         "by_signal_type": {
             "BREAKOUT": {"trades": 0, "win_rate": 0.0, "expectancy_R": 0.0, "total_pnl": 0.0},
             "PULLBACK": {"trades": 0, "win_rate": 0.0, "expectancy_R": 0.0, "total_pnl": 0.0},
+            "MOMENTUM": {"trades": 0, "win_rate": 0.0, "expectancy_R": 0.0, "total_pnl": 0.0},
             "SPRING": {"trades": 0, "win_rate": 0.0, "expectancy_R": 0.0, "total_pnl": 0.0},
         },
         "tail_capture": {
@@ -355,7 +359,7 @@ def backtest(
         }
 
     by_signal_type = {}
-    for s in ["BREAKOUT", "PULLBACK", "SPRING"]:
+    for s in ["BREAKOUT", "PULLBACK", "MOMENTUM", "SPRING"]:
         s_trades = [t for t in closed_trades if t["signal_type"] == s]
         s_win = [t for t in s_trades if t["r_multiple"] > 0]
         s_loss = [t for t in s_trades if t["r_multiple"] <= 0]

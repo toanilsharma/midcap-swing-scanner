@@ -445,7 +445,7 @@ const TERMS = {
     anchor: "glossary-rmultiple"
   },
   "Position size": {
-    short: "Exact number of shares to buy so potential loss equals your 1% risk budget.",
+    short: "Exact number of shares to buy so potential loss equals your 0.75% risk budget (max 25% allocation cap).",
     long: "Calculated as floor((Capital * Risk%) / (Entry - Stop)). Sizing according to risk distance rather than capital allocation protects you from oversized losses on volatile stocks.",
     where_used: "Position Sizer, Signals Table, Help Guide",
     anchor: "glossary-positionsize"
@@ -493,14 +493,14 @@ const TERMS = {
     anchor: "glossary-whatsapp"
   },
   "Discipline Coach": {
-    short: "Behavioral trading journal auditing compliance against the 3 Golden Rules: Hard Stop Integrity, 2R Profit Booking, and 5-Day Time Stop.",
+    short: "Behavioral trading journal auditing compliance against the 3 Golden Rules: Hard Stop Integrity, 2R Profit Booking, and 20-Session Time Stop.",
     long: "Calculates your Personal Discipline Score (0-100%) and tracks rule execution streaks. Proves that systematic consistency in respecting stops and locking in partial profits—not market prediction—is what generates compounded returns.",
     where_used: "Header Strip, Trade History Tab, Help Guide",
     anchor: "glossary-discipline"
   },
   "GTT Strategy": {
     short: "Pre-market & evening execution checklist using Good Till Triggered orders to capture clean breakouts.",
-    long: "Our systematic entry checklist: verify Grade A/A+, check breakout distance <1%, confirm no binary events within 3 days, calculate exact 1% risk position size, and queue a passive GTT order. If morning opens gap up >2%, cancel immediately.",
+    long: "Our systematic entry checklist: verify Grade A/A+, check breakout distance <1%, confirm no binary events within 7 days, calculate exact 0.75% risk position size (max 25% allocation cap), and queue a passive GTT order. If morning opens gap up >2%, cancel immediately.",
     where_used: "Trader's Playbook (How to Buy), Help Guide",
     anchor: "glossary-gtt"
   },
@@ -511,7 +511,7 @@ const TERMS = {
     anchor: "glossary-whatsapp"
   },
   "Discipline Coach": {
-    short: "Behavioral trading journal auditing compliance against the 3 Golden Rules: Hard Stop Integrity, 2R Profit Booking, and 5-Day Time Stop.",
+    short: "Behavioral trading journal auditing compliance against the 3 Golden Rules: Hard Stop Integrity, 2R Profit Booking, and 20-Session Time Stop.",
     long: "Calculates your Personal Discipline Score (0-100%) and tracks rule execution streaks. Proves that systematic consistency in respecting stops and locking in partial profits—not market prediction—is what generates compounded returns.",
     where_used: "Header Strip, Trade History Tab, Help Guide",
     anchor: "glossary-discipline"
@@ -627,7 +627,7 @@ const TERMS = {
     where_used: "Trade History Table, Stats Tab (Mistakes Tracker), Help Guide"
   },
   "Time stop ignored": {
-    short: "Discipline mistake where a sluggish trade is held >5 days with return <3%.",
+    short: "Discipline mistake where a sluggish trade is held > 20 trading sessions without exit.",
     long: "Occurs when a trade fails to follow through within 5 days and is not exited, locking up valuable trading capital. Automatic flag: mistake = 'time_stop_ignored'.",
     where_used: "Trade History Table, Stats Tab (Mistakes Tracker), Help Guide"
   },
@@ -1005,7 +1005,7 @@ function renderMarketPulse(scanData) {
   if (quickMarket) {
     if (scanData.market_ok) {
       quickMarket.className = "badge badge-success";
-      quickMarket.textContent = "🟢 Market: Uptrend (1% Risk)";
+      quickMarket.textContent = "🟢 Market: Uptrend (0.75% Risk)";
     } else {
       quickMarket.className = "badge badge-danger";
       quickMarket.textContent = "🛡️ Market: Defensive (Cash)";
@@ -1186,7 +1186,7 @@ function renderNearBuy(scanData, openPositions) {
     marketBadge.setAttribute("data-term", "Market regime");
     marketBadge.textContent = "Market: Uptrend";
     regimeBanner.className = "regime-banner uptrend";
-    regimeText.textContent = "🟢 MARKET UPTREND CONFIRMED: Normal buy entry rules active. Take 0.5% - 1% starter risk on Grade A leaders.";
+    regimeText.textContent = "🟢 MARKET UPTREND CONFIRMED: Normal buy entry rules active. Take 0.75% standard risk on Grade A leaders (max 25% allocation cap).";
   } else {
     marketBadge.className = "badge badge-danger term-lookup";
     marketBadge.setAttribute("data-term", "Market regime");
@@ -1202,9 +1202,18 @@ function renderNearBuy(scanData, openPositions) {
   const signalsBody = document.getElementById("signalsBody");
   if (scanData.signals && scanData.signals.length > 0) {
     signalsContainer.style.display = "block";
-    signalsBody.innerHTML = scanData.signals.map(s => `
+    signalsBody.innerHTML = scanData.signals.map(s => {
+      let typeBadge = `<span class="badge badge-success">${s.Type || "BREAKOUT"}</span>`;
+      if (s.strategy_id === "S1_VCP_BREAKOUT" || (s.Type && s.Type.includes("BREAKOUT"))) {
+        typeBadge = `<span class="badge badge-primary">S1 VCP Breakout</span>`;
+      } else if (s.strategy_id === "S2_EMA_PULLBACK" || (s.Type && s.Type.includes("PULLBACK"))) {
+        typeBadge = `<span class="badge badge-info">S2 20-EMA Dip</span>`;
+      } else if (s.strategy_id === "S3_RS_MOMENTUM" || (s.Type && s.Type.includes("MOMENTUM"))) {
+        typeBadge = `<span class="badge badge-warning">S3 RS Leader</span>`;
+      }
+      return `
       <tr class="row-green">
-        <td data-label="Type"><span class="badge badge-success">${s.Type || "BREAKOUT"}</span></td>
+        <td data-label="Type">${typeBadge}</td>
         <td data-label="Symbol"><strong>${s.Symbol}</strong></td>
         <td data-label="Entry">${formatINR(s.Entry)}</td>
         <td data-label="Stop" style="color: var(--danger);">${formatINR(s.Stop)}</td>
@@ -1213,7 +1222,8 @@ function renderNearBuy(scanData, openPositions) {
         <td data-label="Risk Amount">${formatINR(s["Risk Amount"])}</td>
         <td data-label="Sector"><span class="badge badge-neutral">${s.Sector || "N/A"}</span></td>
       </tr>
-    `).join("");
+      `;
+    }).join("");
   } else {
     signalsContainer.style.display = "none";
   }
@@ -2024,7 +2034,7 @@ function generatePreFlightClearanceHtml(item, scanData, breakoutLevel, stopPrice
 function generateRupeeSimulatorHtml(symbol, breakoutLevel, stopPrice, targetPrice, initialCapital, initialRiskPct) {
   const cleanSym = (symbol || "").replace(/\.NS$/i, "").toUpperCase();
   const cap = initialCapital || 100000;
-  const riskPct = initialRiskPct || 1.0;
+  const riskPct = initialRiskPct || 0.75;
   const entry = Number(breakoutLevel) || 100;
   const stop = Number(stopPrice) || Number((entry * 0.965).toFixed(2));
   const target = Number(targetPrice) || Number((entry + 2 * Math.max(0.01, entry - stop)).toFixed(2));
@@ -2075,7 +2085,8 @@ function generateRupeeSimulatorHtml(symbol, breakoutLevel, stopPrice, targetPric
           <label>Risk Per Trade (%):</label>
           <select class="sim-select-risk form-select-sm">
             <option value="0.5" ${riskPct === 0.5 ? 'selected' : ''}>0.5% (Conservative Defense)</option>
-            <option value="1.0" ${riskPct === 1.0 ? 'selected' : ''}>1.0% (Professional Standard)</option>
+            <option value="0.75" ${riskPct === 0.75 ? 'selected' : ''}>0.75% (V2 Standard — ₹750 on ₹1L)</option>
+            <option value="1.0" ${riskPct === 1.0 ? 'selected' : ''}>1.0% (Classic 1% Risk)</option>
             <option value="1.5" ${riskPct === 1.5 ? 'selected' : ''}>1.5% (High Conviction)</option>
             <option value="2.0" ${riskPct === 2.0 ? 'selected' : ''}>2.0% (Aggressive Ceiling)</option>
           </select>
@@ -3171,7 +3182,7 @@ function generateStockActionAdvisor(item, scanData, breakoutLevel, stopPrice, ta
     whyLogic.push(`<strong>High Relative Strength:</strong> RS Rating of <strong>${rsVal || 'High'}</strong> means it is outperforming ${rsVal || 'most'}% of all Indian stocks over the past 12 months.`);
     whyLogic.push(`<strong>Supply Exhaustion:</strong> Volume has dried up (${volPass ? 'Sellers completely exhausted' : 'Low selling pressure'}), meaning there are few shares left for sale. Modest buying will launch price higher.`);
     whyLogic.push(`<strong>Base Maturity:</strong> The stock has spent ${daysInBase} days tightly consolidating (<span class="term-lookup" data-term="VCP / coiling">Coiling</span>), spring-loading for expansion.`);
-    forwardPath = `• <strong>Profit Target (+2R):</strong> When price hits <strong>₹${targetPrice.toFixed(2)}</strong> (+${targetPct}%), sell 50% shares to lock in profits. Move your stop-loss on the remaining shares to your entry price (₹${breakoutLevel.toFixed(2)}) — making the rest 100% risk-free!<br>• <strong>Trailing Runner:</strong> Ride the remaining 50% shares along the <span class="term-lookup" data-term="EMA20">20-day moving average</span> for multi-week momentum.<br>• <strong>Downside Defense:</strong> If the breakout fails and price touches ₹${stopPrice.toFixed(2)}, exit immediately. Max loss is capped at ₹${riskAmt.toFixed(2)}/share.<br>• <strong>Time Stop:</strong> If gain is less than +3% after 5 trading days, exit to free capital.`;
+    forwardPath = `• <strong>Profit Target (+2R):</strong> When price hits <strong>₹${targetPrice.toFixed(2)}</strong> (+${targetPct}%), sell 50% shares to lock in profits. Move your stop-loss on the remaining shares to your entry price (₹${breakoutLevel.toFixed(2)}) — making the rest 100% risk-free!<br>• <strong>Trailing Runner:</strong> Ride the remaining 50% shares along the <span class="term-lookup" data-term="EMA20">20-day moving average</span> for multi-week momentum.<br>• <strong>Downside Defense:</strong> If the breakout fails and price touches ₹${stopPrice.toFixed(2)}, exit immediately. Max loss is capped at ₹${riskAmt.toFixed(2)}/share.<br>• <strong>Time Stop:</strong> If trade reaches 20 trading sessions without reaching target or stop, exit at market close to recycle capital.`;
   } else if (dist <= 3.5) {
     statusBadge = `<span class="badge badge-info" style="font-size: 12px; padding: 4px 10px;">👀 ON WATCH: Approaching Trigger Level</span>`;
     whatToDo = `<strong>WATCH &amp; WAIT.</strong> ${escapeHtml(symbol)} is ${dist.toFixed(2)}% away from its breakout ceiling. It is not ready for immediate buy today. Do NOT buy early in anticipation; wait until it tightens closer to the trigger.`;
@@ -3448,7 +3459,7 @@ async function toggleWatchlistDetail(row, item, scanData) {
               </div>
               <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                 <button class="btn btn-xs btn-outline-primary size-trade-btn" data-symbol="${symbol}" title="Size this trade with Position Sizer">
-                  🎯 Size at 1% Risk
+                  🎯 Size at 0.75% Risk
                 </button>
                 <button class="btn btn-xs btn-outline-secondary gtt-slip-modal-btn"
                   data-symbol="${symbol}"
@@ -3522,7 +3533,7 @@ async function toggleWatchlistDetail(row, item, scanData) {
           ${generatePreFlightClearanceHtml(item, scanData, breakoutLevel, stopPrice)}
 
           <!-- FEATURE 5: VISUAL RUPEE SIMULATOR & PEACE-OF-MIND SIZER -->
-          ${generateRupeeSimulatorHtml(symbol, breakoutLevel, stopPrice, targetPrice, 100000, 1.0)}
+          ${generateRupeeSimulatorHtml(symbol, breakoutLevel, stopPrice, targetPrice, 100000, 0.75)}
 
           <!-- Rules Checklist -->
           <div class="checklist-title">Setup Criteria Checklist</div>
@@ -4180,7 +4191,7 @@ function generateDateTimeFlightPlan(item, breakoutLevel, stopPrice, targetPrice,
         <div class="dt-step-row">
           <span class="dt-step-badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171;">STEP 5 • DAY 5 (${day5Str}) AT 3:15 PM IST</span>
           <div class="dt-step-content">
-            <strong>5-Day Time Stop Rule:</strong>
+            <strong>20-Session Time Stop Rule:</strong>
             Check price at 3:15 PM IST on <strong>${day5Str}</strong>. If the stock has not reached at least +3% profit and has not hit stop loss, <strong>sell 100% at market close</strong>. Recycle your capital into fresh, faster-moving leaders.
           </div>
         </div>
@@ -4791,7 +4802,7 @@ async function renderOpenPositions(positions) {
     } else if (isDay5Reached && pctGainFromEntry < 3.0) {
       trafficLight = {
         theme: "amber",
-        badge: "⏳ 5-DAY TIME STOP TRIGGERED",
+        badge: "⏳ 20-SESSION TIME STOP TRIGGERED",
         title: "EXIT STAGNANT TRADE AT 3:15 PM TODAY",
         explanation: `OPPORTUNITY CAPITAL RECYCLE: You have held this trade for 5 sessions and gain is only ${pctGainFromEntry >= 0 ? '+' : ''}${pctGainFromEntry.toFixed(1)}% (&lt; 3%). Swing trades must lift off quickly. Exit at 3:15 PM IST to recycle capital into active leaders.`,
         actionBtnHtml: `
@@ -7668,7 +7679,7 @@ function renderGttBrokerPanels() {
           <div class="gtt-ticket-item">
             <label>Quantity</label>
             <div class="value profit">${qty} shares</div>
-            <div class="sub">Auto-sized for 1% risk</div>
+            <div class="sub">Auto-sized for 0.75% risk (max 25% allocation cap)</div>
           </div>
           <div class="gtt-ticket-item">
             <label>Stop Loss Trigger (Sell GTT)</label>
@@ -7774,7 +7785,7 @@ function renderGttBrokerPanels() {
           <div class="gtt-ticket-item">
             <label>Quantity</label>
             <div class="value profit">${qty} shares</div>
-            <div class="sub">1% risk position size</div>
+            <div class="sub">0.75% risk position size (max 25% allocation cap)</div>
           </div>
           <div class="gtt-ticket-item">
             <label>Stop Loss Trigger</label>
@@ -8912,7 +8923,7 @@ function initDisciplineCoachListeners() {
 let _activeWaCapital = 100000;
 let _activeWaRiskPct = 1.0;
 
-function generateWhatsAppSummaryText(scanData, capital = 100000, riskPct = 1.0) {
+function generateWhatsAppSummaryText(scanData, capital = 100000, riskPct = 0.75) {
   const currentScan = scanData || _cachedScanData;
   const now = new Date();
   const dateFormatted = now.toLocaleDateString("en-IN", {

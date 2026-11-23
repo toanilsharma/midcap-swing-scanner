@@ -40,7 +40,7 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 CAPITAL = 100000
-RISK_PCT = 0.01
+RISK_PCT = 0.0075
 SEND_NO_SIGNAL_MESSAGE = True
 SEND_WATCHLIST = True
 ATR_STOP_MULTIPLIER = 1.5
@@ -1013,8 +1013,8 @@ def format_thesis_card(item: Dict[str, Any]) -> str:
         except (ValueError, TypeError):
             plan_str = "Stop / Target 2R trail"
     else:
-        plan_str = "2R target partial + 20-EMA trail / 5d time-stop"
-    line4 = f"Plan: {plan_str} | Risk 1% (gap-capped)"
+        plan_str = "2R target partial + 20-EMA trail / 20d time-stop"
+    line4 = f"Plan: {plan_str} | Risk 0.75% (₹750 budget, gap-capped)"
 
     return f"{line1}\n{line2}\n{line3}\n{line4}"
 
@@ -1815,19 +1815,14 @@ def evaluate_trade_exit(
                 "reason": "20-EMA Trail Exit",
             }
 
-    # 5) Per-type time stop:
-    # Pullback setups: 4 days without momentum
-    # Breakout / Spring setups: 5 days without momentum (< +3% gain)
-    time_limit = 4 if signal_type == "PULLBACK" else 5
-    if holding_days >= time_limit and not partial_taken:
-        gain_pct = (highest_price - entry_price) / entry_price if entry_price > 0 else 0.0
-        if gain_pct < 0.03:
-            return {
-                "action": "TIME_STOP",
-                "exit_price": round(close_p, 2),
-                "qty": remaining_qty,
-                "reason": "Time Stop (<3% gain)",
-            }
+    # 5) Strict 20 trading sessions maximum holding-period time stop:
+    if holding_days >= 20:
+        return {
+            "action": "TIME_STOP",
+            "exit_price": round(close_p, 2),
+            "qty": remaining_qty,
+            "reason": "Time Stop (20 Sessions Max Hold)",
+        }
 
     return None
 
@@ -1943,13 +1938,15 @@ def scan_symbol(symbol: str) -> Optional[Dict[str, Any]]:
 # 8) MESSAGES AND SCANNER RUNNER
 # =====================================================================
 DISCIPLINE_CARD = (
-    "Execution & Risk Rules:\n"
-    "• Max 2 trades per day and 2 percent daily loss limit\n"
-    "• Move stop to entry when price reaches +8 percent\n"
-    "• Exit if no +3 percent within 5 days (time stop)\n"
-    "• Trail stop with 10 EMA while in profit\n"
+    "Execution & Risk Rules (Version 2):\n"
+    "• Risk per trade: 0.75% of equity (₹750 initial risk budget on ₹1L)\n"
+    "• Max 25% single-stock allocation cap; max 5 open positions\n"
+    "• Target: Take 50% partial profit at +2R\n"
+    "• Ratchet: Move stop to entry (breakeven) at +8% gain or 2R\n"
+    "• Trailing: Trail remaining runner position with 20-EMA\n"
+    "• Time Stop: 20 trading sessions maximum holding period\n"
     "• Never average down and never revenge trade\n"
-    "• Check earnings date before entering"
+    "• Strictly fail-closed: 7-day earnings blackout"
 )
 
 

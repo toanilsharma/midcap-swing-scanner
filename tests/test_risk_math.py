@@ -63,9 +63,9 @@ def test_risk_math_7pct_floor_cap_binds(monkeypatch: pytest.MonkeyPatch):
     Floored by 7% cap to 93.0 (entry * 0.93).
     Risk per unit = 100 - 93.0 = 7.0.
     Target = 100 + 2 * 7.0 = 114.0.
-    Capital = 100,000, Risk = 1% -> Risk budget = 1,000.
-    Qty = floor(1000 / 7) = 142.
-    Risk amount = 142 * 7 = 994.0.
+    Capital = 100,000, Risk = 0.75% -> Risk budget = 750.
+    Qty = floor(750 / 7) = 107.
+    Risk amount = 107 * 7 = 749.0.
     """
     sig = _invoke_scan_symbol_with_risk_inputs(entry=100.0, atr=5.0, monkeypatch=monkeypatch)
     assert sig is not None, "Signal should be generated for valid entry and ATR"
@@ -73,8 +73,8 @@ def test_risk_math_7pct_floor_cap_binds(monkeypatch: pytest.MonkeyPatch):
     assert sig["Stop"] == 93.0
     assert sig["Risk Per Unit"] == 7.0
     assert sig["Target"] == 114.0
-    assert sig["Qty"] == 142
-    assert sig["Risk Amount"] == 994.0
+    assert sig["Qty"] == 107
+    assert sig["Risk Amount"] == 749.0
 
 
 def test_risk_math_atr_stop_above_floor(monkeypatch: pytest.MonkeyPatch):
@@ -83,8 +83,8 @@ def test_risk_math_atr_stop_above_floor(monkeypatch: pytest.MonkeyPatch):
     Raw stop = 100 - (1.5 * 2) = 97.0 (above 93.0 floor, so NOT floored).
     Risk per unit = 100 - 97.0 = 3.0.
     Target = 100 + 2 * 3.0 = 106.0.
-    Qty = floor(1000 / 3) = 333.
-    Risk amount = 333 * 3 = 999.0.
+    Qty = floor(750 / 3) = 250.
+    Risk amount = 250 * 3 = 750.0.
     """
     sig = _invoke_scan_symbol_with_risk_inputs(entry=100.0, atr=2.0, monkeypatch=monkeypatch)
     assert sig is not None
@@ -92,8 +92,8 @@ def test_risk_math_atr_stop_above_floor(monkeypatch: pytest.MonkeyPatch):
     assert sig["Stop"] == 97.0
     assert sig["Risk Per Unit"] == 3.0
     assert sig["Target"] == 106.0
-    assert sig["Qty"] == 333
-    assert sig["Risk Amount"] == 999.0
+    assert sig["Qty"] == 250
+    assert sig["Risk Amount"] == 750.0
 
 
 def test_risk_math_extreme_atr_hard_capped(monkeypatch: pytest.MonkeyPatch):
@@ -101,7 +101,7 @@ def test_risk_math_extreme_atr_hard_capped(monkeypatch: pytest.MonkeyPatch):
     Case 3: entry=100, atr=50
     Raw stop = 100 - (1.5 * 50) = 25.0.
     7% rule floors stop to 93.0.
-    Risk per unit = 7.0, Target = 114.0, Qty = 142.
+    Risk per unit = 7.0, Target = 114.0, Qty = 107.
     """
     sig = _invoke_scan_symbol_with_risk_inputs(entry=100.0, atr=50.0, monkeypatch=monkeypatch)
     assert sig is not None
@@ -109,7 +109,7 @@ def test_risk_math_extreme_atr_hard_capped(monkeypatch: pytest.MonkeyPatch):
     assert sig["Stop"] == 93.0
     assert sig["Risk Per Unit"] == 7.0
     assert sig["Target"] == 114.0
-    assert sig["Qty"] == 142
+    assert sig["Qty"] == 107
 
 
 @pytest.mark.parametrize("bad_entry, bad_atr", [

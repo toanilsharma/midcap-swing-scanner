@@ -30,8 +30,15 @@ exports.handler = async function (event, context) {
     }
   }
 
-  const expectedKey = process.env.DASH_KEY_HASH || "ad15418e84fe6e94ec8dd2c22e7f952fc90457256ffbc0f59dcffdef0509366d";
-  if (!expectedKey || clientKey !== expectedKey) {
+  const expectedKey = process.env.DASH_KEY_HASH;
+  if (!expectedKey) {
+    return {
+      statusCode: 500,
+      headers: responseHeaders,
+      body: JSON.stringify({ error: "server configuration error: DASH_KEY_HASH not configured" }),
+    };
+  }
+  if (!clientKey || clientKey !== expectedKey) {
     return {
       statusCode: 401,
       headers: responseHeaders,
